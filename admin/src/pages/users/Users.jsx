@@ -1,0 +1,824 @@
+import React, { useMemo, useState } from "react";
+
+import {
+    FiSearch,
+    FiPlus,
+    FiX,
+    FiEye,
+    FiEdit2,
+    FiTrash2,
+    FiUserCheck,
+    FiUserX,
+    FiUsers,
+    FiMail,
+    FiPhone,
+    FiLock,
+} from "react-icons/fi";
+import FormModal from "../../components/users/FormModal";
+import { useContext } from "react";
+import { AuthContext } from "../../context/AuthContext"
+import { API } from "../../api/axios";
+import { toast } from "react-toastify"
+import { useEffect } from "react";
+import Loader from "../../components/Loader";
+import DeleteModal from "../../components/users/DeleteModal";
+import { useNavigate } from "react-router-dom";
+
+const Users = () => {
+
+    const navigate = useNavigate()
+
+    // =========================
+    // STATES
+    // =========================
+    const { loading, setLoading } = useContext(AuthContext)
+
+    const [search, setSearch] = useState("");
+    const [showModal, setShowModal] = useState(false);
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [deleteId, setDeleteId] = useState(null)
+    const [isEdit, setIsEdit] = useState(false)
+    const [editId, setEditId] = useState(null)
+
+    const [users, setUsers] = useState([])
+
+    const [formData, setFormData] = useState(
+        { firstName: "", lastName: "", email: "", phone: "", role: "", }
+    );
+
+    // =========================
+    // STATISTICS
+    // =========================
+
+    const totalUsers = users.length;
+
+    const activeUsers = users.filter(
+        (user) => user.status === "active"
+    ).length;
+
+    const inactiveUsers = users.filter(
+        (user) => user.status === "inactive"
+    ).length;
+
+
+    // =========================
+    // FORM CHANGE
+    // =========================
+
+    const handleChange = (e) => {
+
+        const { name, value } = e.target;
+
+        // console.log(value)
+
+        setFormData((prev) => ({
+            ...prev,
+            [name]: value,
+        }));
+
+    };
+
+
+    // =========================
+    // ADD USER
+    // =========================
+
+    const handleAddUserModal = (user) => {
+        setFormData(
+            { firstName: "", lastName: "", email: "", phone: "", role: "", }
+        )
+        setIsEdit(false)
+        setEditId(null)
+        setShowModal(true)
+    }
+
+    const handleAddUser = async (e) => {
+
+        e.preventDefault();
+
+        try {
+            setLoading(true)
+            const res = await API.post("/admin/user", formData)
+            await getAllUsers()
+            toast.success(res.data.message)
+            console.log(res.data)
+        }
+        catch (error) {
+            toast.error(error?.response?.data?.message)
+        }
+        finally {
+            setLoading(false)
+            setShowModal(false);
+        }
+    };
+
+
+    // =========================
+    // DELETE USER
+    // =========================
+
+    const handleDeleteModal = (id) => {
+        setDeleteId(id)
+        setShowDeleteModal((prev) => !prev)
+    };
+
+    const handleDeleteUser = async () => {
+        try {
+            setLoading(true)
+            const res = await API.delete(`/admin/user/${deleteId}`)
+            await getAllUsers()
+            toast.success(res.data.message)
+        }
+        catch (error) {
+            toast.error(error?.response?.data.message)
+        }
+        finally {
+            setLoading(false)
+            setShowDeleteModal(false);
+        }
+    }
+
+
+    // =========================
+    // GET ALL USERS
+    // =========================
+
+    const getAllUsers = async () => {
+        try {
+            const res = await API.get("/admin/user")
+            setUsers(res.data.users)
+        }
+        catch (error) {
+            console.log(error)
+        }
+    }
+
+    // =========================
+    // CHANGE STATUS
+    // =========================
+
+    const changeStatus = async (email, status) => {
+        try {
+            setLoading(true)
+            const res = await API.patch("/admin/user/status", { email, status })
+            await getAllUsers()
+            toast.success(res.data.message)
+        }
+        catch (error) {
+            toast.error(error?.response?.data?.message)
+        }
+        finally {
+            setLoading(false)
+        }
+    }
+
+    const handleUserView = async (id) => {
+        navigate(`/admin/users/${id}`)
+    }
+
+    // =========================
+    // EDIT USER 
+    // =========================
+
+    const handleEditUserModal = (user) => {
+        setFormData({
+            firstName: user.firstName,
+            lastName: user.lastName,
+            email: user.email,
+            phone: user.phone,
+            role: "",
+        })
+        setIsEdit(true)
+        setEditId(user._id)
+        setShowModal(true)
+    }
+
+    const handleEditUser = async (e) => {
+        e.preventDefault();
+
+        try {
+            setLoading(true)
+            const res = await API.put(`/admin/user/${editId}`, formData)
+            await getAllUsers()
+            toast.success(res.data.message)
+        }
+        catch (error) {
+            toast.error(error?.response?.data?.message)
+        }
+        finally {
+            setLoading(false)
+            setShowModal(false);
+        }
+    }
+
+
+
+    useEffect(() => {
+        getAllUsers()
+    }, [])
+
+    if (loading) {
+        return (
+            <Loader />
+        )
+    }
+
+    return (
+        <div className="space-y-6">
+
+
+            {/* ========================================= */}
+            {/* PAGE HEADER */}
+            {/* ========================================= */}
+
+            <div>
+
+                <h1 className="text-2xl font-bold text-slate-800">
+                    Users
+                </h1>
+
+                <p className="mt-1 text-sm text-slate-500">
+                    Manage all users and their account status.
+                </p>
+
+            </div>
+
+
+            {/* ========================================= */}
+            {/* STAT CARDS */}
+            {/* ========================================= */}
+
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+
+
+                {/* TOTAL USERS */}
+
+                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+
+                    <div className="flex items-center justify-between">
+
+                        <div>
+
+                            <p className="text-sm font-medium text-slate-500">
+                                Total Users
+                            </p>
+
+                            <h2 className="mt-2 text-3xl font-bold text-slate-800">
+                                {totalUsers}
+                            </h2>
+
+                        </div>
+
+                        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+
+                            <FiUsers size={24} />
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                {/* ACTIVE USERS */}
+
+                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+
+                    <div className="flex items-center justify-between">
+
+                        <div>
+
+                            <p className="text-sm font-medium text-slate-500">
+                                Active Users
+                            </p>
+
+                            <h2 className="mt-2 text-3xl font-bold text-green-600">
+                                {activeUsers}
+                            </h2>
+
+                        </div>
+
+                        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-green-50 text-green-600">
+
+                            <FiUserCheck size={24} />
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                {/* INACTIVE USERS */}
+
+                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+
+                    <div className="flex items-center justify-between">
+
+                        <div>
+
+                            <p className="text-sm font-medium text-slate-500">
+                                Inactive Users
+                            </p>
+
+                            <h2 className="mt-2 text-3xl font-bold text-red-500">
+                                {inactiveUsers}
+                            </h2>
+
+                        </div>
+
+                        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-red-50 text-red-500">
+
+                            <FiUserX size={24} />
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            {/* ========================================= */}
+            {/* SEARCH + ADD USER */}
+            {/* ========================================= */}
+
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+
+
+                    {/* SEARCH */}
+
+                    <div className="relative w-full sm:max-w-md">
+
+                        <FiSearch
+                            className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                            size={19}
+                        />
+
+                        <input
+                            type="text"
+                            placeholder="Search users..."
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            className="
+                                w-full
+                                rounded-xl
+                                border border-slate-200
+                                bg-slate-50
+                                py-2.5
+                                pl-10
+                                pr-4
+                                text-sm
+                                outline-none
+                                transition
+                                focus:border-[#003963]
+                                focus:bg-white
+                                focus:ring-2
+                                focus:ring-[#003963]/10
+                            "
+                        />
+
+                    </div>
+
+
+                    {/* ADD USER */}
+
+                    <button
+                        onClick={handleAddUserModal}
+                        className="
+                            flex
+                            items-center
+                            justify-center
+                            gap-2
+                            rounded-xl
+                            bg-[#003963]
+                            px-5
+                            py-2.5
+                            text-sm
+                            font-semibold
+                            text-white
+                            transition
+                            hover:bg-[#002d4f]
+                            active:scale-95
+                        "
+                    >
+
+                        <FiPlus size={19} />
+
+                        Add User
+
+                    </button>
+
+                </div>
+            </div>
+
+
+            {/* ========================================= */}
+            {/* USERS TABLE */}
+            {/* ========================================= */}
+
+            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+
+                <div className="overflow-x-auto">
+
+                    <table className="w-full min-w-212.5">
+
+                        {/* TABLE HEADER */}
+
+                        <thead className="border-b border-slate-200 bg-slate-50">
+
+                            <tr>
+
+                                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                    User
+                                </th>
+
+                                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                    Email
+                                </th>
+
+                                {/* <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Phone
+            </th> */}
+
+                                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                    Status
+                                </th>
+
+                                <th className="px-6 py-4 text-center text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                    Actions
+                                </th>
+
+                            </tr>
+
+                        </thead>
+
+
+                        {/* TABLE BODY */}
+
+                        <tbody className="divide-y divide-slate-100">
+
+                            {users?.length > 0 ? (
+
+                                users.map((user) => {
+
+                                    const fullName =
+                                        `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
+                                        "N/A";
+
+                                    return (
+                                        <tr
+                                            key={user?._id}
+                                            className="transition hover:bg-slate-50"
+                                        >
+
+                                            {/* USER */}
+
+                                            <td className="px-6 py-4">
+
+                                                <div className="flex items-center gap-3">
+
+                                                    {/* AVATAR */}
+
+                                                    <div className="
+                                    flex h-10 w-10
+                                    shrink-0
+                                    items-center justify-center
+                                    rounded-full
+                                    bg-[#003963]/10
+                                    font-semibold
+                                    text-[#003963]
+                                ">
+                                                        {user?.firstName
+                                                            ?.charAt(0)
+                                                            ?.toUpperCase() || "U"}
+                                                    </div>
+
+
+                                                    <div className="min-w-0">
+
+                                                        <p className="font-semibold text-slate-800">
+                                                            {fullName}
+                                                        </p>
+
+                                                        <p className="max-w-45 truncate text-xs text-slate-400">
+                                                            ID: #{user?._id || "N/A"}
+                                                        </p>
+
+                                                    </div>
+
+                                                </div>
+
+                                            </td>
+
+
+                                            {/* EMAIL */}
+
+                                            <td className="px-6 py-4 text-sm text-slate-600">
+
+                                                <span className="block max-w-55 truncate">
+                                                    {user?.email || "N/A"}
+                                                </span>
+
+                                            </td>
+
+
+                                            {/* PHONE */}
+
+                                            {/* <td className="px-6 py-4 text-sm text-slate-600">
+                            {user?.phone || "N/A"}
+                        </td> */}
+
+
+                                            {/* STATUS */}
+
+                                            <td className="px-6 py-4">
+
+                                                <span
+                                                    className={`
+                                    inline-flex
+                                    items-center
+                                    rounded-full
+                                    px-3
+                                    py-1
+                                    text-xs
+                                    font-semibold
+                                    ${user?.status === "active"
+                                                            ? "bg-green-50 text-green-600"
+                                                            : "bg-red-50 text-red-500"
+                                                        }
+                                `}
+                                                >
+
+                                                    <span
+                                                        className={`
+                                        mr-2
+                                        h-1.5
+                                        w-1.5
+                                        rounded-full
+                                        ${user?.status === "active"
+                                                                ? "bg-green-500"
+                                                                : "bg-red-500"
+                                                            }
+                                    `}
+                                                    />
+
+                                                    {user?.status === "active"
+                                                        ? "Active"
+                                                        : "Inactive"}
+
+                                                </span>
+
+                                            </td>
+
+
+                                            {/* ACTIONS */}
+
+                                            <td className="px-6 py-4">
+
+                                                <div className="flex items-center justify-center gap-2">
+
+
+                                                    {/* VIEW */}
+
+                                                    <div className="group relative">
+
+                                                        <button
+                                                            type="button"
+                                                            onClick={() =>
+                                                                handleUserView(user?._id)
+                                                            }
+                                                            className="
+                                            rounded-lg
+                                            p-2
+                                            text-blue-600
+                                            transition
+                                            hover:bg-blue-50
+                                        "
+                                                        >
+                                                            <FiEye size={18} />
+                                                        </button>
+
+                                                        <span className="
+                                        pointer-events-none
+                                        absolute bottom-full left-1/2
+                                        mb-2
+                                        -translate-x-1/2
+                                        whitespace-nowrap
+                                        rounded-md
+                                        bg-slate-800
+                                        px-2 py-1
+                                        text-xs
+                                        text-white
+                                        opacity-0
+                                        transition
+                                        group-hover:opacity-100
+                                    ">
+                                                            View
+                                                        </span>
+
+                                                    </div>
+
+
+                                                    {/* EDIT */}
+
+                                                    <div className="group relative">
+
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleEditUserModal(user)}
+                                                            className="
+                                            rounded-lg
+                                            p-2
+                                            text-amber-600
+                                            transition
+                                            hover:bg-amber-50
+                                        "
+                                                        >
+                                                            <FiEdit2 size={18} />
+                                                        </button>
+
+                                                        <span className="
+                                        pointer-events-none
+                                        absolute bottom-full left-1/2
+                                        mb-2
+                                        -translate-x-1/2
+                                        whitespace-nowrap
+                                        rounded-md
+                                        bg-slate-800
+                                        px-2 py-1
+                                        text-xs
+                                        text-white
+                                        opacity-0
+                                        transition
+                                        group-hover:opacity-100
+                                    ">
+                                                            Edit
+                                                        </span>
+
+                                                    </div>
+
+
+                                                    {/* STATUS */}
+
+                                                    <div className="group relative">
+
+                                                        <button
+                                                            type="button"
+                                                            onClick={() =>
+                                                                changeStatus(
+                                                                    user?.email,
+                                                                    user?.status
+                                                                )
+                                                            }
+                                                            className={`
+                                            rounded-lg
+                                            p-2
+                                            transition
+                                            ${user?.status === "active"
+                                                                    ? "text-orange-500 hover:bg-orange-50"
+                                                                    : "text-green-600 hover:bg-green-50"
+                                                                }
+                                        `}
+                                                        >
+
+                                                            {user?.status === "active" ? (
+                                                                <FiUserX size={18} />
+                                                            ) : (
+                                                                <FiUserCheck size={18} />
+                                                            )}
+
+                                                        </button>
+
+                                                        <span className="
+                                        pointer-events-none
+                                        absolute bottom-full left-1/2
+                                        mb-2
+                                        -translate-x-1/2
+                                        whitespace-nowrap
+                                        rounded-md
+                                        bg-slate-800
+                                        px-2 py-1
+                                        text-xs
+                                        text-white
+                                        opacity-0
+                                        transition
+                                        group-hover:opacity-100
+                                    ">
+                                                            {user?.status === "active"
+                                                                ? "Inactive"
+                                                                : "Active"}
+                                                        </span>
+
+                                                    </div>
+
+
+                                                    {/* DELETE */}
+
+                                                    <div className="group relative">
+
+                                                        <button
+                                                            type="button"
+                                                            onClick={() =>
+                                                                handleDeleteModal(user?._id)
+                                                            }
+                                                            className="
+                                            rounded-lg
+                                            p-2
+                                            text-red-500
+                                            transition
+                                            hover:bg-red-50
+                                        "
+                                                        >
+                                                            <FiTrash2 size={18} />
+                                                        </button>
+
+                                                        <span className="
+                                        pointer-events-none
+                                        absolute bottom-full left-1/2
+                                        mb-2
+                                        -translate-x-1/2
+                                        whitespace-nowrap
+                                        rounded-md
+                                        bg-slate-800
+                                        px-2 py-1
+                                        text-xs
+                                        text-white
+                                        opacity-0
+                                        transition
+                                        group-hover:opacity-100
+                                    ">
+                                                            Delete
+                                                        </span>
+
+                                                    </div>
+
+                                                </div>
+
+                                            </td>
+
+                                        </tr>
+                                    );
+
+                                })
+
+                            ) : (
+
+                                <tr>
+
+                                    <td
+                                        colSpan="4"
+                                        className="px-6 py-12 text-center"
+                                    >
+
+                                        <FiUsers
+                                            size={40}
+                                            className="mx-auto text-slate-300"
+                                        />
+
+                                        <p className="mt-3 font-medium text-slate-600">
+                                            No users found
+                                        </p>
+
+                                        <p className="mt-1 text-sm text-slate-400">
+                                            Try changing your search.
+                                        </p>
+
+                                    </td>
+
+                                </tr>
+
+                            )}
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+            </div>
+
+
+            {/* ========================================= */}
+            {/* ADD USER MODAL */}
+            {/* ========================================= */}
+
+            {showModal && (
+
+                <FormModal setShowModal={setShowModal} handleAddUser={handleAddUser}
+                    handleChange={handleChange} formData={formData} isEdit={isEdit}
+                    editId={editId} handleEditUser={handleEditUser} />
+
+            )}
+
+            {showDeleteModal && (
+                <DeleteModal setShowDeleteModal={setShowDeleteModal} handleDeleteUser={handleDeleteUser} />
+            )}
+
+        </div>
+    );
+};
+
+export default Users;

@@ -1,0 +1,38 @@
+import express from "express"
+import { connectDB } from "./config/db.js"
+import cors from "cors"
+import userRoutes from "./routes/userRoutes.js"
+import categoryRoutes from "./routes/categoryRoutes.js"
+import subcategoryRoutes from "./routes/subcategoryRoutes.js"
+import roleRoutes from "./routes/roleRoutes.js"
+import dotenv from "dotenv"
+import cookieParser from "cookie-parser"
+import filupload from "express-fileupload"
+
+
+dotenv.config()
+
+const app = express()
+
+connectDB()
+
+app.use(filupload({
+    useTempFiles: true,
+    tempFileDir: "/tmp/"
+}))
+
+app.use(express.json())
+app.use(cookieParser())
+app.use(cors({
+    origin: "http://localhost:5173",
+    credentials: true
+}))
+
+app.use("/api", userRoutes)
+app.use("/api", categoryRoutes)
+app.use("/api", subcategoryRoutes)
+app.use("/api", roleRoutes)
+
+app.listen(8000, () => {
+    console.log("server running on port 8000")
+})

@@ -1,0 +1,429 @@
+import React from "react";
+import {
+    FiX,
+    FiShield,
+    FiKey,
+    FiPlus,
+    FiEdit2,
+} from "react-icons/fi";
+
+const FormModal = ({
+    setShowModal,
+    handleAddRole,
+    handleEditRole,
+    formData,
+    handleChange,
+    isEdit,
+}) => {
+    const modules = [
+        "users",
+        "categories",
+        "subcategories",
+        "products",
+    ];
+
+    const formatModuleName = (module) => {
+        return module.charAt(0).toUpperCase() + module.slice(1);
+    };
+
+    // Check whether permission exists in array
+    const hasPermission = (module, action) => {
+        return formData.permissions?.includes(`${module}:${action}`) || false;
+    };
+
+    return (
+        <div
+            className="
+                fixed inset-0 z-100
+                flex items-center justify-center
+                bg-black/50
+                p-4
+                backdrop-blur-sm
+            "
+            onClick={() => setShowModal(false)}
+        >
+            <div
+                onClick={(e) => e.stopPropagation()}
+                className="
+                    flex
+                    w-full
+                    max-w-2xl
+                    max-h-[90vh]
+                    flex-col
+                    overflow-hidden
+                    rounded-2xl
+                    bg-white
+                    shadow-2xl
+                "
+            >
+                {/* HEADER */}
+
+                <div
+                    className="
+                        flex shrink-0
+                        items-center justify-between
+                        border-b border-slate-200
+                        px-6 py-5
+                    "
+                >
+                    <div className="flex items-center gap-3">
+                        <div
+                            className="
+                                flex h-10 w-10
+                                items-center justify-center
+                                rounded-xl
+                                bg-[#003963]/10
+                                text-[#003963]
+                            "
+                        >
+                            <FiShield size={20} />
+                        </div>
+
+                        <div>
+                            <h2 className="text-xl font-bold text-slate-800">
+                                {isEdit ? "Update Role" : "Add New Role"}
+                            </h2>
+
+                            <p className="mt-1 text-sm text-slate-500">
+                                {isEdit
+                                    ? "Update role information and permissions."
+                                    : "Create a new role with specific permissions."}
+                            </p>
+                        </div>
+                    </div>
+
+                    <button
+                        type="button"
+                        onClick={() => setShowModal(false)}
+                        className="
+                            rounded-lg p-2
+                            text-slate-500
+                            transition
+                            hover:bg-slate-100
+                            hover:text-slate-700
+                        "
+                    >
+                        <FiX size={22} />
+                    </button>
+                </div>
+
+                {/* FORM */}
+
+                <div className="min-h-0 flex-1 overflow-y-auto">
+                    <form
+                        id="role-form"
+                        onSubmit={
+                            isEdit
+                                ? handleEditRole
+                                : handleAddRole
+                        }
+                        className="space-y-5 p-6"
+                    >
+                        {/* ROLE NAME */}
+
+                        <div>
+                            <label
+                                className="
+                                    mb-2 block
+                                    text-sm font-medium
+                                    text-slate-700
+                                "
+                            >
+                                Role Name
+                            </label>
+
+                            <div className="relative">
+                                <FiShield
+                                    size={18}
+                                    className="
+                                        absolute left-3 top-1/2
+                                        -translate-y-1/2
+                                        text-slate-400
+                                    "
+                                />
+
+                                <input
+                                    type="text"
+                                    name="name"
+                                    value={formData.name || ""}
+                                    onChange={handleChange}
+                                    placeholder="Enter role name"
+                                    required
+                                    className="
+                                        w-full rounded-xl
+                                        border border-slate-200
+                                        py-2.5 pl-10 pr-4
+                                        text-sm text-slate-700
+                                        outline-none transition
+                                        placeholder:text-slate-400
+                                        focus:border-[#003963]
+                                        focus:ring-2
+                                        focus:ring-[#003963]/10
+                                    "
+                                />
+                            </div>
+                        </div>
+
+                        {/* PERMISSIONS */}
+
+                        <div>
+                            <div className="mb-3">
+                                <label
+                                    className="
+                                        block
+                                        text-sm font-semibold
+                                        text-slate-700
+                                    "
+                                >
+                                    Permissions
+                                </label>
+
+                                <p className="mt-1 text-xs text-slate-500">
+                                    Select the permissions this role should
+                                    have for each module.
+                                </p>
+                            </div>
+
+                            <div
+                                className="
+                                    overflow-hidden
+                                    rounded-xl
+                                    border border-slate-200
+                                "
+                            >
+                                {/* TABLE HEADER */}
+
+                                <div
+                                    className="
+                                        grid
+                                        grid-cols-[1fr_repeat(4,72px)]
+                                        border-b border-slate-200
+                                        bg-slate-50
+                                        px-4 py-3
+                                    "
+                                >
+                                    <div
+                                        className="
+                                            text-xs font-semibold
+                                            uppercase tracking-wide
+                                            text-slate-500
+                                        "
+                                    >
+                                        Module
+                                    </div>
+
+                                    {["Add", "Read", "Update", "Delete"].map(
+                                        (action) => (
+                                            <div
+                                                key={action}
+                                                className="
+                                                    text-center
+                                                    text-xs font-semibold
+                                                    uppercase tracking-wide
+                                                    text-slate-500
+                                                "
+                                            >
+                                                {action}
+                                            </div>
+                                        )
+                                    )}
+                                </div>
+
+                                {/* PERMISSION ROWS */}
+
+                                {modules.map((module) => (
+                                    <div
+                                        key={module}
+                                        className="
+                                            grid
+                                            grid-cols-[1fr_repeat(4,72px)]
+                                            items-center
+                                            border-b border-slate-100
+                                            px-4 py-3
+                                            last:border-b-0
+                                            hover:bg-slate-50/70
+                                        "
+                                    >
+                                        {/* MODULE */}
+
+                                        <div
+                                            className="
+                                                flex items-center gap-2
+                                            "
+                                        >
+                                            <div
+                                                className="
+                                                    flex h-8 w-8
+                                                    items-center justify-center
+                                                    rounded-lg
+                                                    bg-[#003963]/10
+                                                    text-[#003963]
+                                                "
+                                            >
+                                                <FiShield size={15} />
+                                            </div>
+
+                                            <span
+                                                className="
+                                                    text-sm font-medium
+                                                    text-slate-700
+                                                "
+                                            >
+                                                {formatModuleName(module)}
+                                            </span>
+                                        </div>
+
+                                        {/* ADD */}
+
+                                        <div className="flex justify-center">
+                                            <input
+                                                type="checkbox"
+                                                name={`permissions.${module}.add`}
+                                                checked={hasPermission(
+                                                    module,
+                                                    "add"
+                                                )}
+                                                onChange={handleChange}
+                                                className="
+                                                    h-4 w-4
+                                                    cursor-pointer
+                                                    rounded
+                                                    border-slate-300
+                                                    accent-[#003963]
+                                                "
+                                            />
+                                        </div>
+
+                                        {/* READ */}
+
+                                        <div className="flex justify-center">
+                                            <input
+                                                type="checkbox"
+                                                name={`permissions.${module}.read`}
+                                                checked={hasPermission(
+                                                    module,
+                                                    "read"
+                                                )}
+                                                onChange={handleChange}
+                                                className="
+                                                    h-4 w-4
+                                                    cursor-pointer
+                                                    rounded
+                                                    border-slate-300
+                                                    accent-[#003963]
+                                                "
+                                            />
+                                        </div>
+
+                                        {/* UPDATE */}
+
+                                        <div className="flex justify-center">
+                                            <input
+                                                type="checkbox"
+                                                name={`permissions.${module}.update`}
+                                                checked={hasPermission(
+                                                    module,
+                                                    "update"
+                                                )}
+                                                onChange={handleChange}
+                                                className="
+                                                    h-4 w-4
+                                                    cursor-pointer
+                                                    rounded
+                                                    border-slate-300
+                                                    accent-[#003963]
+                                                "
+                                            />
+                                        </div>
+
+                                        {/* DELETE */}
+
+                                        <div className="flex justify-center">
+                                            <input
+                                                type="checkbox"
+                                                name={`permissions.${module}.delete`}
+                                                checked={hasPermission(
+                                                    module,
+                                                    "delete"
+                                                )}
+                                                onChange={handleChange}
+                                                className="
+                                                    h-4 w-4
+                                                    cursor-pointer
+                                                    rounded
+                                                    border-slate-300
+                                                    accent-[#003963]
+                                                "
+                                            />
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </form>
+                </div>
+
+                {/* FOOTER */}
+
+                <div
+                    className="
+                        flex shrink-0
+                        justify-end gap-3
+                        border-t border-slate-100
+                        bg-white
+                        px-6 py-4
+                    "
+                >
+                    {/* CANCEL */}
+
+                    <button
+                        type="button"
+                        onClick={() => setShowModal(false)}
+                        className="
+                            rounded-xl
+                            border border-slate-200
+                            px-5 py-2.5
+                            text-sm font-semibold
+                            text-slate-600
+                            transition
+                            hover:bg-slate-50
+                        "
+                    >
+                        Cancel
+                    </button>
+
+                    {/* SUBMIT */}
+
+                    <button
+                        type="submit"
+                        form="role-form"
+                        className="
+                            flex items-center gap-2
+                            rounded-xl
+                            bg-[#003963]
+                            px-5 py-2.5
+                            text-sm font-semibold
+                            text-white
+                            transition
+                            hover:bg-[#002d4f]
+                        "
+                    >
+                        {isEdit ? (
+                            <>
+                                <FiEdit2 size={18} />
+                                Update Role
+                            </>
+                        ) : (
+                            <>
+                                <FiPlus size={18} />
+                                Add Role
+                            </>
+                        )}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+export default FormModal;

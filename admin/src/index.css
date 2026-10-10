@@ -1,0 +1,33 @@
+@import "tailwindcss";
+
+/* Modern Admin Sidebar Scrollbar */
+
+.admin-sidebar-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(167, 243, 208, 0.35) transparent;
+    scroll-behavior: smooth;
+}
+
+/* Chrome, Edge, Safari */
+
+.admin-sidebar-scroll::-webkit-scrollbar {
+    width: 5px;
+}
+
+.admin-sidebar-scroll::-webkit-scrollbar-track {
+    background: transparent;
+    margin-block: 8px;
+}
+
+.admin-sidebar-scroll::-webkit-scrollbar-thumb {
+    background: rgba(167, 243, 208, 0.25);
+    border-radius: 999px;
+}
+
+.admin-sidebar-scroll::-webkit-scrollbar-thumb:hover {
+    background: rgba(167, 243, 208, 0.65);
+}
+
+.admin-sidebar-scroll::-webkit-scrollbar-thumb:active {
+    background: #a7f3d0;
+}
