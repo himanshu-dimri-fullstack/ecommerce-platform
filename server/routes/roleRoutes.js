@@ -6,18 +6,22 @@ import {
     updateRole,
     deleteRole,
     updateRoleStatus,
+    getRoleById
 } from "../controllers/roleController.js";
+import { Auth } from "../middlewares/Auth.js";
 
 const router = express.Router();
 
-router.get("/admin/role", getRoles);
+router.get("/admin/role", Auth, getRoles);
 
-router.post("/admin/role", createRole);
+router.post("/admin/role", Auth, createRole);
 
-router.put("/admin/role/:id", updateRole);
+router.put("/admin/role/:id", Auth, updateRole);
 
-router.delete("/admin/role/:id", deleteRole);
+router.get("/admin/role/:id", Auth, getRoleById);
 
-router.patch("/admin/roles/status/:id", updateRoleStatus);
+router.delete("/admin/role/:id", Auth, deleteRole);
+
+router.patch("/admin/role/status/:id", Auth, updateRoleStatus);
 
 export default router;

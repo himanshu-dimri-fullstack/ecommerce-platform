@@ -59,10 +59,18 @@ const Brand = () => {
     const handleChange = (e) => {
         const { name, value, files } = e.target;
 
-        setFormData((prev) => ({
-            ...prev,
-            [name]: files ? files[0] : value,
-        }));
+        if (files) {
+            setFormData((prev) => ({
+                ...prev,
+                [name]: files[0]
+            }))
+        }
+        else {
+            setFormData((prev) => ({
+                ...prev,
+                [name]: value
+            }))
+        }
     };
 
     // =========================
@@ -112,14 +120,8 @@ const Brand = () => {
             const finalFormData = new FormData();
 
             finalFormData.append("name", formData.name);
-            finalFormData.append(
-                "description",
-                formData.description
-            );
-
-            if (formData.image instanceof File) {
-                finalFormData.append("image", formData.image);
-            }
+            finalFormData.append("description", formData.description);
+            finalFormData.append("image", formData.image);
 
             setLoading(true);
 
@@ -127,21 +129,14 @@ const Brand = () => {
                 "/admin/brands",
                 finalFormData
             );
-
             await getAllBrands();
-
-            toast.success(
-                res.data.message || "Brand added successfully"
-            );
-
-            setShowModal(false);
+            toast.success(res.data.message)
         } catch (error) {
             toast.error(
-                error?.response?.data?.message ||
-                "Failed to add brand"
-            );
+                error?.response?.data?.message)
         } finally {
-            setLoading(false);
+            setLoading(false)
+            setShowModal(false)
         }
     };
 
@@ -154,9 +149,9 @@ const Brand = () => {
         setIsEdit(true);
 
         setFormData({
-            name: brand.name || "",
-            description: brand.description || "",
-            image: brand.image?.url || "",
+            name: brand.name,
+            description: brand.description,
+            image: brand.image?.url,
         });
 
         setShowModal(true);
@@ -167,42 +162,31 @@ const Brand = () => {
     // =========================
 
     const handleEditBrand = async (e) => {
-        e.preventDefault();
+        e.preventDefault()
 
         try {
-            const finalFormData = new FormData();
+            const finalFormData = new FormData()
 
-            finalFormData.append("name", formData.name);
-            finalFormData.append(
-                "description",
-                formData.description
-            );
+            finalFormData.append("name", formData.name)
+            finalFormData.append("description", formData.description)
+            finalFormData.append("image", formData.image)
 
-            if (formData.image instanceof File) {
-                finalFormData.append("image", formData.image);
-            }
-
-            setLoading(true);
+            setLoading(true)
 
             const res = await API.put(
                 `/admin/brands/${editId}`,
                 finalFormData
             );
 
-            await getAllBrands();
+            await getAllBrands()
 
-            toast.success(
-                res.data.message || "Brand updated successfully"
-            );
+            toast.success(res.data.message)
 
-            setShowModal(false);
         } catch (error) {
-            toast.error(
-                error?.response?.data?.message ||
-                "Failed to update brand"
-            );
+            toast.error(error?.response?.data?.message)
         } finally {
-            setLoading(false);
+            setLoading(false)
+            setShowModal(false)
         }
     };
 
@@ -230,13 +214,10 @@ const Brand = () => {
             await getAllBrands();
 
             toast.success(
-                res.data.message || "Brand deleted successfully"
-            );
+                res.data.message)
         } catch (error) {
             toast.error(
-                error?.response?.data?.message ||
-                "Failed to delete brand"
-            );
+                error?.response?.data?.message)
         } finally {
             setLoading(false);
             setShowDeleteModal(false);
@@ -248,30 +229,22 @@ const Brand = () => {
     // CHANGE STATUS
     // =========================
 
-    const changeStatus = async (id, status) => {
+    const changeStatus = async (id) => {
         try {
-            setLoading(true);
+            setLoading(true)
 
             const res = await API.patch(
-                "/admin/brand/status",
-                {
-                    id,
-                    status:
-                        status === "active"
-                            ? "inactive"
-                            : "active",
-                }
+                `/admin/brands/status/${id}`
             );
 
-            await getAllBrands();
+            await getAllBrands()
 
             toast.success(
-                res.data.message || "Brand status updated"
+                res.data.message
             );
         } catch (error) {
             toast.error(
-                error?.response?.data?.message ||
-                "Failed to change brand status"
+                error?.response?.data?.message
             );
         } finally {
             setLoading(false);
@@ -280,10 +253,10 @@ const Brand = () => {
 
     // =========================
     // VIEW BRAND
-    // =========================
+    // =========================    
 
     const handleBrandView = (id) => {
-        navigate(`/admin/brand/${id}`);
+        navigate(`/admin/brands/${id}`);
     };
 
     // =========================
@@ -303,9 +276,9 @@ const Brand = () => {
     // INITIAL FETCH
     // =========================
 
-    // useEffect(() => {
-    //     getAllBrands();
-    // }, []);
+    useEffect(() => {
+        getAllBrands();
+    }, []);
 
     if (loading) {
         return <Loader />;
@@ -583,8 +556,7 @@ const Brand = () => {
                                                         type="button"
                                                         onClick={() =>
                                                             changeStatus(
-                                                                brand._id,
-                                                                brand.status
+                                                                brand._id
                                                             )
                                                         }
                                                         aria-label="Change brand status"

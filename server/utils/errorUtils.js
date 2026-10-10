@@ -11,6 +11,5 @@ export const handleResponseError = (error, res, name = "") => {
         const fieldName = field.charAt(0).toUpperCase() + field.slice(1);
         return res.status(400).json({ message: `${fieldName} already exists` });
     }
-    // res.status(500).json({ message: "Internal Server Error" })
-    res.status(500).json({ message: error.message })
+    res.status(500).json({ message: "Internal Server Error" })
 }

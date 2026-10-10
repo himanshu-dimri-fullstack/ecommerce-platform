@@ -13,9 +13,13 @@ import { toast } from "react-toastify";
 import { API } from "../../api/axios";
 import FormModal from "../../components/role/FormModal";
 import { AuthContext } from "../../context/AuthContext";
+import DeleteModal from "../../components/role/DeleteModal";
+import Loader from "../../components/Loader";
+import { useNavigate } from "react-router-dom";
 
 const Role = () => {
 
+    const navigate = useNavigate()
     const { loading, setLoading } = useContext(AuthContext);
 
     const [roles, setRoles] = useState([]);
@@ -201,10 +205,10 @@ const Role = () => {
     const handleDeleteRole = async () => {
 
         try {
+            setLoading(true)
             const res = await API.delete(
                 `/admin/role/${deleteId}`
             );
-
 
             toast.success(res.data.message)
 
@@ -213,10 +217,11 @@ const Role = () => {
         } catch (error) {
             console.log(error);
 
-            toast.error(
-                error.response?.data?.message ||
-                "Failed to delete role"
-            );
+            toast.error(error.response?.data?.message);
+        }
+        finally {
+            setShowDeleteModal(false)
+            setLoading(false)
         }
     };
 
@@ -233,25 +238,18 @@ const Role = () => {
 
     const handleStatus = async (id) => {
         try {
-            const { data } = await API.patch(
+            setLoading(true)
+            const res = await API.patch(
                 `/admin/role/status/${id}`
             );
-
-            if (data.success) {
-                toast.success(
-                    data.message ||
-                    "Role status updated"
-                );
-
-                await fetchRoles();
-            }
-        } catch (error) {
-            console.log(error);
-
-            toast.error(
-                error.response?.data?.message ||
-                "Failed to update status"
-            );
+            toast.success(res.data.message)
+            await fetchRoles();
+        }
+        catch (error) {
+            toast.error(error.response?.data?.message)
+        }
+        finally {
+            setLoading(false)
         }
     };
 
@@ -299,6 +297,14 @@ const Role = () => {
             ?.toLowerCase()
             .includes(search.toLowerCase())
     );
+
+    const handleRoleView = (id) => {
+        navigate(`/admin/roles/${id}`)
+    }
+
+    if (loading) {
+        return <Loader />;
+    }
 
     return (
         <div className="space-y-6">
@@ -579,12 +585,13 @@ const Role = () => {
                                                             role._id
                                                         )
                                                     }
-                                                    className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold ${role.status
-                                                        ? "bg-green-50 text-green-600"
-                                                        : "bg-red-50 text-red-600"
+                                                    className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold
+                                                         ${role.status == "active"
+                                                            ? "bg-green-50 text-green-600"
+                                                            : "bg-red-50 text-red-600"
                                                         }`}
                                                 >
-                                                    {role.status ? (
+                                                    {role.status == "active" ? (
                                                         <>
                                                             <FiCheckCircle />
                                                             Active
@@ -613,6 +620,7 @@ const Role = () => {
                                             <td className="px-6 py-4">
                                                 <div className="flex justify-end gap-2">
                                                     <button
+                                                        onClick={() => handleRoleView(role._id)}
                                                         title="View"
                                                         className="
                                                             rounded-lg p-2

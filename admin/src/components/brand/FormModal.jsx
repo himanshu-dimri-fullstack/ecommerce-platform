@@ -237,7 +237,6 @@ const FormModal = ({
                                     name="image"
                                     accept="image/jpeg,image/png,image/webp,image/avif"
                                     onChange={handleChange}
-                                    required={!isEdit && !existingImage}
                                     className="
                                         absolute inset-0
                                         cursor-pointer opacity-0

@@ -20,6 +20,7 @@ const FormModal = ({
         "categories",
         "subcategories",
         "products",
+        "brands"
     ];
 
     const formatModuleName = (module) => {

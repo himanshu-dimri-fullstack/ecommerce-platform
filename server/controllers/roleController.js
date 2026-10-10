@@ -6,7 +6,6 @@ import Role from "../models/Role.js";
 export const getRoles = async (req, res) => {
     try {
         const roles = await Role.find().sort({ createdAt: -1 });
-        console.log("my roles", roles)
         res.status(200).json({
             success: true,
             roles,
@@ -146,6 +145,7 @@ export const deleteRole = async (req, res) => {
 export const updateRoleStatus = async (req, res) => {
     try {
         const { id } = req.params;
+
         const role = await Role.findOne({ _id: id });
 
         if (!role) {
@@ -165,3 +165,17 @@ export const updateRoleStatus = async (req, res) => {
         res.status(500).json({ message: "Failed to update role status" })
     }
 };
+
+export const getRoleById = async (req, res) => {
+    try {
+        const { id } = req.params
+        const role = await Role.findOne({ _id: id })
+        if (!role) {
+            return res.status(400).json({ message: "Role not found" })
+        }
+        return res.status(200).json({ role })
+    }
+    catch (error) {
+        res.status(500).json({ message: error.message })
+    }
+}

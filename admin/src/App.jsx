@@ -14,6 +14,8 @@ import Subcategory from "./pages/subcategory/Subcategory"
 import Role from "./pages/role/Role"
 import SubcategoryDetail from "./pages/subcategory/SubcategoryDetail"
 import Brand from "./pages/brand/Brand"
+import RoleDetail from "./pages/role/RoleDetails"
+import BrandDetail from "./pages/brand/BrandDetail"
 
 const App = () => {
   return (
@@ -32,7 +34,9 @@ const App = () => {
           <Route path="/admin/subcategories" element={<Subcategory />} />
           <Route path="/admin/subcategories/:id" element={<SubcategoryDetail />} />
           <Route path="/admin/roles" element={<Role />} />
-          <Route path="/admin/brand" element={<Brand />} />
+          <Route path="/admin/brands" element={<Brand />} />
+          <Route path="/admin/roles/:id" element={<RoleDetail />} />
+          <Route path="/admin/brands/:id" element={<BrandDetail />} />
         </Route>
       </Routes>
       <ToastContainer />
