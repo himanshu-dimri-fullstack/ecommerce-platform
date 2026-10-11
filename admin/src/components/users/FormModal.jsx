@@ -14,7 +14,7 @@ const FormModal = ({
     handleEditUser,
     formData,
     handleChange,
-    roles = [],
+    roles,
     isEdit,
 }) => {
     return (
@@ -291,7 +291,7 @@ const FormModal = ({
 
                             <select
                                 name="role"
-                                value={formData.role}
+                                value={formData?.role?._id}
                                 onChange={handleChange}
                                 className="
                                     w-full

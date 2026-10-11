@@ -11,11 +11,13 @@ import {
 } from "react-icons/fi";
 import { API } from "../../api/axios";
 import { useState, useEffect } from "react";
+import DataLoader from "../../components/DataLoader";
 
 const CategoryDetail = () => {
     const { id } = useParams();
     const [category, setCategory] = useState({});
-    console.log(category)
+    const [dataLoading, setDataLoading] = useState(true)
+
     useEffect(() => {
         const fetchCategory = async () => {
             try {
@@ -24,10 +26,17 @@ const CategoryDetail = () => {
             } catch (error) {
                 console.log(error);
             }
+            finally {
+                setDataLoading(false)
+            }
         };
 
         fetchCategory();
     }, [id]);
+
+    if (dataLoading) {
+        return <DataLoader />
+    }
 
     return (
         <div className="min-h-screen bg-gray-50 p-4 md:p-6">

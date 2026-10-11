@@ -16,12 +16,13 @@ import { API } from "../../api/axios";
 import Loader from "../../components/Loader";
 import DeleteModal from "../../components/subcategory/DeleteModal";
 import FormModal from "../../components/subcategory/FormModal";
+import DataLoader from "../../components/DataLoader";
 
 const Subcategory = () => {
 
     const navigate = useNavigate();
 
-    const { loading, setLoading } = useContext(AuthContext);
+    const [dataLoading, setDataLoading] = useState(true)
 
     // =========================
     // STATES
@@ -108,6 +109,9 @@ const Subcategory = () => {
                 "Failed to fetch subcategories"
             );
         }
+        finally {
+            setDataLoading(false)
+        }
     };
 
 
@@ -121,7 +125,7 @@ const Subcategory = () => {
 
         try {
 
-            setLoading(true);
+            setDataLoading(true);
 
             const finalFormData = new FormData()
             finalFormData.append("name", formData.name)
@@ -154,7 +158,7 @@ const Subcategory = () => {
             );
         }
         finally {
-            setLoading(false);
+            setDataLoading(false);
             setShowModal(false);
         }
     };
@@ -169,7 +173,7 @@ const Subcategory = () => {
 
         try {
 
-            setLoading(true);
+            setDataLoading(true);
 
             const finalFormData = new FormData()
             finalFormData.append("name", formData.name)
@@ -204,7 +208,7 @@ const Subcategory = () => {
         }
         finally {
 
-            setLoading(false);
+            setDataLoading(false);
 
             setShowModal(false);
         }
@@ -230,7 +234,7 @@ const Subcategory = () => {
 
         try {
 
-            setLoading(true);
+            setDataLoading(true);
 
             const res = await API.delete(
                 `/admin/subcategories/${deleteId}`
@@ -250,7 +254,7 @@ const Subcategory = () => {
         }
         finally {
 
-            setLoading(false);
+            setDataLoading(false);
 
             setShowDeleteModal(false);
 
@@ -267,7 +271,7 @@ const Subcategory = () => {
 
         try {
 
-            setLoading(true);
+            setDataLoading(true);
 
             const res = await API.patch(
                 "/admin/subcategory/status",
@@ -291,7 +295,7 @@ const Subcategory = () => {
         }
         finally {
 
-            setLoading(false);
+            setDataLoading(false);
         }
     };
 
@@ -392,13 +396,16 @@ const Subcategory = () => {
                     "Failed to fetch categories"
                 );
             }
+            finally {
+                setDataLoading(false)
+            }
         };
         getAllCategories()
     }, [])
 
 
-    if (loading) {
-        return <Loader />
+    if (dataLoading) {
+        return <DataLoader />
     }
 
 

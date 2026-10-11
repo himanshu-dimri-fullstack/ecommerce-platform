@@ -15,14 +15,12 @@ import {
     FiLock,
 } from "react-icons/fi";
 import FormModal from "../../components/users/FormModal";
-import { useContext } from "react";
-import { AuthContext } from "../../context/AuthContext"
 import { API } from "../../api/axios";
 import { toast } from "react-toastify"
 import { useEffect } from "react";
-import Loader from "../../components/Loader";
 import DeleteModal from "../../components/users/DeleteModal";
 import { useNavigate } from "react-router-dom";
+import DataLoader from "../../components/DataLoader";
 
 const Users = () => {
 
@@ -31,7 +29,7 @@ const Users = () => {
     // =========================
     // STATES
     // =========================
-    const { loading, setLoading } = useContext(AuthContext)
+    const [dataLoading, setDataLoading] = useState(true)
 
     const [search, setSearch] = useState("");
     const [showModal, setShowModal] = useState(false);
@@ -39,6 +37,7 @@ const Users = () => {
     const [deleteId, setDeleteId] = useState(null)
     const [isEdit, setIsEdit] = useState(false)
     const [editId, setEditId] = useState(null)
+    const [roles, setRoles] = useState([])
 
     const [users, setUsers] = useState([])
 
@@ -83,7 +82,7 @@ const Users = () => {
     // ADD USER
     // =========================
 
-    const handleAddUserModal = (user) => {
+    const handleAddUserModal = () => {
         setFormData(
             { firstName: "", lastName: "", email: "", phone: "", role: "", }
         )
@@ -97,18 +96,17 @@ const Users = () => {
         e.preventDefault();
 
         try {
-            setLoading(true)
+            setDataLoading(true)
             const res = await API.post("/admin/user", formData)
             await getAllUsers()
             toast.success(res.data.message)
-            console.log(res.data)
+            setShowModal(false)
         }
         catch (error) {
             toast.error(error?.response?.data?.message)
         }
         finally {
-            setLoading(false)
-            setShowModal(false);
+            setDataLoading(false)
         }
     };
 
@@ -124,7 +122,7 @@ const Users = () => {
 
     const handleDeleteUser = async () => {
         try {
-            setLoading(true)
+            setDataLoading(true)
             const res = await API.delete(`/admin/user/${deleteId}`)
             await getAllUsers()
             toast.success(res.data.message)
@@ -133,7 +131,7 @@ const Users = () => {
             toast.error(error?.response?.data.message)
         }
         finally {
-            setLoading(false)
+            setDataLoading(false)
             setShowDeleteModal(false);
         }
     }
@@ -151,6 +149,9 @@ const Users = () => {
         catch (error) {
             console.log(error)
         }
+        finally {
+            setDataLoading(false)
+        }
     }
 
     // =========================
@@ -159,7 +160,7 @@ const Users = () => {
 
     const changeStatus = async (email, status) => {
         try {
-            setLoading(true)
+            setDataLoading(true)
             const res = await API.patch("/admin/user/status", { email, status })
             await getAllUsers()
             toast.success(res.data.message)
@@ -168,7 +169,7 @@ const Users = () => {
             toast.error(error?.response?.data?.message)
         }
         finally {
-            setLoading(false)
+            setDataLoading(false)
         }
     }
 
@@ -186,7 +187,7 @@ const Users = () => {
             lastName: user.lastName,
             email: user.email,
             phone: user.phone,
-            role: "",
+            role: user.role,
         })
         setIsEdit(true)
         setEditId(user._id)
@@ -197,7 +198,7 @@ const Users = () => {
         e.preventDefault();
 
         try {
-            setLoading(true)
+            setDataLoading(true)
             const res = await API.put(`/admin/user/${editId}`, formData)
             await getAllUsers()
             toast.success(res.data.message)
@@ -206,21 +207,31 @@ const Users = () => {
             toast.error(error?.response?.data?.message)
         }
         finally {
-            setLoading(false)
+            setDataLoading(false)
             setShowModal(false);
         }
     }
 
-
+    const getAllRoles = async () => {
+        try {
+            const res = await API.get("admin/role")
+            setRoles(res.data.roles)
+        }
+        catch (error) {
+            toast.error(error?.response?.data?.message)
+        }
+        finally {
+            setDataLoading(false)
+        }
+    }
 
     useEffect(() => {
         getAllUsers()
+        getAllRoles()
     }, [])
 
-    if (loading) {
-        return (
-            <Loader />
-        )
+    if (dataLoading) {
+        return <DataLoader />
     }
 
     return (
@@ -809,7 +820,7 @@ const Users = () => {
 
                 <FormModal setShowModal={setShowModal} handleAddUser={handleAddUser}
                     handleChange={handleChange} formData={formData} isEdit={isEdit}
-                    editId={editId} handleEditUser={handleEditUser} />
+                    editId={editId} handleEditUser={handleEditUser} roles={roles} />
 
             )}
 

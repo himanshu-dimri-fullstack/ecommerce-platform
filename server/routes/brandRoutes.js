@@ -9,12 +9,13 @@ import {
     deleteBrand
 } from "../controllers/brandController.js";
 import { Auth } from "../middlewares/Auth.js";
+import { Permission } from "../middlewares/Permission.js";
 
 const router = express.Router();
 
 router.get("/admin/brands", Auth, getBrands);
 
-router.post("/admin/brands", Auth, createBrand);
+router.post("/admin/brands", Auth, Permission("brands:add"), createBrand);
 
 router.put("/admin/brands/:id", Auth, updateBrand);
 

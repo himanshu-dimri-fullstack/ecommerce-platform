@@ -53,18 +53,6 @@ const DeleteModal = ({
                         action cannot be undone, and the brand will be
                         permanently removed.
                     </p>
-
-                    <div className="mt-5 flex items-start gap-3 rounded-xl border border-red-100 bg-red-50 p-3 text-left">
-                        <FiAlertTriangle
-                            size={19}
-                            className="mt-0.5 shrink-0 text-red-500"
-                        />
-
-                        <p className="text-xs leading-5 text-red-700">
-                            Please make sure you want to continue before
-                            deleting this brand.
-                        </p>
-                    </div>
                 </div>
 
                 {/* FOOTER BUTTONS */}

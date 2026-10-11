@@ -12,20 +12,18 @@ import {
 } from "react-icons/fi";
 import { API } from "../../api/axios";
 import { useState, useEffect } from "react";
+import DataLoader from "../../components/DataLoader";
 
 const BrandDetail = () => {
     const { id } = useParams();
 
     const [brand, setBrand] = useState({});
-    const [loading, setLoading] = useState(true);
+    const [dataLoading, setDataLoading] = useState(true)
 
     useEffect(() => {
         const fetchBrand = async () => {
             try {
-                setLoading(true);
-
                 const res = await API.get(`/admin/brands/${id}`);
-
                 setBrand(res.data.brand || {});
             } catch (error) {
                 console.error(
@@ -33,7 +31,7 @@ const BrandDetail = () => {
                     error.response?.data || error.message
                 );
             } finally {
-                setLoading(false);
+                setDataLoading(false);
             }
         };
 
@@ -54,17 +52,8 @@ const BrandDetail = () => {
             : parsedDate.toLocaleDateString();
     };
 
-    if (loading) {
-        return (
-            <div className="flex min-h-screen items-center justify-center bg-gray-50">
-                <div className="flex flex-col items-center gap-3">
-                    <div className="h-10 w-10 animate-spin rounded-full border-4 border-gray-200 border-t-[#003963]" />
-                    <p className="text-sm font-medium text-gray-500">
-                        Loading brand details...
-                    </p>
-                </div>
-            </div>
-        );
+    if (dataLoading) {
+        return <DataLoader />
     }
 
     if (!brand._id) {

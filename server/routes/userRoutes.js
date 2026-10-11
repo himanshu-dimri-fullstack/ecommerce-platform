@@ -1,10 +1,8 @@
 import express from "express";
 import {
-    signup, verifyEmail, verifyOTP, login, logout, resetPassword, createUser,
-    getAllUsers, changeUserStatus, deleteUser, getUserDetail, updateUser
+    signup, verifyEmail, verifyOTP, login, logout, resetPassword,
 } from "../controllers/userController.js"
 import jwt from "jsonwebtoken"
-import { Auth } from "../middlewares/Auth.js";
 
 
 const router = express.Router()
@@ -33,13 +31,5 @@ router.get("/admin/check-user", async (req, res) => {
     }
 })
 
-{/* ================= USER CRUD ================= */ }
-
-router.post("/admin/user", Auth, createUser)
-router.put("/admin/user/:id", Auth, updateUser)
-router.get("/admin/user", Auth, getAllUsers)
-router.get("/admin/user/:id", Auth, getUserDetail)
-router.patch("/admin/user/status", Auth, changeUserStatus)
-router.delete("/admin/user/:id", Auth, deleteUser)
 
 export default router

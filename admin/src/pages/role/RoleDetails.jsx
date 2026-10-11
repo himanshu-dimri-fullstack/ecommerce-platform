@@ -13,12 +13,13 @@ import {
 } from "react-icons/fi";
 import { API } from "../../api/axios";
 import { useState, useEffect } from "react";
+import DataLoader from "../../components/DataLoader";
 
 const RoleDetail = () => {
     const { id } = useParams();
 
     const [role, setRole] = useState({});
-    const [loading, setLoading] = useState(true);
+    const [dataLoading, setDataLoading] = useState(true)
 
     useEffect(() => {
         const fetchRole = async () => {
@@ -28,7 +29,7 @@ const RoleDetail = () => {
             } catch (error) {
                 console.error("Error fetching role:", error);
             } finally {
-                setLoading(false);
+                setDataLoading(false);
             }
         };
 
@@ -53,12 +54,8 @@ const RoleDetail = () => {
         });
     };
 
-    if (loading) {
-        return (
-            <div className="flex min-h-[60vh] items-center justify-center bg-gray-50">
-                <div className="h-10 w-10 animate-spin rounded-full border-4 border-gray-200 border-t-[#003963]" />
-            </div>
-        );
+    if (dataLoading) {
+        return <DataLoader />
     }
 
     return (

@@ -1,4 +1,5 @@
 import Role from "../models/Role.js";
+import { handleResponseError } from "../utils/errorUtils.js"
 
 // ===============================
 // GET ALL ROLES
@@ -6,15 +7,9 @@ import Role from "../models/Role.js";
 export const getRoles = async (req, res) => {
     try {
         const roles = await Role.find().sort({ createdAt: -1 });
-        res.status(200).json({
-            success: true,
-            roles,
-        });
+        res.status(200).json({ roles })
     } catch (error) {
-        console.log("Get Roles Error:", error);
-
         res.status(500).json({
-            success: false,
             message: "Failed to fetch roles",
         });
     }
@@ -32,25 +27,19 @@ export const createRole = async (req, res) => {
             return res.status(400).json({ message: "Name is required" })
         }
         if (!permissions) {
-            return res.status(400).json({ message: "Name is required" })
+            return res.status(400).json({ message: "Permissions are required" })
         }
 
-        const role = await Role.create({
+        await Role.create({
             name,
             permissions
         });
 
         res.status(201).json({
             message: "Role created successfully",
-            role
         });
     } catch (error) {
-        console.log("Create Role Error:", error);
-
-        res.status(500).json({
-            success: false,
-            message: "Failed to create role",
-        });
+        return handleResponseError(error, res)
     }
 };
 
@@ -64,9 +53,8 @@ export const updateRole = async (req, res) => {
         console.log(id)
         const { name, permissions } = req.body;
 
-        if (!name?.trim()) {
+        if (!name) {
             return res.status(400).json({
-                success: false,
                 message: "Role name is required",
             });
         }
@@ -110,12 +98,7 @@ export const updateRole = async (req, res) => {
             role,
         });
     } catch (error) {
-        console.log("Update Role Error:", error);
-
-        res.status(500).json({
-            success: false,
-            message: "Failed to update role",
-        });
+        return handleResponseError(error, res)
     }
 };
 

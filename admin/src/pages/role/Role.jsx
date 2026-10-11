@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
     FiSearch,
     FiPlus,
@@ -12,15 +12,14 @@ import {
 import { toast } from "react-toastify";
 import { API } from "../../api/axios";
 import FormModal from "../../components/role/FormModal";
-import { AuthContext } from "../../context/AuthContext";
 import DeleteModal from "../../components/role/DeleteModal";
-import Loader from "../../components/Loader";
 import { useNavigate } from "react-router-dom";
+import DataLoader from "../../components/DataLoader";
 
 const Role = () => {
 
     const navigate = useNavigate()
-    const { loading, setLoading } = useContext(AuthContext);
+    const [dataLoading, setDataLoading] = useState(true)
 
     const [roles, setRoles] = useState([]);
     const [search, setSearch] = useState("");
@@ -47,6 +46,9 @@ const Role = () => {
                 error.response?.data?.message ||
                 "Failed to fetch roles"
             );
+        }
+        finally {
+            setDataLoading(false)
         }
     };
 
@@ -118,7 +120,7 @@ const Role = () => {
                 toast.error("Role name is required");
                 return;
             }
-            setLoading(true)
+            setDataLoading(true)
             const { data } = await API.post(
                 "/admin/role",
                 formData
@@ -133,12 +135,11 @@ const Role = () => {
         } catch (error) {
             console.log(error);
             toast.error(
-                error.response?.data?.message ||
-                "Failed to create role"
+                error.response?.data?.message
             );
         }
         finally {
-            setLoading(false)
+            setDataLoading(false)
         }
     };
 
@@ -164,6 +165,8 @@ const Role = () => {
                 name: formData.name.trim(),
                 permissions: formData.permissions || [],
             };
+
+            setDataLoading(true)
 
             const { data } = await API.put(
                 `/admin/role/${editId}`,
@@ -196,6 +199,9 @@ const Role = () => {
                 "Failed to update role"
             );
         }
+        finally {
+            setDataLoading(false)
+        }
     };
 
     // =========================
@@ -205,7 +211,7 @@ const Role = () => {
     const handleDeleteRole = async () => {
 
         try {
-            setLoading(true)
+            setDataLoading(true)
             const res = await API.delete(
                 `/admin/role/${deleteId}`
             );
@@ -221,7 +227,7 @@ const Role = () => {
         }
         finally {
             setShowDeleteModal(false)
-            setLoading(false)
+            setDataLoading(false)
         }
     };
 
@@ -238,7 +244,7 @@ const Role = () => {
 
     const handleStatus = async (id) => {
         try {
-            setLoading(true)
+            setDataLoading(true)
             const res = await API.patch(
                 `/admin/role/status/${id}`
             );
@@ -249,7 +255,7 @@ const Role = () => {
             toast.error(error.response?.data?.message)
         }
         finally {
-            setLoading(false)
+            setDataLoading(false)
         }
     };
 
@@ -302,8 +308,8 @@ const Role = () => {
         navigate(`/admin/roles/${id}`)
     }
 
-    if (loading) {
-        return <Loader />;
+    if (dataLoading) {
+        return <DataLoader />
     }
 
     return (

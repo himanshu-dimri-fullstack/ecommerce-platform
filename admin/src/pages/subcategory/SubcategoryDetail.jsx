@@ -12,10 +12,12 @@ import {
 } from "react-icons/fi";
 import { API } from "../../api/axios";
 import { useState, useEffect } from "react";
+import DataLoader from "../../components/DataLoader";
 
 const SubcategoryDetail = () => {
     const { id } = useParams();
 
+    const [dataLoading, setDataLoading] = useState(true)
     const [subcategory, setSubcategory] = useState({});
 
     useEffect(() => {
@@ -27,6 +29,9 @@ const SubcategoryDetail = () => {
             } catch (error) {
                 console.log(error);
             }
+            finally {
+                setDataLoading(false)
+            }
         };
 
         fetchSubcategory();
@@ -36,6 +41,11 @@ const SubcategoryDetail = () => {
         typeof subcategory.category === "object"
             ? subcategory.category
             : null;
+
+
+    if (dataLoading) {
+        return <DataLoader />
+    }
 
     return (
         <div className="min-h-screen bg-gray-50 p-4 md:p-6">

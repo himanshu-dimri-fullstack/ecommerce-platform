@@ -10,19 +10,23 @@ import {
 } from "react-icons/fi";
 import { API } from "../../api/axios";
 import { useState, useEffect } from "react";
+import DataLoader from "../../components/DataLoader";
 
 const UserDetail = () => {
     const { id } = useParams();
+    const [dataLoading, setDataLoading] = useState(true)
 
     const [user, setUser] = useState({});
-
     useEffect(() => {
         const fetchUser = async () => {
             try {
                 const res = await API.get(`/admin/user/${id}`);
                 setUser(res.data.user);
             } catch (error) {
-                console.log(error);
+                toast.error(error?.response?.data?.message)
+            }
+            finally {
+                setDataLoading(false)
             }
         };
 
@@ -33,6 +37,10 @@ const UserDetail = () => {
         `${user?.firstName || ""} ${user?.lastName || ""}`.trim() || "N/A";
 
     const status = user?.status || "inactive";
+
+    if (dataLoading) {
+        return <DataLoader />
+    }
 
     return (
         <div className="min-h-screen bg-gray-50 p-4 md:p-6">

@@ -6,10 +6,11 @@ import categoryRoutes from "./routes/categoryRoutes.js"
 import subcategoryRoutes from "./routes/subcategoryRoutes.js"
 import roleRoutes from "./routes/roleRoutes.js"
 import brandRoutes from "./routes/brandRoutes.js"
+import adminRoutes from "./routes/adminRoutes.js"
 import dotenv from "dotenv"
 import cookieParser from "cookie-parser"
 import filupload from "express-fileupload"
-
+import dashboardRoutes from "./routes/dashboardRoutes.js"
 
 dotenv.config()
 
@@ -34,6 +35,8 @@ app.use("/api", categoryRoutes)
 app.use("/api", subcategoryRoutes)
 app.use("/api", roleRoutes)
 app.use("/api", brandRoutes)
+app.use("/api", adminRoutes)
+app.use("/api", dashboardRoutes)
 
 app.listen(8000, () => {
     console.log("server running on port 8000")

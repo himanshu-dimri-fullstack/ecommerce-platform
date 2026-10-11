@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
     FiSearch,
     FiPlus,
@@ -11,16 +11,14 @@ import {
 } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
-
-import { AuthContext } from "../../context/AuthContext";
 import { API } from "../../api/axios";
-import Loader from "../../components/Loader";
 import DeleteModal from "../../components/brand/DeleteModal";
 import FormModal from "../../components/brand/FormModal";
+import DataLoader from "../../components/DataLoader";
 
 const Brand = () => {
     const navigate = useNavigate();
-    const { loading, setLoading } = useContext(AuthContext);
+    const [dataLoading, setDataLoading] = useState(true)
 
     const [search, setSearch] = useState("");
     const [brands, setBrands] = useState([]);
@@ -90,6 +88,9 @@ const Brand = () => {
                 "Failed to fetch brands"
             );
         }
+        finally {
+            setDataLoading(false)
+        }
     };
 
     // =========================
@@ -123,7 +124,7 @@ const Brand = () => {
             finalFormData.append("description", formData.description);
             finalFormData.append("image", formData.image);
 
-            setLoading(true);
+            setDataLoading(true);
 
             const res = await API.post(
                 "/admin/brands",
@@ -135,7 +136,7 @@ const Brand = () => {
             toast.error(
                 error?.response?.data?.message)
         } finally {
-            setLoading(false)
+            setDataLoading(false)
             setShowModal(false)
         }
     };
@@ -171,7 +172,7 @@ const Brand = () => {
             finalFormData.append("description", formData.description)
             finalFormData.append("image", formData.image)
 
-            setLoading(true)
+            setDataLoading(true)
 
             const res = await API.put(
                 `/admin/brands/${editId}`,
@@ -185,7 +186,7 @@ const Brand = () => {
         } catch (error) {
             toast.error(error?.response?.data?.message)
         } finally {
-            setLoading(false)
+            setDataLoading(false)
             setShowModal(false)
         }
     };
@@ -205,7 +206,7 @@ const Brand = () => {
 
     const handleDeleteBrand = async () => {
         try {
-            setLoading(true);
+            setDataLoading(true);
 
             const res = await API.delete(
                 `/admin/brands/${deleteId}`
@@ -219,7 +220,7 @@ const Brand = () => {
             toast.error(
                 error?.response?.data?.message)
         } finally {
-            setLoading(false);
+            setDataLoading(false);
             setShowDeleteModal(false);
             setDeleteId(null);
         }
@@ -231,7 +232,7 @@ const Brand = () => {
 
     const changeStatus = async (id) => {
         try {
-            setLoading(true)
+            setDataLoading(true)
 
             const res = await API.patch(
                 `/admin/brands/status/${id}`
@@ -247,7 +248,7 @@ const Brand = () => {
                 error?.response?.data?.message
             );
         } finally {
-            setLoading(false);
+            setDataLoading(false);
         }
     };
 
@@ -280,8 +281,8 @@ const Brand = () => {
         getAllBrands();
     }, []);
 
-    if (loading) {
-        return <Loader />;
+    if (dataLoading) {
+        return <DataLoader />
     }
 
     return (

@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
     FiSearch,
     FiPlus,
@@ -11,18 +11,17 @@ import {
 } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
-import { AuthContext } from "../../context/AuthContext";
 import { API } from "../../api/axios";
-import Loader from "../../components/Loader";
 import DeleteModal from "../../components/category/DeleteModal";
 import FormModal from "../../components/category/FormModal"
+import DataLoader from "../../components/DataLoader";
 
 
 const Category = () => {
 
     const navigate = useNavigate();
 
-    const { loading, setLoading } = useContext(AuthContext);
+    const [dataLoading, setDataLoading] = useState(true)
 
     // =========================
     // STATES
@@ -106,6 +105,9 @@ const Category = () => {
                 "Failed to fetch categories"
             );
         }
+        finally {
+            setDataLoading(false)
+        }
     };
 
     // =========================
@@ -138,7 +140,7 @@ const Category = () => {
             finalFormData.append("description", formData.description)
             finalFormData.append("image", formData.image)
 
-            setLoading(true);
+            setDataLoading(true);
 
             const res = await API.post(
                 "/admin/categories",
@@ -163,7 +165,7 @@ const Category = () => {
         }
         finally {
 
-            setLoading(false);
+            setDataLoading(false);
 
             setShowModal(false);
         }
@@ -195,7 +197,7 @@ const Category = () => {
 
         try {
 
-            setLoading(true);
+            setDataLoading(true);
 
             const res = await API.delete(
                 `/admin/categories/${deleteId}`
@@ -215,7 +217,7 @@ const Category = () => {
         }
         finally {
 
-            setLoading(false);
+            setDataLoading(false);
 
             setShowDeleteModal(false);
 
@@ -232,7 +234,7 @@ const Category = () => {
 
         try {
 
-            setLoading(true);
+            setDataLoading(true);
 
             const res = await API.patch(
                 "/admin/category/status",
@@ -256,7 +258,7 @@ const Category = () => {
         }
         finally {
 
-            setLoading(false);
+            setDataLoading(false);
         }
     };
 
@@ -292,7 +294,7 @@ const Category = () => {
         e.preventDefault();
 
         try {
-            setLoading(true);
+            setDataLoading(true);
             const finalFormData = new FormData()
             finalFormData.append("name", formData.name)
             finalFormData.append("description", formData.description)
@@ -318,7 +320,7 @@ const Category = () => {
             );
         }
         finally {
-            setLoading(false);
+            setDataLoading(false);
             setShowModal(false);
         }
     };
@@ -355,8 +357,8 @@ const Category = () => {
     }, []);
 
 
-    if (loading) {
-        return <Loader />;
+    if (dataLoading) {
+        return <DataLoader />
     }
 
 
