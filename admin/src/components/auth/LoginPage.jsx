@@ -373,7 +373,7 @@ const LoginPage = () => {
 
 
                     {/* Signup */}
-                    <p className="text-center text-sm text-slate-500 mt-8">
+                    {/* <p className="text-center text-sm text-slate-500 mt-8">
 
                         Don't have an account?
 
@@ -387,11 +387,10 @@ const LoginPage = () => {
                             Create Account
                         </Link>
 
-                    </p>
+                    </p> */}
 
                 </div>
             </div>
-
         </div>
     )
 }

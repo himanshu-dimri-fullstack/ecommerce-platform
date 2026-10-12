@@ -404,22 +404,18 @@ const Users = () => {
                             justify-center
                             gap-2
                             rounded-xl
-                            bg-[#003963]
+                           bg-linear-to-br from-[#064e3b] via-[#047857] to-[#022c22]
                             px-5
                             py-2.5
                             text-sm
                             font-semibold
                             text-white
                             transition
-                            hover:bg-[#002d4f]
                             active:scale-95
                         "
                     >
-
                         <FiPlus size={19} />
-
                         Add User
-
                     </button>
 
                 </div>
@@ -547,40 +543,35 @@ const Users = () => {
 
                                             <td className="px-6 py-4">
 
-                                                <span
-                                                    className={`
-                                    inline-flex
-                                    items-center
-                                    rounded-full
-                                    px-3
-                                    py-1
-                                    text-xs
-                                    font-semibold
-                                    ${user?.status === "active"
-                                                            ? "bg-green-50 text-green-600"
-                                                            : "bg-red-50 text-red-500"
+                                                <div className="group relative">
+
+                                                    <button
+                                                        type="button"
+                                                        onClick={() =>
+                                                            changeStatus(
+                                                                user?.email,
+                                                                user?.status
+                                                            )
                                                         }
-                                `}
-                                                >
-
-                                                    <span
                                                         className={`
-                                        mr-2
-                                        h-1.5
-                                        w-1.5
-                                        rounded-full
-                                        ${user?.status === "active"
-                                                                ? "bg-green-500"
-                                                                : "bg-red-500"
+                                            rounded-lg
+                                            p-2
+                                            transition
+                                            ${user?.status === "active"
+                                                                ? "text-green-500 text-sm bg-green-100"
+                                                                : "text-red-600 text-sm bg-red-100"
                                                             }
-                                    `}
-                                                    />
+                                        `}
+                                                    >
+                                                        {user?.status === "active" ? (
+                                                            "active"
+                                                        ) : (
+                                                            "inactive"
+                                                        )}
 
-                                                    {user?.status === "active"
-                                                        ? "Active"
-                                                        : "Inactive"}
+                                                    </button>
 
-                                                </span>
+                                                </div>
 
                                             </td>
 
@@ -674,7 +665,7 @@ const Users = () => {
 
                                                     {/* STATUS */}
 
-                                                    <div className="group relative">
+                                                    {/* <div className="group relative">
 
                                                         <button
                                                             type="button"
@@ -723,7 +714,7 @@ const Users = () => {
                                                                 : "Active"}
                                                         </span>
 
-                                                    </div>
+                                                    </div> */}
 
 
                                                     {/* DELETE */}

@@ -130,6 +130,7 @@ const Brand = () => {
                 "/admin/brands",
                 finalFormData
             );
+
             await getAllBrands();
             toast.success(res.data.message)
         } catch (error) {
@@ -397,9 +398,9 @@ const Brand = () => {
                         onClick={handleAddBrandModal}
                         className="
                             flex items-center justify-center gap-2
-                            rounded-xl bg-[#003963] px-5 py-2.5
+                            rounded-xl  bg-linear-to-br from-[#064e3b] via-[#047857] to-[#022c22] px-5 py-2.5
                             text-sm font-semibold text-white
-                            transition hover:bg-[#002d4f] active:scale-95
+                            transition active:scale-95
                         "
                     >
                         <FiPlus size={19} />
@@ -481,30 +482,30 @@ const Brand = () => {
                                         {/* STATUS */}
 
                                         <td className="px-6 py-4">
-                                            <span
+                                            <button
+                                                type="button"
+                                                onClick={() =>
+                                                    changeStatus(
+                                                        brand._id
+                                                    )
+                                                }
                                                 className={`
-                                                    inline-flex items-center rounded-full
-                                                    px-3 py-1 text-xs font-semibold
-                                                    ${brand.status === "active"
-                                                        ? "bg-green-50 text-green-600"
-                                                        : "bg-red-50 text-red-500"
+                                            rounded-lg
+                                            p-2
+                                            transition
+                                            ${brand?.status === "active"
+                                                        ? "text-green-500 text-sm bg-green-100"
+                                                        : "text-red-600 text-sm bg-red-100"
                                                     }
-                                                `}
+                                        `}
                                             >
-                                                <span
-                                                    className={`
-                                                        mr-2 h-1.5 w-1.5 rounded-full
-                                                        ${brand.status === "active"
-                                                            ? "bg-green-500"
-                                                            : "bg-red-500"
-                                                        }
-                                                    `}
-                                                />
+                                                {brand?.status === "active" ? (
+                                                    "active"
+                                                ) : (
+                                                    "inactive"
+                                                )}
 
-                                                {brand.status === "active"
-                                                    ? "Active"
-                                                    : "Inactive"}
-                                            </span>
+                                            </button>
                                         </td>
 
                                         {/* ACTIONS */}
@@ -547,39 +548,6 @@ const Brand = () => {
 
                                                     <span className="pointer-events-none absolute bottom-full left-1/2 mb-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-800 px-2 py-1 text-xs text-white opacity-0 transition group-hover:opacity-100">
                                                         Edit
-                                                    </span>
-                                                </div>
-
-                                                {/* STATUS */}
-
-                                                <div className="group relative">
-                                                    <button
-                                                        type="button"
-                                                        onClick={() =>
-                                                            changeStatus(
-                                                                brand._id
-                                                            )
-                                                        }
-                                                        aria-label="Change brand status"
-                                                        className={`
-                                                            rounded-lg p-2 transition
-                                                            ${brand.status === "active"
-                                                                ? "text-orange-500 hover:bg-orange-50"
-                                                                : "text-green-600 hover:bg-green-50"
-                                                            }
-                                                        `}
-                                                    >
-                                                        {brand.status === "active" ? (
-                                                            <FiXCircle size={18} />
-                                                        ) : (
-                                                            <FiCheckCircle size={18} />
-                                                        )}
-                                                    </button>
-
-                                                    <span className="pointer-events-none absolute bottom-full left-1/2 mb-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-800 px-2 py-1 text-xs text-white opacity-0 transition group-hover:opacity-100">
-                                                        {brand.status === "active"
-                                                            ? "Deactivate"
-                                                            : "Activate"}
                                                     </span>
                                                 </div>
 

@@ -16,10 +16,12 @@ import SubcategoryDetail from "./pages/subcategory/SubcategoryDetail"
 import Brand from "./pages/brand/Brand"
 import RoleDetail from "./pages/role/RoleDetails"
 import BrandDetail from "./pages/brand/BrandDetail"
+import ScrollToTop from "./components/ScrollToTop"
 
 const App = () => {
   return (
     <>
+      <ScrollToTop />
       <Routes>
         <Route path="/" element={<Login />} />
         <Route path="/signup" element={<Signup />} />

@@ -581,14 +581,13 @@ const Subcategory = () => {
                             justify-center
                             gap-2
                             rounded-xl
-                            bg-[#003963]
+                            bg-linear-to-br from-[#064e3b] via-[#047857] to-[#022c22]
                             px-5
                             py-2.5
                             text-sm
                             font-semibold
                             text-white
                             transition
-                            hover:bg-[#002d4f]
                             active:scale-95
                         "
                     >
@@ -720,40 +719,31 @@ const Subcategory = () => {
 
                                         <td className="px-6 py-4">
 
-                                            <span
+                                            <button
+                                                type="button"
+                                                onClick={() =>
+                                                    changeStatus(
+                                                        subcategory._id,
+                                                        subcategory.status
+                                                    )
+                                                }
                                                 className={`
-                                                    inline-flex
-                                                    items-center
-                                                    rounded-full
-                                                    px-3
-                                                    py-1
-                                                    text-xs
-                                                    font-semibold
-                                                    ${subcategory.status === "active"
-                                                        ? "bg-green-50 text-green-600"
-                                                        : "bg-red-50 text-red-500"
+                                            rounded-lg
+                                            p-2
+                                            transition
+                                            ${subcategory?.status === "active"
+                                                        ? "text-green-500 text-sm bg-green-100"
+                                                        : "text-red-600 text-sm bg-red-100"
                                                     }
-                                                `}
+                                        `}
                                             >
+                                                {subcategory?.status === "active" ? (
+                                                    "active"
+                                                ) : (
+                                                    "inactive"
+                                                )}
 
-                                                <span
-                                                    className={`
-                                                        mr-2
-                                                        h-1.5
-                                                        w-1.5
-                                                        rounded-full
-                                                        ${subcategory.status === "active"
-                                                            ? "bg-green-500"
-                                                            : "bg-red-500"
-                                                        }
-                                                    `}
-                                                />
-
-                                                {subcategory.status === "active"
-                                                    ? "Active"
-                                                    : "Inactive"}
-
-                                            </span>
+                                            </button>
 
                                         </td>
 
@@ -820,47 +810,6 @@ const Subcategory = () => {
 
                                                     <span className="pointer-events-none absolute bottom-full left-1/2 mb-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-800 px-2 py-1 text-xs text-white opacity-0 transition group-hover:opacity-100">
                                                         Edit
-                                                    </span>
-
-                                                </div>
-
-
-                                                {/* STATUS */}
-
-                                                <div className="group relative">
-
-                                                    <button
-                                                        onClick={() =>
-                                                            changeStatus(
-                                                                subcategory._id,
-                                                                subcategory.status
-                                                            )
-                                                        }
-                                                        className={`
-                                                            rounded-lg
-                                                            p-2
-                                                            transition
-                                                            ${subcategory.status === "active"
-                                                                ? "text-orange-500 hover:bg-orange-50"
-                                                                : "text-green-600 hover:bg-green-50"
-                                                            }
-                                                        `}
-                                                    >
-
-                                                        {subcategory.status === "active" ? (
-                                                            <FiXCircle size={18} />
-                                                        ) : (
-                                                            <FiCheckCircle size={18} />
-                                                        )}
-
-                                                    </button>
-
-                                                    <span className="pointer-events-none absolute bottom-full left-1/2 mb-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-800 px-2 py-1 text-xs text-white opacity-0 transition group-hover:opacity-100">
-
-                                                        {subcategory.status === "active"
-                                                            ? "Inactive"
-                                                            : "Active"}
-
                                                     </span>
 
                                                 </div>

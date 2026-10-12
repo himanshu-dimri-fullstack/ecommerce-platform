@@ -154,3 +154,22 @@ export const deleteSubcategoryById = async (req, res) => {
         return res.status(400).json({ message: error.message })
     }
 }
+
+export const changeSubcategoryStatus = async (req, res) => {
+    try {
+        const { id, status } = req.body
+        if (!id) {
+            return res.status(400).json({ message: "Subcategory Id is required" })
+        }
+        if (status == "active") {
+            await Subcategory.updateOne({ _id: id }, { status: "inactive" })
+        }
+        else {
+            await Subcategory.updateOne({ _id: id }, { status: "active" })
+        }
+        return res.status(200).json({ message: "Status changes successfully" })
+    }
+    catch (error) {
+        return res.status(500).json({ message: error.message })
+    }
+}

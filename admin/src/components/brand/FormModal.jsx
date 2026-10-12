@@ -315,10 +315,9 @@ const FormModal = ({
                         form="brand-form"
                         className="
                             flex items-center gap-2
-                            rounded-xl bg-[#003963]
+                            rounded-xl  bg-linear-to-br from-[#064e3b] via-[#047857] to-[#022c22]
                             px-5 py-2.5 text-sm font-semibold
                             text-white transition
-                            hover:bg-[#002d4f]
                         "
                     >
                         {isEdit ? (

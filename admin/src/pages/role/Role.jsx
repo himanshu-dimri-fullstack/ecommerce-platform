@@ -450,11 +450,10 @@ const Role = () => {
                         className="
                         flex items-center justify-center gap-2
                         rounded-lg
-                        bg-[#003963]
+                        bg-linear-to-br from-[#064e3b] via-[#047857] to-[#022c22]
                         px-5 py-3
                         text-sm font-semibold text-white
                         transition
-                        hover:bg-[#002d4f]
                     "
                     >
                         <FiPlus size={18} />
