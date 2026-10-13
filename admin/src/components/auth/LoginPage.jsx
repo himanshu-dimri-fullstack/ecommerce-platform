@@ -1,13 +1,21 @@
-import { useContext, useState } from "react"
-import { useNavigate } from "react-router-dom"
+import { useState, useEffect } from "react"
+import { Navigate, useNavigate } from "react-router-dom"
 import { toast } from "react-toastify"
 import { Link } from "react-router-dom"
 import { API } from "../../api/axios"
-import { AuthContext } from "../../context/AuthContext"
+import { useDispatch, useSelector } from "react-redux";
+import { fetchUser } from "../../redux/AuthSlice.js";
+import { setUser, setLoading } from "../../redux/AuthSlice.js"
+import Loader from "../Loader.jsx"
 
 const LoginPage = () => {
-    const { setUser, loading, setLoading } = useContext(AuthContext)
+
     const navigate = useNavigate()
+    const dispatch = useDispatch()
+
+    const user = useSelector((store) => store.auth.user)
+    const loading = useSelector((store) => store.auth.loading)
+
     const [form, setForm] = useState({
         email: "",
         password: ""
@@ -46,7 +54,7 @@ const LoginPage = () => {
             })
             setLoading(false)
             toast.success(res?.data?.message)
-            setUser(res.data.message)
+            setUser(res.data.user)
             navigate("/admin/dashboard", { replace: true })
         }
         catch (error) {
@@ -59,118 +67,18 @@ const LoginPage = () => {
         }
     }
 
+    useEffect(() => {
+        dispatch(fetchUser())
+    }, [])
+
     if (loading) {
         return (
-            <div className="min-h-screen w-full flex bg-slate-950">
-
-                {/* LEFT */}
-                <div className="hidden md:flex md:w-1/2 relative overflow-hidden 
-                bg-linear-to-br from-[#064e3b] via-[#047857] to-[#022c22] 
-                items-center justify-center p-12 text-white">
-
-                    <div className="absolute -top-32 -left-32 w-96 h-96 
-                    bg-emerald-400/20 rounded-full blur-3xl" />
-
-                    <div className="absolute -bottom-32 -right-32 w-96 h-96 
-                    bg-green-300/10 rounded-full blur-3xl" />
-
-                    <div className="relative z-10 max-w-lg">
-
-                        <div className="w-14 h-14 rounded-2xl 
-                        bg-white/10 backdrop-blur-md 
-                        border border-white/20 
-                        flex items-center justify-center mb-6">
-
-                            <span className="text-2xl font-bold text-emerald-300">
-                                S
-                            </span>
-
-                        </div>
-
-                        <p className="text-emerald-300 font-semibold 
-                        tracking-widest uppercase text-sm mb-4">
-                            Secure Login
-                        </p>
-
-                        <h1 className="text-4xl lg:text-5xl font-bold leading-tight">
-                            Welcome
-                            <span className="block text-emerald-300">
-                                back.
-                            </span>
-                        </h1>
-
-                        <p className="text-slate-200/80 text-lg leading-8 mt-6">
-                            We're securely signing you in.
-                            Please wait a moment.
-                        </p>
-
-                    </div>
-                </div>
-
-
-                {/* RIGHT */}
-                <div className="w-full md:w-1/2 bg-slate-50 
-                flex items-center justify-center">
-
-                    <div className="flex flex-col items-center">
-
-                        {/* Animated Loader */}
-                        <div className="relative flex items-center justify-center">
-
-                            {/* Outer pulse */}
-                            <div className="absolute h-24 w-24 rounded-full 
-                            bg-emerald-500/10 animate-ping" />
-
-                            {/* Spinner */}
-                            <div className="h-16 w-16 rounded-full 
-                            border-4 border-slate-200 
-                            border-t-emerald-600 
-                            animate-spin" />
-
-                            {/* Center */}
-                            <div className="absolute h-8 w-8 rounded-full 
-                            bg-emerald-600 
-                            flex items-center justify-center">
-
-                                <span className="text-white text-sm font-bold">
-                                    S
-                                </span>
-
-                            </div>
-
-                        </div>
-
-
-                        {/* Text */}
-                        <p className="mt-7 text-base font-semibold text-slate-700">
-                            Signing you in
-                        </p>
-
-                        <p className="mt-1 text-sm text-slate-400">
-                            Please wait while we securely authenticate you
-                        </p>
-
-
-                        {/* Animated dots */}
-                        <div className="flex gap-1.5 mt-4">
-
-                            <span className="h-1.5 w-1.5 rounded-full 
-                            bg-emerald-600 animate-bounce" />
-
-                            <span className="h-1.5 w-1.5 rounded-full 
-                            bg-emerald-600 animate-bounce [animation-delay:150ms]" />
-
-                            <span className="h-1.5 w-1.5 rounded-full 
-                            bg-emerald-600 animate-bounce [animation-delay:300ms]" />
-
-                        </div>
-
-                    </div>
-
-                </div>
-
-            </div>
+            <Loader />
         )
+    }
+
+    if (user) {
+        return <Navigate to="/admin/dashboard" replace />
     }
 
 

@@ -1,5 +1,5 @@
-import React, { useContext, useState } from "react";
-import { Outlet, NavLink, Navigate, useLocation } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Outlet, NavLink, Navigate, useLocation, replace, useNavigate } from "react-router-dom";
 
 import {
     FiMenu,
@@ -19,14 +19,19 @@ import {
     FiAward,
 } from "react-icons/fi";
 
-import { AuthContext } from "./context/AuthContext";
 import { API } from "./api/axios";
 import Loader from "./components/Loader";
 import LogoutModal from "./components/LogoutModal";
+import { useDispatch, useSelector } from "react-redux";
+import { fetchUser } from "./redux/AuthSlice.js";
+import { setUser, setLoading } from "./redux/AuthSlice.js"
 
 const AdminLayout = () => {
-    const { user, setUser, loading } = useContext(AuthContext);
-    const location = useLocation();
+    const navigate = useNavigate()
+    const location = useLocation()
+    const dispatch = useDispatch()
+    const user = useSelector((store) => store.auth.user)
+    const loading = useSelector((store) => store.auth.loading)
 
     const [showLogoutModal, setShowLogoutModal] = useState(false);
     const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -54,17 +59,27 @@ const AdminLayout = () => {
 
     const handleLogout = async () => {
         try {
+            setLoading(true)
             await API.post("/admin/logout");
             setShowLogoutModal(false);
             setUser(null);
+            navigate("/", { replace: true })
         } catch (error) {
             console.error("Logout failed:", error);
         }
+        finally {
+            setLoading(false)
+        }
     };
+
+    useEffect(() => {
+        dispatch(fetchUser())
+    }, [])
 
     if (loading) return <Loader />;
 
     if (!user) return <Navigate to="/" replace />;
+
 
     return (
         <div className="min-h-screen bg-slate-100">

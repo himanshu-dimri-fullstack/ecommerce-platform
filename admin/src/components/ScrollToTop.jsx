@@ -48,10 +48,10 @@ const ScrollToTop = () => {
             className={`
                 fixed bottom-6 right-6 z-50
                 flex h-12 w-12 items-center justify-center
-                rounded-full bg-[#003963] text-white
+                rounded-full bg-linear-to-br from-[#064e3b] via-[#047857] to-[#022c22] text-white
                 shadow-lg shadow-blue-900/20
                 transition-all duration-300
-                hover:-translate-y-1 hover:bg-[#00518a]
+                hover:-translate-y-1
                 focus:outline-none focus:ring-4
                 focus:ring-blue-300
                 ${isVisible

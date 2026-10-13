@@ -21,3 +21,13 @@ export const uploadFile = async (path, folder) => {
         console.log(error)
     }
 }
+
+export const destroyFile = async (public_id) => {
+    try {
+        const result = await cloudinary.uploader.destroy(public_id)
+        return result
+    }
+    catch (error) {
+        return error
+    }
+}
