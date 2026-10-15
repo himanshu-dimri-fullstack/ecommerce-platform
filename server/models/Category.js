@@ -29,7 +29,7 @@ const categorySchema = new mongoose.Schema(
         },
         status: {
             type: String,
-            required: true
+            default: "active"
         },
         isDeleted: {
             type: Boolean

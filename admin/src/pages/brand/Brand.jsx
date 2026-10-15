@@ -35,6 +35,7 @@ const Brand = () => {
         description: "",
         image: "",
     });
+    const [existingImage, setExistingImage] = useState(null)
 
     // =========================
     // STATISTICS
@@ -106,6 +107,7 @@ const Brand = () => {
             description: "",
             image: "",
         });
+        setExistingImage(null)
 
         setShowModal(true);
     };
@@ -153,8 +155,10 @@ const Brand = () => {
         setFormData({
             name: brand.name,
             description: brand.description,
-            image: brand.image?.url,
         });
+        if (brand.image) {
+            setExistingImage(brand.image?.url)
+        }
 
         setShowModal(true);
     };
@@ -171,7 +175,13 @@ const Brand = () => {
 
             finalFormData.append("name", formData.name)
             finalFormData.append("description", formData.description)
-            finalFormData.append("image", formData.image)
+            if (formData.image) {
+                finalFormData.append("image", formData.image)
+            }
+            else if (existingImage) {
+                finalFormData.append("existingImage", existingImage)
+            }
+
 
             setDataLoading(true)
 
@@ -610,6 +620,8 @@ const Brand = () => {
                     formData={formData}
                     handleChange={handleChange}
                     isEdit={isEdit}
+                    existingImage={existingImage}
+                    setExistingImage={setExistingImage}
                 />
             )}
 

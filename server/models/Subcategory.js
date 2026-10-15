@@ -31,7 +31,7 @@ const subCategorySchema = new mongoose.Schema(
         },
         status: {
             type: String,
-            required: true
+            default: "active"
         }
     },
     { timestamps: true }

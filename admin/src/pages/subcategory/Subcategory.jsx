@@ -11,9 +11,7 @@ import {
 } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
-import { AuthContext } from "../../context/AuthContext";
 import { API } from "../../api/axios";
-import Loader from "../../components/Loader";
 import DeleteModal from "../../components/subcategory/DeleteModal";
 import FormModal from "../../components/subcategory/FormModal";
 import DataLoader from "../../components/DataLoader";
@@ -47,6 +45,7 @@ const Subcategory = () => {
         description: "",
         image: ""
     });
+    const [existingImage, setExistingImage] = useState(null)
 
 
     // =========================
@@ -179,8 +178,12 @@ const Subcategory = () => {
             finalFormData.append("name", formData.name)
             finalFormData.append("description", formData.description)
             finalFormData.append("category", formData.category)
-            finalFormData.append("image", formData.image)
-
+            if (formData.image) {
+                finalFormData.append("image", formData.image)
+            }
+            else if (existingImage) {
+                finalFormData.append("existingImage", existingImage)
+            }
 
             const res = await API.put(
                 `/admin/subcategories/${editId}`,
@@ -319,10 +322,12 @@ const Subcategory = () => {
         setEditId(subcategory._id)
         setFormData({
             name: subcategory.name,
-            category: subcategory.category._id,
+            category: subcategory.category?._id,
             description: subcategory.description,
-            image: subcategory.image.url
         });
+        if (subcategory.image) {
+            setExistingImage(subcategory.image.url)
+        }
 
         setShowModal(true);
     };
@@ -340,6 +345,7 @@ const Subcategory = () => {
             description: "",
             image: ""
         });
+        setExistingImage(null)
 
         setShowModal(true);
     };
@@ -903,6 +909,9 @@ const Subcategory = () => {
                     handleEditSubcategory={handleEditSubcategory}
                     categories={categories}
                     isEdit={isEdit}
+                    setFormData={setFormData}
+                    existingImage={existingImage}
+                    setExistingImage={setExistingImage}
                 />
 
             )}

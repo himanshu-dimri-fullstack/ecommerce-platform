@@ -1,6 +1,7 @@
 import Subcategory from "../models/Subcategory.js";
 import Category from "../models/Category.js";
 import { uploadFile } from "../config/cloudinary.js"
+import { destroyFile } from "../config/cloudinary.js"
 
 export const createSubcategory = async (req, res) => {
     try {
@@ -12,22 +13,31 @@ export const createSubcategory = async (req, res) => {
         if (!category) {
             return res.status(400).json({ message: "Category is required" })
         }
-        let image = req.files.image
-        if (image) {
-            const result = await uploadFile(image.tempFilePath, "ecommerce_platform/subcategory")
-            if (!result) {
-                return res.json(400).json({ message: "Image upload failed" })
-            }
-            image = { url: result.secure_url, public_id: result.public_id }
-        }
+
         const slug = name
             .toLowerCase()
             .trim()
             .replace(/[^a-z0-9\s-]/g, "")
             .replace(/\s+/g, "-")
             .replace(/-+/g, "-");
-        const subcategory = await Subcategory.create({ name, description, slug, category, image, status: "active" });
-        res.status(201).json({ message: "Subcategory created successfully" }, subcategory);
+
+        let image
+        if (req.files) {
+            image = req.files.image
+            const result = await uploadFile(image.tempFilePath, "ecommerce_platform/subcategory")
+            if (!result) {
+                return res.json(400).json({ message: "Image upload failed" })
+            }
+            image = { url: result.secure_url, public_id: result.public_id }
+            const subcategory = await Subcategory.create({ name, description, slug, category, image });
+            res.status(201).json({ message: "Subcategory created successfully" }, subcategory);
+        }
+        else {
+            const subcategory = await Subcategory.create({ name, description, slug, category });
+            res.status(201).json({ message: "Subcategory created successfully" }, subcategory);
+        }
+
+
     }
     catch (error) {
         return res.status(400).json({ message: error.message })
@@ -45,7 +55,7 @@ export const updateSubcategory = async (req, res) => {
             return res.status(404).json({ message: "Subcategory not found" })
         }
 
-        const { name, description, category } = req.body
+        const { name, description, category, existingImage } = req.body
 
         if (!name) {
             return res.status(400).json({ message: "Name is required" })
@@ -60,20 +70,28 @@ export const updateSubcategory = async (req, res) => {
             .replace(/\s+/g, "-")
             .replace(/-+/g, "-");
 
+        if (!existingImage) {
+            await destroyFile(subcategory.image.public_id)
+            await Subcategory.updateOne({ _id: id }, { $unset: { image: "" } })
+        }
+
         if (req.files) {
+            await destroyFile(subcategory.image.public_id)
             let image = req.files.image
             const result = await uploadFile(image.tempFilePath, "ecommerce_platform/subcategory")
             if (!result) {
                 return res.json(400).json({ message: "Image upload failed" })
             }
             image = { url: result.secure_url, public_id: result.public_id }
-            await Subcategory.updateOne({ _id: id }, { name, description, slug, category, image, });
+            const updated = await Subcategory.updateOne({ _id: id }, { name, description, slug, category, image, });
+            res.status(200).json({ message: "Subcategory updated successfully", subcategory: updated });
         }
         else {
-            await Subcategory.updateOne({ _id: id }, { name, description, slug, category });
+            const updated = await Subcategory.updateOne({ _id: id }, { name, description, slug, category });
+            res.status(200).json({ message: "Subcategory updated successfully", subcategory: updated });
         }
 
-        res.status(201).json({ message: "Subcategory updated successfully" }, subcategory);
+
     }
     catch (error) {
         console.log(error)
@@ -147,11 +165,12 @@ export const deleteSubcategoryById = async (req, res) => {
         if (!subcategory) {
             return res.status(404).json({ message: "Subcategory not found" });
         }
+        await destroyFile(subcategory.image.public_id)
         await Subcategory.deleteOne({ _id: id });
         res.status(200).json({ message: "Subcategory deleted successfully" });
     }
     catch (error) {
-        return res.status(400).json({ message: error.message })
+        return res.status(500).json({ message: error.message })
     }
 }
 

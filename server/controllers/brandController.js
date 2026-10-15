@@ -2,6 +2,7 @@
 import { uploadFile } from "../config/cloudinary.js";
 import Brand from "../models/Brand.js";
 import { handleResponseError } from "../utils/errorUtils.js"
+import { destroyFile } from "../config/cloudinary.js"
 
 export const createBrand = async (req, res) => {
     try {
@@ -45,7 +46,7 @@ export const updateBrand = async (req, res) => {
         if (!brand) {
             return res.status(400).json({ message: "Brand not found" })
         }
-        const { name, description } = req.body
+        const { name, description, existingImage } = req.body
         if (!name) {
             return res.status(200).json({ message: "Name is required" })
         }
@@ -56,8 +57,14 @@ export const updateBrand = async (req, res) => {
             .replace(/\s+/g, "-")
             .replace(/-+/g, "-");
 
+        if (!existingImage) {
+            await destroyFile(brand.image.public_id)
+            await Brand.updateOne({ _id: id }, { $unset: { image: "" } })
+        }
+
         if (req.files) {
             let image = req.files.image
+            await destroyFile(brand.image.public_id)
             const result = await uploadFile(image.tempFilePath, "ecommerce_platform/brand")
             if (!result) {
                 return res.status(400).json({ message: "Image upload failed" })
@@ -66,12 +73,14 @@ export const updateBrand = async (req, res) => {
                 url: result.secure_url,
                 public_id: result.public_id
             }
-            await Brand.updateOne({ _id: id }, { name, description, image, slug })
+            const updated = await Brand.updateOne({ _id: id }, { name, description, image, slug })
+            return res.status(200).json({ message: "Brand updated successfully", brand: updated })
         }
         else {
-            await Brand.updateOne({ _id: id }, { name, description, slug })
+            const updated = await Brand.updateOne({ _id: id }, { name, description, slug })
+            return res.status(200).json({ message: "Brand updated successfully", brand: updated })
         }
-        return res.status(200).json({ message: "Brand updated successfully" })
+
     }
     catch (error) {
         return handleResponseError(error, res)
@@ -129,6 +138,7 @@ export const deleteBrand = async (req, res) => {
         if (!brand) {
             return res.status(404).json({ message: "Brand not found" })
         }
+        await destroyFile(brand.image.public_id)
         await Brand.deleteOne({ _id: id })
         return res.status(200).json({ message: "Brand deleted successfully" })
     }

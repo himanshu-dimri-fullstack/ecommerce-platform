@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Outlet, NavLink, Navigate, useLocation, replace, useNavigate } from "react-router-dom";
 
 import {
@@ -30,6 +30,8 @@ const AdminLayout = () => {
     const navigate = useNavigate()
     const location = useLocation()
     const dispatch = useDispatch()
+    const sidebarNavRef = useRef(null);
+
     const user = useSelector((store) => store.auth.user)
     const loading = useSelector((store) => store.auth.loading)
 
@@ -59,7 +61,6 @@ const AdminLayout = () => {
 
     const handleLogout = async () => {
         try {
-            setLoading(true)
             await API.post("/admin/logout");
             setShowLogoutModal(false);
             setUser(null);
@@ -67,14 +68,30 @@ const AdminLayout = () => {
         } catch (error) {
             console.error("Logout failed:", error);
         }
-        finally {
-            setLoading(false)
-        }
     };
 
     useEffect(() => {
         dispatch(fetchUser())
     }, [])
+
+    useEffect(() => {
+        const nav = sidebarNavRef.current;
+
+        if (!nav) return;
+
+        const activeLink = nav.querySelector('a[aria-current="page"]');
+
+        if (!activeLink) return;
+
+        const navRect = nav.getBoundingClientRect();
+        const linkRect = activeLink.getBoundingClientRect();
+
+        if (linkRect.bottom > navRect.bottom) {
+            nav.scrollTop += linkRect.bottom - navRect.bottom;
+        } else if (linkRect.top < navRect.top) {
+            nav.scrollTop -= navRect.top - linkRect.top;
+        }
+    }, [location.pathname, loading, user]);
 
     if (loading) return <Loader />;
 
@@ -127,7 +144,7 @@ const AdminLayout = () => {
                 </div>
 
                 {/* SCROLLABLE NAVIGATION */}
-                <nav className="admin-sidebar-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-5">
+                <nav ref={sidebarNavRef} className="admin-sidebar-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-5">
                     <p className="mb-3 px-3 text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-100/60">
                         Main Navigation
                     </p>

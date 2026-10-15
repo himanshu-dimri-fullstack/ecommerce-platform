@@ -1,4 +1,5 @@
 import User from "../models/User.js";
+import Role from "../models/Role.js"
 import bcrypt from "bcrypt"
 import { sendPasswordOnMail } from "../utils/sendPasswordOnMail.js";
 import { handleResponseError } from "../utils/errorUtils.js"
@@ -86,7 +87,9 @@ export const updateUser = async (req, res) => {
 
 export const getAllUsers = async (_, res) => {
     try {
-        const users = await User.find().sort({ createdAt: -1 })
+        const superAdmin = await Role.findOne({ name: "Super_Admin" })
+
+        const users = await User.find({ role: { $ne: superAdmin._id } }).sort({ createdAt: -1 })
             .populate("role", "name")
         return res.status(200).json({ users })
     }

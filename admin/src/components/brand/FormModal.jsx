@@ -14,8 +14,9 @@ const FormModal = ({
     formData,
     handleChange,
     isEdit,
+    existingImage,
+    setExistingImage
 }) => {
-    const existingImage = formData?.existingImage;
 
     return (
         <div
@@ -168,41 +169,6 @@ const FormModal = ({
                                 Brand Image
                             </label>
 
-                            {/* EXISTING IMAGE */}
-                            {isEdit &&
-                                existingImage &&
-                                !formData.image && (
-                                    <div
-                                        className="
-                                            mb-3 flex items-center
-                                            gap-4 rounded-xl
-                                            border border-slate-200
-                                            bg-slate-50 p-3
-                                        "
-                                    >
-                                        <img
-                                            src={existingImage}
-                                            alt={formData.name || "Brand"}
-                                            className="
-                                                h-16 w-16
-                                                rounded-lg
-                                                border border-slate-200
-                                                bg-white object-contain
-                                                p-1
-                                            "
-                                        />
-
-                                        <div>
-                                            <p className="text-sm font-semibold text-slate-700">
-                                                Current Brand Image
-                                            </p>
-
-                                            <p className="mt-1 text-xs text-slate-500">
-                                                Upload a new image to replace it.
-                                            </p>
-                                        </div>
-                                    </div>
-                                )}
 
                             {/* UPLOAD BOX */}
                             <div
@@ -245,46 +211,51 @@ const FormModal = ({
                             </div>
 
                             {/* SELECTED FILE */}
-                            {formData.image && (
-                                <div
-                                    className="
-                                        mt-3 flex items-center
-                                        gap-3 rounded-lg
-                                        border border-slate-200
-                                        bg-slate-50 p-3
-                                    "
-                                >
-                                    {formData.image instanceof File && (
-                                        <img
-                                            src={URL.createObjectURL(formData.image)}
-                                            alt="Selected brand"
-                                            className="
-                                                h-12 w-12 shrink-0
-                                                rounded-lg border
-                                                border-slate-200
-                                                bg-white object-contain p-1
-                                            "
-                                        />
-                                    )}
+                            <div className="flex gap-4">
 
-                                    <div className="min-w-0 flex-1">
-                                        <p className="text-xs font-semibold text-slate-700">
-                                            New image selected
-                                        </p>
+                                {existingImage && (
+                                    <div className="mt-2 flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2">
+                                        <div className="relative h-24 w-24">
+                                            <img
+                                                src={existingImage}
+                                                alt="Preview"
+                                                className="h-full w-full border border-[#eee] rounded-lg object-cover"
+                                            />
 
-                                        <p className="mt-1 truncate text-xs text-slate-500">
-                                            {formData.image instanceof File
-                                                ? formData.image.name
-                                                : "Brand image"}
-                                        </p>
+                                            <button
+                                                type="button"
+                                                onClick={() =>
+                                                    setExistingImage(null)
+                                                }
+                                                className="
+                    absolute right-1 top-1
+                    flex h-6 w-6 items-center justify-center
+                    rounded-full bg-red-600 text-white
+                    shadow-md transition hover:bg-red-700
+                "
+                                                title="Delete image"
+                                            >
+                                                ✕
+                                            </button>
+                                        </div>
                                     </div>
+                                )}
+                                {
+                                    formData.image &&
+                                    (
+                                        <div className="mt-2 flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2">
+                                            <div className="relative h-24 w-24">
+                                                <img
+                                                    src={URL.createObjectURL(formData.image)}
+                                                    alt="Preview"
+                                                    className="h-full w-full border border-[#eee] rounded-lg object-cover"
+                                                />
+                                            </div>
+                                        </div>
+                                    )
+                                }
+                            </div>
 
-                                    <FiImage
-                                        size={18}
-                                        className="shrink-0 text-[#003963]"
-                                    />
-                                </div>
-                            )}
                         </div>
                     </form>
                 </div>

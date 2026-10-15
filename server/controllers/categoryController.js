@@ -1,5 +1,6 @@
 import { uploadFile } from "../config/cloudinary.js";
 import Category from "../models/Category.js";
+import { destroyFile } from "../config/cloudinary.js"
 
 
 export const createCategory = async (req, res) => {
@@ -17,18 +18,22 @@ export const createCategory = async (req, res) => {
             .replace(/\s+/g, "-")
             .replace(/-+/g, "-");
 
-        let image = req.files.image
+        let image
 
-        if (image) {
+        if (req.files) {
+            image = req.files.image
             const result = await uploadFile(image.tempFilePath, "ecommerce_platform/category")
             if (!result) {
                 return res.json(400).json({ message: "Image upload failed" })
             }
             image = { url: result.secure_url, public_id: result.public_id }
+            const category = await Category.create({ name, slug, image, description });
+            res.status(201).json({ message: "Category created successfully", category });
         }
-
-        const category = await Category.create({ name, slug, image, description, status: "active" });
-        res.status(201).json({ message: "Category created successfully" });
+        else {
+            const category = await Category.create({ name, slug, description });
+            res.status(201).json({ message: "Category created successfully", category });
+        }
     }
     catch (error) {
         console.log(error)
@@ -47,7 +52,7 @@ export const updateCategory = async (req, res) => {
             return res.status(404).json({ message: "Category not found" })
         }
 
-        const { name, description } = req.body
+        const { name, description, existingImage } = req.body
 
         if (!name) {
             return res.status(400).json({ message: "Name is required" })
@@ -59,20 +64,29 @@ export const updateCategory = async (req, res) => {
             .replace(/\s+/g, "-")
             .replace(/-+/g, "-");
 
+        if (!existingImage) {
+            await destroyFile(category.image.public_id)
+            await Category.updateOne({ _id: id }, { $unset: { image: "" } })
+        }
+
+
         if (req.files) {
+            await destroyFile(category.image.public_id)
             let image = req.files.image
             const result = await uploadFile(image.tempFilePath, "ecommerce_platform/category")
             if (!result) {
                 return res.json(400).json({ message: "Image upload failed" })
             }
             image = { url: result.secure_url, public_id: result.public_id }
-            await Category.updateOne({ _id: id }, { name, slug, image, description, });
+            const updated = await Category.updateOne({ _id: id }, { name, slug, image, description, });
+            res.status(200).json({ message: "Category updated successfully", category: updated });
         }
         else {
-            await Category.updateOne({ _id: id }, { name, slug, description, });
+            const updated = await Category.updateOne({ _id: id }, { name, slug, description, });
+            res.status(200).json({ message: "Category updated successfully", category: updated });
         }
 
-        res.status(201).json({ message: "Category updated successfully" });
+
     }
     catch (error) {
         res.json({ message: error.message })
@@ -123,6 +137,7 @@ export const deleteCategoryById = async (req, res) => {
         if (!category) {
             return res.status(404).json({ message: "Category not found" });
         }
+        await destroyFile(category.image.public_id)
         res.status(200).json({ message: "Category deleted successfully" });
     }
     catch (error) {

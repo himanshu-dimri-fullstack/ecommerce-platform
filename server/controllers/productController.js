@@ -215,14 +215,26 @@ export const updateProduct = async (req, res) => {
         if (req.files || images.length > 0) {
             if (req.files) {
                 const files = req.files?.images
-                for (const file of files) {
-                    if (!file.mimetype?.startsWith("image/")) {
-                        return res.status(400).json({
-                            message: "Only image files are allowed.",
+                if (Array.isArray(files)) {
+                    for (const file of files) {
+                        if (!file.mimetype?.startsWith("image/")) {
+                            return res.status(400).json({
+                                message: "Only image files are allowed.",
+                            });
+                        }
+
+                        const result = await uploadFile(file.tempFilePath, "ecommerce_platform/products");
+                        if (!result) {
+                            return res.status(400).json({ message: "Image upload fails" })
+                        }
+                        images.push({
+                            url: result.secure_url,
+                            public_id: result.public_id,
                         });
                     }
-
-                    const result = await uploadFile(file.tempFilePath, "ecommerce_platform/products");
+                }
+                else {
+                    const result = await uploadFile(files.tempFilePath, "ecommerce_platform/products");
                     if (!result) {
                         return res.status(400).json({ message: "Image upload fails" })
                     }

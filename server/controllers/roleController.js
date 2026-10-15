@@ -6,7 +6,7 @@ import { handleResponseError } from "../utils/errorUtils.js"
 // ===============================
 export const getRoles = async (req, res) => {
     try {
-        const roles = await Role.find().sort({ createdAt: -1 });
+        const roles = await Role.find({ name: { $ne: "Super_Admin" } }).sort({ createdAt: -1 });
         res.status(200).json({ roles })
     } catch (error) {
         res.status(500).json({

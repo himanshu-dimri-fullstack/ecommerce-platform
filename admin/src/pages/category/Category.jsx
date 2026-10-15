@@ -15,6 +15,8 @@ import { API } from "../../api/axios";
 import DeleteModal from "../../components/category/DeleteModal";
 import FormModal from "../../components/category/FormModal"
 import DataLoader from "../../components/DataLoader";
+// import Pagination from "react-responsive-pagination"
+// import 'react-responsive-pagination/themes/classic-light-dark.css';
 
 
 const Category = () => {
@@ -22,6 +24,9 @@ const Category = () => {
     const navigate = useNavigate();
 
     const [dataLoading, setDataLoading] = useState(true)
+
+    // const [currentPage, setCurrentPage] = useState(1)
+    // const [totalPages, setTotalPages] = useState(1)
 
     // =========================
     // STATES
@@ -43,7 +48,7 @@ const Category = () => {
         description: "",
         image: ""
     });
-
+    const [existingImage, setExistingImage] = useState(null)
 
     // =========================
     // STATISTICS
@@ -122,6 +127,7 @@ const Category = () => {
             description: "",
             image: ""
         })
+        setExistingImage(null)
         setShowModal(true)
     }
 
@@ -277,14 +283,16 @@ const Category = () => {
     // EDIT CATEGORY
     // =========================
 
-    const handleCategoryEdit = (category) => {
+    const handleEditCategoryModal = (category) => {
         setEditId(category._id)
         setIsEdit(true)
         setFormData({
             name: category.name,
             description: category.description,
-            image: category?.image?.url
         });
+        if (category.image) {
+            setExistingImage(category.image.url)
+        }
 
         setShowModal(true);
     };
@@ -298,7 +306,12 @@ const Category = () => {
             const finalFormData = new FormData()
             finalFormData.append("name", formData.name)
             finalFormData.append("description", formData.description)
-            finalFormData.append("image", formData.image)
+            if (formData.image) {
+                finalFormData.append("image", formData.image)
+            }
+            else if (existingImage) {
+                finalFormData.append("existingImage", existingImage)
+            }
 
             const res = await API.put(
                 `/admin/categories/${editId}`,
@@ -356,11 +369,17 @@ const Category = () => {
 
     }, []);
 
+    // =========================
+    // HANDLE CURRENT PAGE
+    // =========================
+
+    const handleCurrentPage = async (page) => {
+        console.log(page)
+    }
 
     if (dataLoading) {
         return <DataLoader />
     }
-
 
     return (
 
@@ -721,7 +740,7 @@ const Category = () => {
 
                                                     <button
                                                         onClick={() =>
-                                                            handleCategoryEdit(category)
+                                                            handleEditCategoryModal(category)
                                                         }
                                                         className="
                                                             rounded-lg
@@ -814,6 +833,16 @@ const Category = () => {
 
                 </div>
 
+                {/* <div className="my-5">
+                    <Pagination
+                        current={currentPage}
+                        total={totalPages}
+                        onPageChange={handleCurrentPage}
+                    />
+                </div> */}
+
+
+
             </div>
 
 
@@ -825,8 +854,8 @@ const Category = () => {
 
                 <FormModal handleEditCategory={handleEditCategory} isEdit={isEdit}
                     handleChange={handleChange} setShowModal={setShowModal}
-                    formData={formData} handleAddCategory={handleAddCategory} />
-
+                    formData={formData} handleAddCategory={handleAddCategory}
+                    existingImage={existingImage} setExistingImage={setExistingImage} />
             )}
 
 

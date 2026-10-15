@@ -40,7 +40,7 @@ const LoginPage = () => {
             return
         }
         try {
-            setLoading(true)
+            // setLoading(true)
             const res = await API.post(
                 "/admin/login",
                 {
@@ -52,7 +52,7 @@ const LoginPage = () => {
                 email: "",
                 password: ""
             })
-            setLoading(false)
+            // setLoading(false)
             toast.success(res?.data?.message)
             setUser(res.data.user)
             navigate("/admin/dashboard", { replace: true })
@@ -62,7 +62,7 @@ const LoginPage = () => {
                 email: "",
                 password: ""
             })
-            setLoading(false)
+            // setLoading(false)
             toast.error(error?.response?.data?.message)
         }
     }
