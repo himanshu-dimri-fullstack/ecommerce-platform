@@ -21,6 +21,8 @@ import Product from "./pages/product/Product"
 import ProductDetail from "./pages/product/ProductDetail"
 import ProductVariant from "./pages/productVariant/ProductVariant"
 import ProductVariantDetail from "./pages/productVariant/ProductVariantDetail"
+import Store from "./pages/store/Store"
+import StoreDetail from "./pages/store/StoreDetail"
 
 const App = () => {
   return (
@@ -47,6 +49,8 @@ const App = () => {
           <Route path="/admin/products/:id" element={<ProductDetail />} />
           <Route path="/admin/product-variants" element={<ProductVariant />} />
           <Route path="/admin/product-variants/:id" element={<ProductVariantDetail />} />
+          <Route path="/admin/stores" element={<Store />} />
+          <Route path="/admin/stores/:id" element={<StoreDetail />} />
         </Route>
       </Routes>
       <ToastContainer />

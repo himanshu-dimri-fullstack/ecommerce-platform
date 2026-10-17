@@ -43,7 +43,7 @@ const AdminLayout = () => {
         { name: "Dashboard", path: "/admin/dashboard", icon: FiHome },
         { name: "Roles & Permissions", path: "/admin/roles", icon: FiShield },
         { name: "Users", path: "/admin/users", icon: FiUsers },
-        { name: "Store", path: "/admin/store", icon: FiShoppingBag },
+        { name: "Store", path: "/admin/stores", icon: FiShoppingBag },
         { name: "Inventory", path: "/admin/inventory", icon: FiArchive },
         { name: "Brand", path: "/admin/brands", icon: FiAward },
         { name: "Categories", path: "/admin/categories", icon: FiGrid },

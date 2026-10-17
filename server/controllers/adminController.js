@@ -23,6 +23,15 @@ export const createUser = async (req, res) => {
             return res.status(400).json({ message: "Role is required" })
         }
 
+        const verifyUser = await User.findOne({ email })
+        if (verifyUser) {
+            return res.status(400).json({ message: "Email already exist" })
+        }
+        const verifyPhone = await User.findOne({ phone })
+        if (verifyPhone) {
+            return res.status(400).json({ message: "Phone number already exist" })
+        }
+
         const generatePassword = (length = 12) => {
             const chars =
                 "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*";
