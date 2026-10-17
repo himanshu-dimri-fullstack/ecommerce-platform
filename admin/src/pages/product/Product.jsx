@@ -220,7 +220,7 @@ const Product = () => {
     };
 
     // CHANGE PRODUCT STATUS
-    const changeStatus = async (id, isActive) => {
+    const changeStatus = async (id) => {
         try {
             setDataLoading(true);
 
@@ -228,7 +228,6 @@ const Product = () => {
                 "/admin/product/status",
                 {
                     id,
-                    isActive: !isActive,
                 }
             );
 
@@ -261,9 +260,9 @@ const Product = () => {
 
         setFormData({
             category:
-                product.category._id,
+                product.category?._id,
             subcategory:
-                product.subcategory._id,
+                product.subcategory?._id,
             brand: product.brand._id,
             name: product.name,
             description: product.description,
@@ -569,7 +568,6 @@ const Product = () => {
                                                 onClick={() =>
                                                     changeStatus(
                                                         product._id,
-                                                        product.isActive
                                                     )
                                                 }
                                                 className={`rounded-lg p-2 text-sm transition ${product.isActive

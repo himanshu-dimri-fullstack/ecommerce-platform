@@ -445,25 +445,22 @@ const FormModal = ({
                             </div>
 
                             {/* SELECTED FILES */}
-                            {selectedImages.length > 0 && (
-                                <div className="mt-3 space-y-2">
-                                    {selectedImages.map((image, index) => (
-                                        <div
-                                            key={`${image.name}-${index}`}
-                                            className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2"
-                                        >
-                                            <FiImage
-                                                size={16}
-                                                className="shrink-0 text-[#003963]"
-                                            />
+                            <div className="">
+                                {selectedImages.length > 0 && (
+                                    <div className="mt-3 space-y-2 grid grid-cols-4 gap-3">
+                                        {selectedImages.map((image, index) => (
+                                            <div
+                                                key={`${image.name}-${index}`}
+                                                className=""
+                                            >
+                                                <img src={URL.createObjectURL(image)} className="w-full h-20 object-cover border
+                                                border-[#eee]" />
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
 
-                                            <p className="truncate text-xs font-medium text-slate-600">
-                                                {image.name}
-                                            </p>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
                         </div>
 
                         {/* PRODUCT OPTIONS */}

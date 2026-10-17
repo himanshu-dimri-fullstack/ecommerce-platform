@@ -19,6 +19,8 @@ import BrandDetail from "./pages/brand/BrandDetail"
 import ScrollToTop from "./components/ScrollToTop"
 import Product from "./pages/product/Product"
 import ProductDetail from "./pages/product/ProductDetail"
+import ProductVariant from "./pages/productVariant/ProductVariant"
+import ProductVariantDetail from "./pages/productVariant/ProductVariantDetail"
 
 const App = () => {
   return (
@@ -43,6 +45,8 @@ const App = () => {
           <Route path="/admin/brands/:id" element={<BrandDetail />} />
           <Route path="/admin/products" element={<Product />} />
           <Route path="/admin/products/:id" element={<ProductDetail />} />
+          <Route path="/admin/product-variants" element={<ProductVariant />} />
+          <Route path="/admin/product-variants/:id" element={<ProductVariantDetail />} />
         </Route>
       </Routes>
       <ToastContainer />

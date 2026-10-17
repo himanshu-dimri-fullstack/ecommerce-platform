@@ -2,6 +2,7 @@ import Subcategory from "../models/Subcategory.js";
 import Category from "../models/Category.js";
 import { uploadFile } from "../config/cloudinary.js"
 import { destroyFile } from "../config/cloudinary.js"
+import Product from "../models/Product.js"
 
 export const createSubcategory = async (req, res) => {
     try {
@@ -166,6 +167,7 @@ export const deleteSubcategoryById = async (req, res) => {
             return res.status(404).json({ message: "Subcategory not found" });
         }
         await destroyFile(subcategory.image.public_id)
+        await Product.updateMany({ subcategory: subcategory._id }, { $unset: { subcategory: "" } })
         await Subcategory.deleteOne({ _id: id });
         res.status(200).json({ message: "Subcategory deleted successfully" });
     }

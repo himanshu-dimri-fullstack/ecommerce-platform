@@ -193,7 +193,6 @@ export const updateProduct = async (req, res) => {
         let finalExistingImages = []
         if (existingImages) {
             finalExistingImages = JSON.parse(existingImages)
-            console.log("mytype", typeof finalExistingImages)
             for (let i = 0; i < product.images.length; i++) {
                 let image = finalExistingImages.find((item) => item.url === product.images[i].url)
                 if (!image) {
@@ -245,7 +244,7 @@ export const updateProduct = async (req, res) => {
                 }
             }
 
-            await Product.updateOne({ _id: id }, {
+            const updated = await Product.updateOne({ _id: id }, {
                 category,
                 subcategory,
                 brand,
@@ -257,9 +256,13 @@ export const updateProduct = async (req, res) => {
                 tags: finalTags,
                 isFeatured
             });
+            return res.status(200).json({
+                message: "Product updated successfully.",
+                product: updated
+            });
         }
         else {
-            await Product.updateOne({ _id: id }, {
+            const updated = await Product.updateOne({ _id: id }, {
                 category,
                 subcategory,
                 brand,
@@ -270,10 +273,12 @@ export const updateProduct = async (req, res) => {
                 tags: finalTags,
                 isFeatured
             });
+            return res.status(200).json({
+                message: "Product updated successfully.",
+                product: updated
+            });
         }
-        return res.status(201).json({
-            message: "Product updated successfully.",
-        });
+
     } catch (error) {
         console.log(error)
         return res.status(500).json({
@@ -324,5 +329,25 @@ export const deleteProduct = async (req, res) => {
         return res.status(500).json({
             message: error.message,
         });
+    }
+}
+
+export const changeStatus = async (req, res) => {
+    try {
+        const { id } = req.body
+        const product = await Product.findOne({ _id: id })
+        if (!product) {
+            return res.status(404).json({ message: "Product not found" })
+        }
+        if (product.isActive) {
+            await Product.updateOne({ _id: id }, { isActive: false })
+        }
+        else {
+            await Product.updateOne({ _id: id }, { isActive: true })
+        }
+        return res.status(200).json({ message: "Status updated successfully" })
+    }
+    catch (error) {
+        return res.status(500).json({ message: error.message })
     }
 }

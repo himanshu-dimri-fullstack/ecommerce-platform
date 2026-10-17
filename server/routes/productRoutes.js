@@ -5,6 +5,7 @@ import {
     getProductById,
     updateProduct,
     deleteProduct,
+    changeStatus
 } from "../controllers/productController.js";
 
 
@@ -25,5 +26,6 @@ router.put(
 );
 
 router.delete("/admin/products/:id", deleteProduct);
+router.patch("/admin/product/status", changeStatus);
 
 export default router;

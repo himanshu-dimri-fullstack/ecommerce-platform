@@ -12,6 +12,7 @@ import cookieParser from "cookie-parser"
 import filupload from "express-fileupload"
 import dashboardRoutes from "./routes/dashboardRoutes.js"
 import productRoutes from "./routes/productRoutes.js"
+import productVariantRoutes from "./routes/productVariantRoutes.js"
 
 dotenv.config()
 
@@ -39,6 +40,7 @@ app.use("/api", brandRoutes)
 app.use("/api", adminRoutes)
 app.use("/api", dashboardRoutes)
 app.use("/api", productRoutes)
+app.use("/api", productVariantRoutes)
 
 app.listen(8000, () => {
     console.log("server running on port 8000")
