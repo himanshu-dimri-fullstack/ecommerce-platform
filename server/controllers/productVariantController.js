@@ -192,6 +192,40 @@ export const getProductVariantById = async (req, res) => {
     }
 };
 
+export const getProductVariantBySlug = async (req, res) => {
+    try {
+        const { slug } = req.params;
+
+        let variant = await ProductVariant.findOne({ slug })
+
+        if (!variant) {
+            return res.status(404).json({
+                message: "Product variant not found",
+            });
+        }
+
+        const product = await Product.findOne({ _id: variant.product })
+            .populate("category", "name slug")
+            .populate("subcategory", "name slug")
+            .populate("brand", "name slug")
+
+        variant.product = product
+
+        return res.status(200).json({
+            success: true,
+            message: "Product variant fetched successfully",
+            variant,
+        });
+    } catch (error) {
+        console.error("Get Product Variant Error:", error);
+
+        return res.status(500).json({
+            success: false,
+            message: "Failed to fetch product variant",
+        });
+    }
+};
+
 // Update Product Variant
 export const updateProductVariant = async (req, res) => {
     try {

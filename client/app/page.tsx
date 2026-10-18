@@ -35,10 +35,7 @@ interface Product {
     url: string;
     public_url: string;
   }]
-  bglinear: string;
-  time: string;
   rating: number;
-  badge: string;
 }
 
 interface Offer {
@@ -101,19 +98,6 @@ export default function HomePage() {
   }, [])
   return (
     <main className="min-h-screen bg-[#F8FAF9] text-gray-900 pb-20">
-      {/* TOP ANNOUNCEMENT BAR */}
-      <div className="bg-linear-to-r from-emerald-800 via-[#0c831f] to-emerald-700 text-white">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-2 sm:px-6 lg:px-8 text-xs font-semibold tracking-wide">
-          <div className="flex items-center gap-2">
-            <span className="flex h-2 w-2 rounded-full bg-lime-400 animate-pulse" />
-            <FiZap className="text-lime-300" size={15} />
-            <span>Superfast 10-Minute Delivery to your doorstep</span>
-          </div>
-          <span className="hidden sm:inline-block text-emerald-100 font-normal">
-            ⚡ Free delivery on orders above ₹199
-          </span>
-        </div>
-      </div>
 
       {/* HERO SECTION */}
       <section className="mx-auto max-w-7xl px-4 pt-4 sm:px-6 sm:pt-6 lg:px-8">
@@ -311,7 +295,7 @@ export default function HomePage() {
                   {/* Image Holder */}
                   <Link
                     href={`/products/${product.slug}`}
-                    className={`relative flex  h-50 w-full aspect-square items-center justify-center bg-linear-to-b ${product.bglinear} p-4`}
+                    className={`relative flex  h-50 w-full aspect-square items-center justify-center bg-linear-to-b p-4`}
                   >
 
                     {discount > 0 && (
@@ -334,10 +318,6 @@ export default function HomePage() {
 
                   {/* Details */}
                   <div className="p-3.5">
-                    <div className="flex items-center gap-1 text-[10px] font-extrabold text-emerald-700 bg-emerald-50 w-max px-2 py-0.5 rounded-full">
-                      <FiClock size={11} />
-                      <span>{product.time}</span>
-                    </div>
 
                     <Link href={`/products/${product.slug}`}>
                       <h3 className="mt-2 text-xs font-bold text-gray-800 line-clamp-1 hover:text-[#0c831f] sm:text-sm">

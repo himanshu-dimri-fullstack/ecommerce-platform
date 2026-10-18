@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
     FiZap,
     FiMapPin,
@@ -16,8 +17,9 @@ import {
 const Navbar = () => {
     const [menuOpen, setMenuOpen] = useState(false);
     const [search, setSearch] = useState("");
+    const pathname = usePathname();
 
-    const handleSearch = (e) => {
+    const handleSearch = (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
 
         if (search.trim()) {
@@ -38,6 +40,15 @@ const Navbar = () => {
     ];
 
     const closeMenu = () => setMenuOpen(false);
+
+    // Active link check — nested routes bhi support karta hai
+    const isActive = (href: string) => {
+        if (href === "/") {
+            return pathname === "/";
+        }
+
+        return pathname === href || pathname.startsWith(`${href}/`);
+    };
 
     return (
         <header className="sticky top-0 z-50 border-b border-gray-200 bg-white">
@@ -113,8 +124,14 @@ const Navbar = () => {
                             href={href}
                             className={
                                 href === "/cart"
-                                    ? "flex items-center gap-2 rounded-xl bg-[#0c831f] px-4 py-3 text-sm font-bold text-white transition hover:bg-[#096b19]"
-                                    : "flex items-center gap-2 text-sm font-semibold text-gray-700 transition hover:text-[#0c831f]"
+                                    ? `flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-bold transition ${isActive(href)
+                                        ? "bg-[#096b19] text-white"
+                                        : "bg-[#0c831f] text-white hover:bg-[#096b19]"
+                                    }`
+                                    : `flex items-center gap-2 text-sm font-semibold transition ${isActive(href)
+                                        ? "text-[#0c831f]"
+                                        : "text-gray-700 hover:text-[#0c831f]"
+                                    }`
                             }
                         >
                             <Icon size={20} />
@@ -137,20 +154,24 @@ const Navbar = () => {
 
             {/* DESKTOP NAVIGATION */}
             <nav className="hidden border-t border-gray-100 md:block">
-                <div className="mx-auto flex max-w-360 items-center gap-8 px-8 py-3 text-sm font-semibold text-gray-600">
-                    {navLinks.map((item, index) => (
-                        <Link
-                            key={item.href}
-                            href={item.href}
-                            className={
-                                index === 0
-                                    ? "text-[#0c831f]"
-                                    : "transition hover:text-[#0c831f]"
-                            }
-                        >
-                            {item.label}
-                        </Link>
-                    ))}
+                <div className="mx-auto flex max-w-360 items-center gap-8 px-8 py-3 text-sm font-semibold">
+                    {navLinks.map((item) => {
+                        const active = isActive(item.href);
+
+                        return (
+                            <Link
+                                key={item.href}
+                                href={item.href}
+                                aria-current={active ? "page" : undefined}
+                                className={`relative py-1 transition ${active
+                                    ? "font-bold text-[#0c831f] after:absolute after:-bottom-3 after:left-0 after:h-0.5 after:w-full after:rounded-full after:bg-[#0c831f]"
+                                    : "text-gray-600 hover:text-[#0c831f]"
+                                    }`}
+                            >
+                                {item.label}
+                            </Link>
+                        );
+                    })}
                 </div>
             </nav>
 
@@ -178,30 +199,46 @@ const Navbar = () => {
 
                     {/* NAV LINKS */}
                     <div className="flex flex-col gap-1">
-                        {navLinks.map((item) => (
-                            <Link
-                                key={item.href}
-                                href={item.href}
-                                onClick={closeMenu}
-                                className="rounded-lg px-3 py-3 text-sm font-semibold text-gray-700 transition hover:bg-green-50 hover:text-[#0c831f]"
-                            >
-                                {item.label}
-                            </Link>
-                        ))}
+                        {navLinks.map((item) => {
+                            const active = isActive(item.href);
+
+                            return (
+                                <Link
+                                    key={item.href}
+                                    href={item.href}
+                                    onClick={closeMenu}
+                                    aria-current={active ? "page" : undefined}
+                                    className={`rounded-lg px-3 py-3 text-sm font-semibold transition ${active
+                                        ? "bg-green-50 font-bold text-[#0c831f]"
+                                        : "text-gray-700 hover:bg-green-50 hover:text-[#0c831f]"
+                                        }`}
+                                >
+                                    {item.label}
+                                </Link>
+                            );
+                        })}
 
                         <div className="my-2 border-t border-gray-100" />
 
-                        {accountLinks.map(({ label, href, icon: Icon }) => (
-                            <Link
-                                key={href}
-                                href={href}
-                                onClick={closeMenu}
-                                className="flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-semibold text-gray-700 transition hover:bg-green-50 hover:text-[#0c831f]"
-                            >
-                                <Icon size={19} />
-                                {label}
-                            </Link>
-                        ))}
+                        {accountLinks.map(({ label, href, icon: Icon }) => {
+                            const active = isActive(href);
+
+                            return (
+                                <Link
+                                    key={href}
+                                    href={href}
+                                    onClick={closeMenu}
+                                    aria-current={active ? "page" : undefined}
+                                    className={`flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-semibold transition ${active
+                                        ? "bg-green-50 text-[#0c831f]"
+                                        : "text-gray-700 hover:bg-green-50 hover:text-[#0c831f]"
+                                        }`}
+                                >
+                                    <Icon size={19} />
+                                    {label}
+                                </Link>
+                            );
+                        })}
                     </div>
                 </nav>
             )}
@@ -209,4 +246,10 @@ const Navbar = () => {
     );
 };
 
-export default Navbar;
+export default function Page() {
+    return (
+        <Suspense fallback={<div>Loading product...</div>}>
+            <Navbar />
+        </Suspense>
+    );
+}

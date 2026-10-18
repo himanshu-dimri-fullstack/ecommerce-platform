@@ -103,11 +103,19 @@ export const updateSubcategory = async (req, res) => {
 
 export const getAllSubcategory = async (req, res) => {
     try {
+        const { category } = req.query
+        console.log(category)
+        if (category) {
+            const getCategory = await Category.findOne({ slug: category })
+            const subcategories = await Subcategory.find({ category: getCategory._id })
+                .populate("category", "name slug").sort({ createdAt: -1 });
+            return res.status(200).json({ subcategories });
+        }
         const subcategories = await Subcategory
             .find()
             .populate("category", "name").sort({ createdAt: -1 });
 
-        res.status(200).json({ subcategories });
+        return res.status(200).json({ subcategories });
 
     } catch (error) {
         return handleResponseError(error, res);
