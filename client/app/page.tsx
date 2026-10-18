@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   FiArrowRight,
@@ -14,22 +14,27 @@ import {
   FiShoppingBag,
   FiZap,
 } from "react-icons/fi";
+import { API } from "../axios/axios.js"
 
 interface Category {
   name: string;
-  emoji: string;
-  color: string;
-  border: string;
+  image: {
+    url: string;
+    public_id: string;
+  };
   slug: string;
 }
 
 interface Product {
-  id: string;
+  slug: string;
   name: string;
   unit: string;
-  price: number;
+  sellingPrice: number;
   mrp: number;
-  emoji: string;
+  images: [{
+    url: string;
+    public_url: string;
+  }]
   bglinear: string;
   time: string;
   rating: number;
@@ -45,116 +50,6 @@ interface Offer {
   badgeBg: string;
   href: string;
 }
-
-const categories: Category[] = [
-  { name: "Fruits & Veggies", emoji: "🥑", color: "bg-emerald-50 text-emerald-700", border: "hover:border-emerald-300", slug: "fruits-vegetables" },
-  { name: "Dairy & Eggs", emoji: "🥛", color: "bg-sky-50 text-sky-700", border: "hover:border-sky-300", slug: "dairy-bread-eggs" },
-  { name: "Snacks & Munchies", emoji: "🍿", color: "bg-amber-50 text-amber-700", border: "hover:border-amber-300", slug: "snacks-munchies" },
-  { name: "Drinks & Juices", emoji: "🥤", color: "bg-rose-50 text-rose-700", border: "hover:border-rose-300", slug: "cold-drinks-juices" },
-  { name: "Atta, Rice & Dal", emoji: "🌾", color: "bg-yellow-50 text-yellow-700", border: "hover:border-yellow-300", slug: "atta-rice-dal" },
-  { name: "Personal Care", emoji: "🧴", color: "bg-pink-50 text-pink-700", border: "hover:border-pink-300", slug: "personal-care" },
-  { name: "Cleaning Essentials", emoji: "🧹", color: "bg-purple-50 text-purple-700", border: "hover:border-purple-300", slug: "cleaning-essentials" },
-  { name: "Bakery & Biscuits", emoji: "🍪", color: "bg-orange-50 text-orange-700", border: "hover:border-orange-300", slug: "bakery-biscuits" },
-];
-
-const products: Product[] = [
-  {
-    id: "prod_001",
-    name: "Fresh Organic Bananas",
-    unit: "500 g",
-    price: 35,
-    mrp: 40,
-    emoji: "🍌",
-    bglinear: "from-amber-100/50 to-yellow-50",
-    time: "10 MINS",
-    rating: 4.6,
-    badge: "BESTSELLER",
-  },
-  {
-    id: "prod_003",
-    name: "Amul Taaza Toned Milk",
-    unit: "500 ml",
-    price: 29,
-    mrp: 30,
-    emoji: "🥛",
-    bglinear: "from-blue-100/50 to-sky-50",
-    time: "8 MINS",
-    rating: 4.7,
-    badge: "FRESH",
-  },
-  {
-    id: "prod_005",
-    name: "Lay's Classic Salted Chips",
-    unit: "52 g",
-    price: 20,
-    mrp: 20,
-    emoji: "🥔",
-    bglinear: "from-orange-100/50 to-amber-50",
-    time: "10 MINS",
-    rating: 4.5,
-    badge: "",
-  },
-  {
-    id: "prod_006",
-    name: "Coca-Cola Soft Drink",
-    unit: "750 ml",
-    price: 40,
-    mrp: 45,
-    emoji: "🥤",
-    bglinear: "from-red-100/50 to-rose-50",
-    time: "10 MINS",
-    rating: 4.6,
-    badge: "POPULAR",
-  },
-  {
-    id: "prod_007",
-    name: "India Gate Basmati Rice",
-    unit: "1 kg",
-    price: 150,
-    mrp: 175,
-    emoji: "🍚",
-    bglinear: "from-yellow-100/50 to-amber-50",
-    time: "12 MINS",
-    rating: 4.7,
-    badge: "SAVE ₹25",
-  },
-  {
-    id: "prod_008",
-    name: "Dove Daily Shine Shampoo",
-    unit: "180 ml",
-    price: 115,
-    mrp: 130,
-    emoji: "🧴",
-    bglinear: "from-pink-100/50 to-purple-50",
-    time: "10 MINS",
-    rating: 4.5,
-    badge: "",
-  },
-  {
-    id: "prod_002",
-    name: "Fresh Red Tomatoes",
-    unit: "500 g",
-    price: 25,
-    mrp: 30,
-    emoji: "🍅",
-    bglinear: "from-rose-100/50 to-red-50",
-    time: "10 MINS",
-    rating: 4.4,
-    badge: "FRESH",
-  },
-  {
-    id: "prod_004",
-    name: "Britannia Brown Bread",
-    unit: "400 g",
-    price: 45,
-    mrp: 50,
-    emoji: "🍞",
-    bglinear: "from-amber-100/50 to-yellow-50",
-    time: "10 MINS",
-    rating: 4.3,
-    badge: "",
-  },
-];
 
 const offers: Offer[] = [
   {
@@ -187,37 +82,23 @@ const offers: Offer[] = [
 ];
 
 export default function HomePage() {
-  const [cart, setCart] = useState<Record<string, number>>({});
+  const [categories, setCategories] = useState<Category[]>([])
+  const [products, setProducts] = useState<Product[]>([])
 
-  const addToCart = (productId: string) => {
-    setCart((previous) => ({
-      ...previous,
-      [productId]: (previous[productId] || 0) + 1,
-    }));
-  };
+  const fetchCategories = async () => {
+    const res = await API.get("/admin/categories")
 
-  const changeQuantity = (productId: string, amount: number) => {
-    setCart((previous) => {
-      const nextQuantity = (previous[productId] || 0) + amount;
-      const updated = { ...previous };
-
-      if (nextQuantity <= 0) {
-        delete updated[productId];
-      } else {
-        updated[productId] = nextQuantity;
-      }
-
-      return updated;
-    });
-  };
-
-  // Cart total calculations
-  const totalItems = Object.values(cart).reduce((sum, qty) => sum + qty, 0);
-  const totalPrice = Object.entries(cart).reduce((sum, [id, qty]) => {
-    const item = products.find((p) => p.id === id);
-    return sum + (item ? item.price * qty : 0);
-  }, 0);
-
+    setCategories(res.data.categories)
+  }
+  const fetchProducts = async () => {
+    const res = await API.get("/admin/product/variant")
+    console.log(res)
+    setProducts(res.data.variants)
+  }
+  useEffect(() => {
+    fetchCategories()
+    fetchProducts()
+  }, [])
   return (
     <main className="min-h-screen bg-[#F8FAF9] text-gray-900 pb-20">
       {/* TOP ANNOUNCEMENT BAR */}
@@ -349,11 +230,20 @@ export default function HomePage() {
             <Link
               key={category.slug}
               href={`/categories/${category.slug}`}
-              className={`group flex flex-col items-center rounded-2xl border border-gray-100 bg-white p-3 text-center shadow-sm transition duration-200 hover:-translate-y-1 hover:shadow-md ${category.border}`}
+              className={`group flex flex-col items-center rounded-2xl border border-gray-100 bg-white p-3 text-center shadow-sm transition duration-200 hover:-translate-y-1 hover:shadow-md`}
             >
-              <div className={`flex h-16 w-16 items-center justify-center rounded-2xl ${category.color} transition duration-300 group-hover:scale-110`}>
-                <span className="text-3xl">{category.emoji}</span>
+              <div className={`flex h-16 w-16 items-center justify-center rounded-2xl transition duration-300 group-hover:scale-110`}>
+                {
+                  category.image?.url ?
+                    <img src={category.image?.url} className="h-full w-full object-cover" />
+                    :
+                    <span
+                      className="h-full w-full flex items-center justify-center text-4xl">
+                      🛍️
+                    </span>
+                }
               </div>
+
               <h3 className="mt-2.5 text-xs font-bold text-gray-800 line-clamp-2 leading-tight">
                 {category.name}
               </h3>
@@ -408,28 +298,21 @@ export default function HomePage() {
 
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
           {products.map((product) => {
-            const quantity = cart[product.id] || 0;
             const discount =
-              product.mrp > product.price
-                ? Math.round((1 - product.price / product.mrp) * 100)
+              product.mrp > product.sellingPrice
+                ? Math.round((1 - product.sellingPrice / product.mrp) * 100)
                 : 0;
-
             return (
               <article
-                key={product.id}
+                key={product.slug}
                 className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-gray-200/80 bg-white transition duration-200 hover:border-emerald-200 hover:shadow-lg"
               >
-                <div>
+                <div className="">
                   {/* Image Holder */}
                   <Link
-                    href={`/products/${product.id}`}
-                    className={`relative flex aspect-square items-center justify-center bg-linear-to-b ${product.bglinear} p-4`}
+                    href={`/products/${product.slug}`}
+                    className={`relative flex  h-50 w-full aspect-square items-center justify-center bg-linear-to-b ${product.bglinear} p-4`}
                   >
-                    {product.badge && (
-                      <span className="absolute left-2.5 top-2.5 rounded-md bg-gray-900 px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wide text-white shadow-sm">
-                        {product.badge}
-                      </span>
-                    )}
 
                     {discount > 0 && (
                       <span className="absolute right-2.5 top-2.5 rounded-md bg-emerald-600 px-1.5 py-0.5 text-[9px] font-black text-white shadow-sm">
@@ -437,9 +320,16 @@ export default function HomePage() {
                       </span>
                     )}
 
-                    <span className="text-6xl sm:text-7xl transition duration-300 group-hover:scale-110 drop-shadow-sm">
-                      {product.emoji}
-                    </span>
+                    {
+                      product.images[0]?.url ?
+                        <img src={product.images[0].url} className="h-full w-full object-contain" />
+                        :
+                        <span
+                          className="h-full w-full flex items-center justify-center text-4xl">
+                          🛍️
+                        </span>
+                    }
+
                   </Link>
 
                   {/* Details */}
@@ -449,7 +339,7 @@ export default function HomePage() {
                       <span>{product.time}</span>
                     </div>
 
-                    <Link href={`/products/${product.id}`}>
+                    <Link href={`/products/${product.slug}`}>
                       <h3 className="mt-2 text-xs font-bold text-gray-800 line-clamp-1 hover:text-[#0c831f] sm:text-sm">
                         {product.name}
                       </h3>
@@ -467,72 +357,24 @@ export default function HomePage() {
                 {/* Bottom Actions */}
                 <div className="flex items-center justify-between gap-2 p-3.5 pt-0">
                   <div>
-                    <span className="text-sm font-black text-gray-900 sm:text-base">₹{product.price}</span>
+                    <span className="text-sm font-black text-gray-900 sm:text-base">₹{product.sellingPrice}</span>
                     {discount > 0 && (
                       <span className="ml-1 text-xs text-gray-400 line-through">₹{product.mrp}</span>
                     )}
                   </div>
 
-                  {quantity === 0 ? (
-                    <button
-                      type="button"
-                      onClick={() => addToCart(product.id)}
-                      className="flex items-center gap-1 rounded-xl border-2 border-[#0c831f] bg-emerald-50 px-3 py-1.5 text-xs font-black text-[#0c831f] transition-all duration-150 hover:bg-[#0c831f] hover:text-white active:scale-95"
-                    >
-                      ADD <FiPlus size={14} />
-                    </button>
-                  ) : (
-                    <div className="flex items-center gap-2 rounded-xl bg-[#0c831f] px-2 py-1 text-white shadow-md">
-                      <button
-                        type="button"
-                        onClick={() => changeQuantity(product.id, -1)}
-                        className="p-1 hover:bg-emerald-700 rounded transition"
-                      >
-                        <FiMinus size={12} />
-                      </button>
-                      <span className="text-xs font-bold min-w-3 text-center">{quantity}</span>
-                      <button
-                        type="button"
-                        onClick={() => changeQuantity(product.id, 1)}
-                        className="p-1 hover:bg-emerald-700 rounded transition"
-                      >
-                        <FiPlus size={12} />
-                      </button>
-                    </div>
-                  )}
+                  <button
+                    type="button"
+                    className="flex items-center gap-1 rounded-xl border-2 border-[#0c831f] bg-emerald-50 px-3 py-1.5 text-xs font-black text-[#0c831f] transition-all duration-150 hover:bg-[#0c831f] hover:text-white active:scale-95"
+                  >
+                    ADD <FiPlus size={14} />
+                  </button>
                 </div>
               </article>
-            );
+            )
           })}
         </div>
       </section>
-
-      {/* BOTTOM FLOATING CART BAR */}
-      {totalItems > 0 && (
-        <div className="fixed bottom-4 left-1/2 z-50 w-[92%] -translate-x-1/2 max-w-md animate-bounce">
-          <div className="flex items-center justify-between rounded-2xl bg-gray-900 p-3.5 px-5 text-white shadow-2xl backdrop-blur-lg border border-gray-800">
-            <div className="flex items-center gap-3">
-              <div className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-[#0c831f]">
-                <FiShoppingBag size={20} />
-                <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-lime-400 text-[10px] font-black text-gray-900">
-                  {totalItems}
-                </span>
-              </div>
-              <div>
-                <p className="text-xs font-bold text-gray-300">Total Price</p>
-                <p className="text-base font-black text-white">₹{totalPrice}</p>
-              </div>
-            </div>
-
-            <Link
-              href="/cart"
-              className="flex items-center gap-1.5 rounded-xl bg-[#0c831f] px-4 py-2.5 text-xs font-black transition hover:bg-emerald-600 active:scale-95"
-            >
-              View Cart <FiArrowRight size={14} />
-            </Link>
-          </div>
-        </div>
-      )}
     </main>
   );
 }

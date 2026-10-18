@@ -102,9 +102,17 @@ export const addProductVariant = async (req, res) => {
             return `${prefix}-${timestamp}-${random}`;
         };
 
+        const slug = name
+            .toLowerCase()
+            .trim()
+            .replace(/[^a-z0-9\s-]/g, "")
+            .replace(/\s+/g, "-")
+            .replace(/-+/g, "-");
+
         const variant = await ProductVariant.create({
             product,
             name: name.trim(),
+            slug,
             sku: sku(),
             barcode: barcode?.trim() || null,
             unitValue: parsedUnitValue,
@@ -320,6 +328,15 @@ export const updateProductVariant = async (req, res) => {
         }
 
         variant.images = [...retainedImages, ...finalImages];
+
+        const slug = name
+            .toLowerCase()
+            .trim()
+            .replace(/[^a-z0-9\s-]/g, "")
+            .replace(/\s+/g, "-")
+            .replace(/-+/g, "-");
+
+        variant.slug = slug
 
         await variant.save();
 

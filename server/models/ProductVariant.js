@@ -14,6 +14,14 @@ const productVariantSchema = new mongoose.Schema(
             trim: true,
         },
 
+        slug: {
+            type: String,
+            required: true,
+            unique: true,
+            trim: true,
+            lowercase: true,
+        },
+
         sku: {
             type: String,
             // required: true,
