@@ -1,9 +1,20 @@
 import Product from "../models/Product.js";
 import { uploadFile } from "../config/cloudinary.js"
 import { destroyFile } from "../config/cloudinary.js"
+import Subcategory from "../models/Subcategory.js";
 
-export const getAllProducts = async (_, res) => {
+export const getAllProducts = async (req, res) => {
     try {
+        const { subcategory } = req.query
+        if (subcategory) {
+            const getSubcategory = await Subcategory.findOne({ slug: subcategory })
+            const products = await Product.find({ subcategory: getSubcategory._id })
+                .sort({ createdAt: -1 }).populate("category", "name")
+                .populate("subcategory", "name")
+                .populate("brand", "name")
+            return res.status(200).json({ products })
+        }
+
         const products = await Product.find().sort({ createdAt: -1 }).populate("category", "name")
             .populate("subcategory", "name")
             .populate("brand", "name")

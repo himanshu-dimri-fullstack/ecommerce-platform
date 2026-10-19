@@ -94,6 +94,7 @@ export interface ProductVariantResponse {
 
 function ProductDetail() {
     const { slug } = useParams()
+
     const [category, setCategory] = useState<Category | null>(null);
     const [brand, setBrand] = useState<Brand | null>(null);
     const [product, setProduct] = useState<ProductVariant | null>(null);

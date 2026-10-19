@@ -95,7 +95,7 @@ function SubategoriesPage() {
                             return (
                                 <Link
                                     key={subcategory._id}
-                                    href={`/categories/${subcategory.slug}`}
+                                    href={`/categories/${slug}/${subcategory.slug}`}
                                     className="group overflow-hidden rounded-2xl border border-gray-100 bg-white transition-all duration-300 hover:-translate-y-1 hover:border-green-100 hover:shadow-xl hover:shadow-green-950/5"
                                 >
                                     {/* Category Image */}
@@ -106,7 +106,7 @@ function SubategoriesPage() {
                                                 alt={subcategory.name}
                                                 fill
                                                 sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
-                                                className="object-cover transition-transform duration-500 group-hover:scale-105"
+                                                className="object-contain transition-transform duration-500 group-hover:scale-105"
                                             />
                                         ) : (
                                             <div className="flex h-full items-center justify-center">

@@ -3,6 +3,7 @@ import Category from "../models/Category.js";
 import { uploadFile } from "../config/cloudinary.js"
 import { destroyFile } from "../config/cloudinary.js"
 import Product from "../models/Product.js"
+import { handleResponseError } from "../utils/errorUtils.js"
 
 export const createSubcategory = async (req, res) => {
     try {

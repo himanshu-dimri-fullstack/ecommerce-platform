@@ -3,6 +3,7 @@ import ProductVariant from "../models/ProductVariant.js"
 import Product from "../models/Product.js";
 import { destroyFile, uploadFile } from "../config/cloudinary.js";
 import { handleResponseError } from "../utils/errorUtils.js"
+import Category from "../models/Category.js"
 
 // Normalize single/multiple uploaded images
 const getUploadedImages = (files) => {
@@ -144,6 +145,49 @@ export const addProductVariant = async (req, res) => {
 // Get All Product Variants
 export const getAllProductVariants = async (req, res) => {
     try {
+        const { category, product } = req.query
+        if (category) {
+            if (category === "All") {
+                const variants = await ProductVariant.find()
+                    .populate("product", "name")
+                    .sort({ createdAt: -1 });
+                return res.status(200).json({
+                    success: true,
+                    message: "Product variants fetched successfully",
+                    variants,
+                });
+            }
+            else {
+                const getCategory = await Category.findOne({ slug: category })
+                if (!getCategory) {
+                    return res.status(200).json({
+                        success: true,
+                        message: "No products available",
+                    });
+                }
+                const getProducts = await Product.find({ category: getCategory._id })
+                const productIds = getProducts.map((product) => product._id);
+                const variants = await ProductVariant.find({ product: { $in: productIds } })
+                    .populate("product", "name")
+                    .sort({ createdAt: -1 });
+                return res.status(200).json({
+                    success: true,
+                    message: "Product variants fetched successfully",
+                    variants,
+                });
+            }
+        }
+        else if (product) {
+            const getProduct = await Product.findOne({ slug: product })
+            const variants = await ProductVariant.find({ product: getProduct._id })
+                .populate("product", "name")
+                .sort({ createdAt: -1 })
+            return res.status(200).json({
+                success: true,
+                message: "Product variants fetched successfully",
+                variants,
+            })
+        }
         const variants = await ProductVariant.find()
             .populate("product", "name")
             .sort({ createdAt: -1 });
@@ -152,16 +196,16 @@ export const getAllProductVariants = async (req, res) => {
             success: true,
             message: "Product variants fetched successfully",
             variants,
-        });
+        })
     } catch (error) {
         console.error("Get Product Variants Error:", error);
 
         return res.status(500).json({
             success: false,
             message: "Failed to fetch product variants",
-        });
+        })
     }
-};
+}
 
 // Get Single Product Variant
 export const getProductVariantById = async (req, res) => {
