@@ -16,11 +16,15 @@ const FormModal = ({
     isEdit,
 }) => {
     const modules = [
-        "users",
-        "categories",
-        "subcategories",
-        "products",
-        "brands"
+        "dashboard",
+        "role",
+        "user",
+        "category",
+        "subcategory",
+        "brand",
+        "product",
+        "productVariant",
+        "store"
     ];
 
     const formatModuleName = (module) => {

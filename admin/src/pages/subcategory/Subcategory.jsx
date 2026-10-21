@@ -15,9 +15,11 @@ import { API } from "../../api/axios";
 import DeleteModal from "../../components/subcategory/DeleteModal";
 import FormModal from "../../components/subcategory/FormModal";
 import DataLoader from "../../components/DataLoader";
+import { useSelector } from "react-redux";
+import { Navigate } from "react-router-dom";
 
 const Subcategory = () => {
-
+    const user = useSelector((store) => store.auth.user)
     const navigate = useNavigate();
 
     const [dataLoading, setDataLoading] = useState(true)
@@ -390,7 +392,6 @@ const Subcategory = () => {
 
     useEffect(() => {
         const getAllCategories = async () => {
-
             try {
                 const res = await API.get("/admin/categories");
                 setCategories(res.data.categories);
@@ -409,6 +410,9 @@ const Subcategory = () => {
         getAllCategories()
     }, [])
 
+    if (!user?.role.permissions.some((permission) => permission.includes("subcategory"))) {
+        return <Navigate to="/admin/dashboard" replace />
+    }
 
     if (dataLoading) {
         return <DataLoader />
@@ -579,9 +583,11 @@ const Subcategory = () => {
 
                     {/* ADD SUBCATEGORY */}
 
-                    <button
-                        onClick={handleAddSubcategoryModal}
-                        className="
+                    {
+                        user?.role?.permissions.includes("subcategory:add") &&
+                        <button
+                            onClick={handleAddSubcategoryModal}
+                            className="
                             flex
                             items-center
                             justify-center
@@ -596,13 +602,16 @@ const Subcategory = () => {
                             transition
                             active:scale-95
                         "
-                    >
+                        >
 
-                        <FiPlus size={19} />
+                            <FiPlus size={19} />
 
-                        Add Subcategory
+                            Add Subcategory
 
-                    </button>
+                        </button>
+                    }
+
+
 
                 </div>
 
@@ -764,25 +773,29 @@ const Subcategory = () => {
                                                 {/* VIEW */}
 
                                                 <div className="group relative">
-
-                                                    <button
-                                                        onClick={() =>
-                                                            handleSubcategoryView(
-                                                                subcategory._id
-                                                            )
-                                                        }
-                                                        className="
+                                                    {
+                                                        user?.role?.permissions.includes("subcategory:read") &&
+                                                        <button
+                                                            onClick={() =>
+                                                                handleSubcategoryView(
+                                                                    subcategory._id
+                                                                )
+                                                            }
+                                                            className="
                                                             rounded-lg
                                                             p-2
                                                             text-blue-600
                                                             transition
                                                             hover:bg-blue-50
                                                         "
-                                                    >
+                                                        >
 
-                                                        <FiEye size={18} />
+                                                            <FiEye size={18} />
 
-                                                    </button>
+                                                        </button>
+
+                                                    }
+
 
                                                     <span className="pointer-events-none absolute bottom-full left-1/2 mb-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-800 px-2 py-1 text-xs text-white opacity-0 transition group-hover:opacity-100">
                                                         View
@@ -794,25 +807,29 @@ const Subcategory = () => {
                                                 {/* EDIT */}
 
                                                 <div className="group relative">
-
-                                                    <button
-                                                        onClick={() =>
-                                                            handleEditSubcategoryModal(
-                                                                subcategory
-                                                            )
-                                                        }
-                                                        className="
+                                                    {
+                                                        user?.role?.permissions.includes("subcategory:update") &&
+                                                        <button
+                                                            onClick={() =>
+                                                                handleEditSubcategoryModal(
+                                                                    subcategory
+                                                                )
+                                                            }
+                                                            className="
                                                             rounded-lg
                                                             p-2
                                                             text-amber-600
                                                             transition
                                                             hover:bg-amber-50
                                                         "
-                                                    >
+                                                        >
 
-                                                        <FiEdit2 size={18} />
+                                                            <FiEdit2 size={18} />
 
-                                                    </button>
+                                                        </button>
+                                                    }
+
+
 
                                                     <span className="pointer-events-none absolute bottom-full left-1/2 mb-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-800 px-2 py-1 text-xs text-white opacity-0 transition group-hover:opacity-100">
                                                         Edit
@@ -824,25 +841,31 @@ const Subcategory = () => {
                                                 {/* DELETE */}
 
                                                 <div className="group relative">
-
-                                                    <button
-                                                        onClick={() =>
-                                                            handleDeleteModal(
-                                                                subcategory._id
-                                                            )
-                                                        }
-                                                        className="
+                                                    {
+                                                        user?.role?.permissions.includes("subcategory:delete") &&
+                                                        <button
+                                                            onClick={() =>
+                                                                handleDeleteModal(
+                                                                    subcategory._id
+                                                                )
+                                                            }
+                                                            className="
                                                             rounded-lg
                                                             p-2
                                                             text-red-500
                                                             transition
                                                             hover:bg-red-50
                                                         "
-                                                    >
+                                                        >
 
-                                                        <FiTrash2 size={18} />
+                                                            <FiTrash2 size={18} />
 
-                                                    </button>
+                                                        </button>
+                                                    }
+
+
+
+
 
                                                     <span className="pointer-events-none absolute bottom-full left-1/2 mb-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-800 px-2 py-1 text-xs text-white opacity-0 transition group-hover:opacity-100">
                                                         Delete

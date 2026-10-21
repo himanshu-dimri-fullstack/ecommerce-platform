@@ -9,7 +9,7 @@ import {
     FiXCircle,
     FiGrid,
 } from "react-icons/fi";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Navigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { API } from "../../api/axios";
 import DeleteModal from "../../components/category/DeleteModal";
@@ -17,10 +17,11 @@ import FormModal from "../../components/category/FormModal"
 import DataLoader from "../../components/DataLoader";
 // import Pagination from "react-responsive-pagination"
 // import 'react-responsive-pagination/themes/classic-light-dark.css';
+import { useSelector } from "react-redux";
 
 
 const Category = () => {
-
+    const user = useSelector((store) => store.auth.user)
     const navigate = useNavigate();
 
     const [dataLoading, setDataLoading] = useState(true)
@@ -377,6 +378,10 @@ const Category = () => {
         console.log(page)
     }
 
+    if (!user?.role.permissions.some((permission) => permission.includes("category"))) {
+        return <Navigate to="/admin/dashboard" replace />
+    }
+
     if (dataLoading) {
         return <DataLoader />
     }
@@ -545,9 +550,11 @@ const Category = () => {
 
                     {/* ADD CATEGORY */}
 
-                    <button
-                        onClick={handleAddCategoryModal}
-                        className="
+                    {
+                        user?.role?.permissions.includes("category:add") &&
+                        <button
+                            onClick={handleAddCategoryModal}
+                            className="
                             flex
                             items-center
                             justify-center
@@ -562,13 +569,16 @@ const Category = () => {
                             transition
                             active:scale-95
                         "
-                    >
+                        >
 
-                        <FiPlus size={19} />
+                            <FiPlus size={19} />
 
-                        Add Category
+                            Add Category
 
-                    </button>
+                        </button>
+                    }
+
+
 
                 </div>
 
@@ -709,23 +719,27 @@ const Category = () => {
                                                 {/* VIEW */}
 
                                                 <div className="group relative">
-
-                                                    <button
-                                                        onClick={() =>
-                                                            handleCategoryView(category._id)
-                                                        }
-                                                        className="
+                                                    {
+                                                        user?.role?.permissions.includes("category:read") &&
+                                                        <button
+                                                            onClick={() =>
+                                                                handleCategoryView(category._id)
+                                                            }
+                                                            className="
                                                             rounded-lg
                                                             p-2
                                                             text-blue-600
                                                             transition
                                                             hover:bg-blue-50
                                                         "
-                                                    >
+                                                        >
 
-                                                        <FiEye size={18} />
+                                                            <FiEye size={18} />
 
-                                                    </button>
+                                                        </button>
+                                                    }
+
+
 
                                                     <span className="pointer-events-none absolute bottom-full left-1/2 mb-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-800 px-2 py-1 text-xs text-white opacity-0 transition group-hover:opacity-100">
                                                         View
@@ -738,22 +752,27 @@ const Category = () => {
 
                                                 <div className="group relative">
 
-                                                    <button
-                                                        onClick={() =>
-                                                            handleEditCategoryModal(category)
-                                                        }
-                                                        className="
+                                                    {
+                                                        user?.role?.permissions.includes("category:update") &&
+                                                        <button
+                                                            onClick={() =>
+                                                                handleEditCategoryModal(category)
+                                                            }
+                                                            className="
                                                             rounded-lg
                                                             p-2
                                                             text-amber-600
                                                             transition
                                                             hover:bg-amber-50
                                                         "
-                                                    >
+                                                        >
 
-                                                        <FiEdit2 size={18} />
+                                                            <FiEdit2 size={18} />
 
-                                                    </button>
+                                                        </button>
+                                                    }
+
+
 
                                                     <span className="pointer-events-none absolute bottom-full left-1/2 mb-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-800 px-2 py-1 text-xs text-white opacity-0 transition group-hover:opacity-100">
                                                         Edit
@@ -765,25 +784,29 @@ const Category = () => {
                                                 {/* DELETE */}
 
                                                 <div className="group relative">
-
-                                                    <button
-                                                        onClick={() =>
-                                                            handleDeleteModal(
-                                                                category._id
-                                                            )
-                                                        }
-                                                        className="
+                                                    {
+                                                        user?.role?.permissions.includes("category:delete") &&
+                                                        <button
+                                                            onClick={() =>
+                                                                handleDeleteModal(
+                                                                    category._id
+                                                                )
+                                                            }
+                                                            className="
                                                             rounded-lg
                                                             p-2
                                                             text-red-500
                                                             transition
                                                             hover:bg-red-50
                                                         "
-                                                    >
+                                                        >
 
-                                                        <FiTrash2 size={18} />
+                                                            <FiTrash2 size={18} />
 
-                                                    </button>
+                                                        </button>
+
+                                                    }
+
 
                                                     <span className="pointer-events-none absolute bottom-full left-1/2 mb-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-800 px-2 py-1 text-xs text-white opacity-0 transition group-hover:opacity-100">
                                                         Delete

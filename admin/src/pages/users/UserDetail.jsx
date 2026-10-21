@@ -11,10 +11,13 @@ import {
 import { API } from "../../api/axios";
 import { useState, useEffect } from "react";
 import DataLoader from "../../components/DataLoader";
+import { useSelector } from "react-redux";
 
 const UserDetail = () => {
     const { id } = useParams();
     const [dataLoading, setDataLoading] = useState(true)
+
+    const role = useSelector((store) => store.auth.user.role)
 
     const [user, setUser] = useState({});
     useEffect(() => {
@@ -37,6 +40,10 @@ const UserDetail = () => {
         `${user?.firstName || ""} ${user?.lastName || ""}`.trim() || "N/A";
 
     const status = user?.status || "inactive";
+
+    if (!role?.permissions.some((permission) => permission.includes("user"))) {
+        return <Navigate to="/admin/dashboard" replace />
+    }
 
     if (dataLoading) {
         return <DataLoader />

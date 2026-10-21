@@ -12,8 +12,11 @@ import {
 import { API } from "../../api/axios";
 import { useState, useEffect } from "react";
 import DataLoader from "../../components/DataLoader";
+import { useSelector } from "react-redux";
+import { Navigate } from "react-router-dom"
 
 const CategoryDetail = () => {
+    const user = useSelector((store) => store.auth.user)
     const { id } = useParams();
     const [category, setCategory] = useState({});
     const [dataLoading, setDataLoading] = useState(true)
@@ -34,6 +37,9 @@ const CategoryDetail = () => {
         fetchCategory();
     }, [id]);
 
+    if (!user?.role.permissions.some((permission) => permission.includes("category"))) {
+        return <Navigate to="/admin/dashboard" replace />
+    }
     if (dataLoading) {
         return <DataLoader />
     }

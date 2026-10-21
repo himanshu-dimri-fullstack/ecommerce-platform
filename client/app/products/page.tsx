@@ -137,15 +137,15 @@ function ProductsPage() {
                                 <button
                                     onClick={() => handleCategoryClick("All")}
                                     className={`group rounded-xl border px-5 py-3.5 text-sm font-bold transition-all duration-200 sm:px-6 sm:py-4 sm:text-base ${selectedCategory === "All"
-                                            ? "border-[#0c831f] bg-[#0c831f] text-white shadow-md shadow-green-900/15"
-                                            : "border-gray-200 bg-white text-gray-700 hover:border-[#0c831f]/40 hover:bg-green-50/70 hover:text-[#0c831f]"
+                                        ? "border-[#0c831f] bg-[#0c831f] text-white shadow-md shadow-green-900/15"
+                                        : "border-gray-200 bg-white text-gray-700 hover:border-[#0c831f]/40 hover:bg-green-50/70 hover:text-[#0c831f]"
                                         }`}
                                 >
                                     All
                                     <span
                                         className={`ml-2 inline-block h-1.5 w-1.5 rounded-full ${selectedCategory === "All"
-                                                ? "bg-white"
-                                                : "bg-gray-300 group-hover:bg-[#0c831f]"
+                                            ? "bg-white"
+                                            : "bg-gray-300 group-hover:bg-[#0c831f]"
                                             }`}
                                     />
                                 </button>
@@ -162,16 +162,16 @@ function ProductsPage() {
                                                 handleCategoryClick(category.slug)
                                             }
                                             className={`group rounded-xl border px-5 py-3.5 text-sm font-bold transition-all duration-200 sm:px-6 sm:py-4 sm:text-base ${isActive
-                                                    ? "border-[#0c831f] bg-[#0c831f] text-white shadow-md shadow-green-900/15"
-                                                    : "border-gray-200 bg-white text-gray-700 hover:border-[#0c831f]/40 hover:bg-green-50/70 hover:text-[#0c831f]"
+                                                ? "border-[#0c831f] bg-[#0c831f] text-white shadow-md shadow-green-900/15"
+                                                : "border-gray-200 bg-white text-gray-700 hover:border-[#0c831f]/40 hover:bg-green-50/70 hover:text-[#0c831f]"
                                                 }`}
                                         >
                                             {category.name}
 
                                             <span
                                                 className={`ml-2 inline-block h-1.5 w-1.5 rounded-full ${isActive
-                                                        ? "bg-white"
-                                                        : "bg-gray-300 group-hover:bg-[#0c831f]"
+                                                    ? "bg-white"
+                                                    : "bg-gray-300 group-hover:bg-[#0c831f]"
                                                     }`}
                                             />
                                         </button>
@@ -240,7 +240,7 @@ function ProductsPage() {
                                 );
 
                                 return (
-                                    <article
+                                    <Link href={`/products/${product.slug}`}
                                         key={product.slug}
                                         className="group overflow-hidden rounded-2xl border border-gray-100 bg-white transition duration-200 hover:-translate-y-1 hover:border-green-100 hover:shadow-lg"
                                     >
@@ -287,7 +287,7 @@ function ProductsPage() {
                                                 </button>
                                             </div>
                                         </div>
-                                    </article>
+                                    </Link>
                                 );
                             })}
                         </div>

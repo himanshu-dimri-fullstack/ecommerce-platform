@@ -25,7 +25,7 @@ import Loader from "./components/Loader";
 import LogoutModal from "./components/LogoutModal";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchUser } from "./redux/AuthSlice.js";
-import { setUser, setLoading } from "./redux/AuthSlice.js"
+import { setUser } from "./redux/AuthSlice.js"
 
 const AdminLayout = () => {
     const navigate = useNavigate()
@@ -39,17 +39,19 @@ const AdminLayout = () => {
     const [showLogoutModal, setShowLogoutModal] = useState(false);
     const [sidebarOpen, setSidebarOpen] = useState(false);
 
+    const [permissions, setPermissions] = useState([])
+
     const menuItems = [
-        { name: "Dashboard", path: "/admin/dashboard", icon: FiHome },
-        { name: "Roles & Permissions", path: "/admin/roles", icon: FiShield },
-        { name: "Users", path: "/admin/users", icon: FiUsers },
-        { name: "Store", path: "/admin/stores", icon: FiShoppingBag },
-        { name: "Inventory", path: "/admin/inventory", icon: FiArchive },
-        { name: "Brand", path: "/admin/brands", icon: FiAward },
-        { name: "Categories", path: "/admin/categories", icon: FiGrid },
-        { name: "Subcategories", path: "/admin/subcategories", icon: FiLayers },
-        { name: "Products", path: "/admin/products", icon: FiPackage },
-        { name: "Product Variants", path: "/admin/product-variants", icon: FiLayers },
+        { name: "Dashboard", path: "/admin/dashboard", icon: FiHome, permission: "dashboard" },
+        { name: "Roles & Permissions", path: "/admin/roles", icon: FiShield, permission: "role" },
+        { name: "Users", path: "/admin/users", icon: FiUsers, permission: "user" },
+        { name: "Store", path: "/admin/stores", icon: FiShoppingBag, permission: "store" },
+        { name: "Inventory", path: "/admin/inventory", icon: FiArchive, permission: "inventory" },
+        { name: "Brand", path: "/admin/brands", icon: FiAward, permission: "brand" },
+        { name: "Categories", path: "/admin/categories", icon: FiGrid, permission: "category" },
+        { name: "Subcategories", path: "/admin/subcategories", icon: FiLayers, permission: "subcategory" },
+        { name: "Products", path: "/admin/products", icon: FiPackage, permission: "product" },
+        { name: "Product Variants", path: "/admin/product-variants", icon: FiLayers, permission: "productVariant" },
         { name: "Edit Profile", path: "/admin/settings", icon: FiSettings },
     ];
 
@@ -94,6 +96,10 @@ const AdminLayout = () => {
             nav.scrollTop -= navRect.top - linkRect.top;
         }
     }, [location.pathname, loading, user]);
+
+    useEffect(() => {
+        setPermissions(user?.role?.permissions || [])
+    }, [user])
 
     if (loading) return <Loader />;
 
@@ -156,6 +162,7 @@ const AdminLayout = () => {
                             const Icon = item.icon;
 
                             return (
+                                permissions.some(permission => permission.includes(item.permission)) &&
                                 <NavLink
                                     key={item.path}
                                     to={item.path}
@@ -194,6 +201,7 @@ const AdminLayout = () => {
                                         </>
                                     )}
                                 </NavLink>
+
                             );
                         })}
                     </div>
@@ -276,10 +284,15 @@ const AdminLayout = () => {
 
                             <div className="hidden min-w-0 sm:block">
                                 <p className="max-w-36 truncate text-sm font-bold text-slate-800">
-                                    {user?.name || "Admin"}
+                                    {
+                                        user ?
+                                            `${user?.firstName}` + " " + `${user?.lastName}` : "Admin"
+                                    }
                                 </p>
                                 <p className="text-xs text-slate-500">
-                                    Administrator
+                                    {
+                                        user ? user.role.name : ""
+                                    }
                                 </p>
                             </div>
                         </div>

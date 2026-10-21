@@ -10,21 +10,24 @@ import {
     FiUserCheck,
     FiUserX,
     FiUsers,
-    FiMail,
-    FiPhone,
-    FiLock,
 } from "react-icons/fi";
 import FormModal from "../../components/users/FormModal";
 import { API } from "../../api/axios";
 import { toast } from "react-toastify"
 import { useEffect } from "react";
 import DeleteModal from "../../components/users/DeleteModal";
-import { useNavigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import DataLoader from "../../components/DataLoader";
+import { useDispatch, useSelector } from "react-redux";
 
 const Users = () => {
 
     const navigate = useNavigate()
+
+    const [permissions, setPermissions] = useState([])
+
+    const user = useSelector((store) => store.auth.user)
+
 
     // =========================
     // STATES
@@ -144,6 +147,7 @@ const Users = () => {
     const getAllUsers = async () => {
         try {
             const res = await API.get("/admin/user")
+            console.log(res.data)
             setUsers(res.data.users)
         }
         catch (error) {
@@ -229,6 +233,14 @@ const Users = () => {
         getAllUsers()
         getAllRoles()
     }, [])
+
+    useEffect(() => {
+        setPermissions(user?.role?.permissions || [])
+    }, [user])
+
+    if (!user?.role.permissions.some((permission) => permission.includes("user"))) {
+        return <Navigate to="/admin/dashboard" replace />
+    }
 
     if (dataLoading) {
         return <DataLoader />
@@ -358,7 +370,6 @@ const Users = () => {
             <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 
-
                     {/* SEARCH */}
 
                     <div className="relative w-full sm:max-w-md">
@@ -396,9 +407,13 @@ const Users = () => {
 
                     {/* ADD USER */}
 
-                    <button
-                        onClick={handleAddUserModal}
-                        className="
+
+                    {
+
+                        permissions.includes("user:add") &&
+                        <button
+                            onClick={handleAddUserModal}
+                            className="
                             flex
                             items-center
                             justify-center
@@ -413,10 +428,13 @@ const Users = () => {
                             transition
                             active:scale-95
                         "
-                    >
-                        <FiPlus size={19} />
-                        Add User
-                    </button>
+                        >
+                            <FiPlus size={19} />
+                            Add User
+                        </button>
+                    }
+
+
 
                 </div>
             </div>
@@ -446,9 +464,9 @@ const Users = () => {
                                     Email
                                 </th>
 
-                                {/* <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Phone
-            </th> */}
+                                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                    Role
+                                </th>
 
                                 <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
                                     Status
@@ -534,9 +552,9 @@ const Users = () => {
 
                                             {/* PHONE */}
 
-                                            {/* <td className="px-6 py-4 text-sm text-slate-600">
-                            {user?.phone || "N/A"}
-                        </td> */}
+                                            <td className="px-6 py-4 text-sm text-slate-600">
+                                                {user?.role?.name || "N/A"}
+                                            </td>
 
 
                                             {/* STATUS */}
@@ -585,25 +603,28 @@ const Users = () => {
 
                                                     {/* VIEW */}
 
-                                                    <div className="group relative">
+                                                    {
+                                                        permissions.includes("user:read") &&
 
-                                                        <button
-                                                            type="button"
-                                                            onClick={() =>
-                                                                handleUserView(user?._id)
-                                                            }
-                                                            className="
-                                            rounded-lg
+                                                        <div className="group relative">
+
+                                                            <button
+                                                                type="button"
+                                                                onClick={() =>
+                                                                    handleUserView(user?._id)
+                                                                }
+                                                                className="
+                                             rounded-lg
                                             p-2
                                             text-blue-600
                                             transition
                                             hover:bg-blue-50
                                         "
-                                                        >
-                                                            <FiEye size={18} />
-                                                        </button>
+                                                            >
+                                                                <FiEye size={18} />
+                                                            </button>
 
-                                                        <span className="
+                                                            <span className="
                                         pointer-events-none
                                         absolute bottom-full left-1/2
                                         mb-2
@@ -618,31 +639,36 @@ const Users = () => {
                                         transition
                                         group-hover:opacity-100
                                     ">
-                                                            View
-                                                        </span>
+                                                                View
+                                                            </span>
 
-                                                    </div>
+                                                        </div>
+                                                    }
+
+
 
 
                                                     {/* EDIT */}
+                                                    {
+                                                        permissions.includes("user:update") &&
 
-                                                    <div className="group relative">
+                                                        <div className="group relative">
 
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => handleEditUserModal(user)}
-                                                            className="
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleEditUserModal(user)}
+                                                                className="
                                             rounded-lg
                                             p-2
                                             text-amber-600
                                             transition
                                             hover:bg-amber-50
                                         "
-                                                        >
-                                                            <FiEdit2 size={18} />
-                                                        </button>
+                                                            >
+                                                                <FiEdit2 size={18} />
+                                                            </button>
 
-                                                        <span className="
+                                                            <span className="
                                         pointer-events-none
                                         absolute bottom-full left-1/2
                                         mb-2
@@ -657,87 +683,39 @@ const Users = () => {
                                         transition
                                         group-hover:opacity-100
                                     ">
-                                                            Edit
-                                                        </span>
+                                                                Edit
+                                                            </span>
 
-                                                    </div>
+                                                        </div>
+                                                    }
 
-
-                                                    {/* STATUS */}
-
-                                                    {/* <div className="group relative">
-
-                                                        <button
-                                                            type="button"
-                                                            onClick={() =>
-                                                                changeStatus(
-                                                                    user?.email,
-                                                                    user?.status
-                                                                )
-                                                            }
-                                                            className={`
-                                            rounded-lg
-                                            p-2
-                                            transition
-                                            ${user?.status === "active"
-                                                                    ? "text-orange-500 hover:bg-orange-50"
-                                                                    : "text-green-600 hover:bg-green-50"
-                                                                }
-                                        `}
-                                                        >
-
-                                                            {user?.status === "active" ? (
-                                                                <FiUserX size={18} />
-                                                            ) : (
-                                                                <FiUserCheck size={18} />
-                                                            )}
-
-                                                        </button>
-
-                                                        <span className="
-                                        pointer-events-none
-                                        absolute bottom-full left-1/2
-                                        mb-2
-                                        -translate-x-1/2
-                                        whitespace-nowrap
-                                        rounded-md
-                                        bg-slate-800
-                                        px-2 py-1
-                                        text-xs
-                                        text-white
-                                        opacity-0
-                                        transition
-                                        group-hover:opacity-100
-                                    ">
-                                                            {user?.status === "active"
-                                                                ? "Inactive"
-                                                                : "Active"}
-                                                        </span>
-
-                                                    </div> */}
 
 
                                                     {/* DELETE */}
 
-                                                    <div className="group relative">
+                                                    {
 
-                                                        <button
-                                                            type="button"
-                                                            onClick={() =>
-                                                                handleDeleteModal(user?._id)
-                                                            }
-                                                            className="
+                                                        permissions.includes("user:delete") &&
+
+                                                        <div className="group relative">
+
+                                                            <button
+                                                                type="button"
+                                                                onClick={() =>
+                                                                    handleDeleteModal(user?._id)
+                                                                }
+                                                                className="
                                             rounded-lg
                                             p-2
                                             text-red-500
                                             transition
                                             hover:bg-red-50
                                         "
-                                                        >
-                                                            <FiTrash2 size={18} />
-                                                        </button>
+                                                            >
+                                                                <FiTrash2 size={18} />
+                                                            </button>
 
-                                                        <span className="
+                                                            <span className="
                                         pointer-events-none
                                         absolute bottom-full left-1/2
                                         mb-2
@@ -752,10 +730,14 @@ const Users = () => {
                                         transition
                                         group-hover:opacity-100
                                     ">
-                                                            Delete
-                                                        </span>
+                                                                Delete
+                                                            </span>
 
-                                                    </div>
+                                                        </div>
+
+                                                    }
+
+
 
                                                 </div>
 

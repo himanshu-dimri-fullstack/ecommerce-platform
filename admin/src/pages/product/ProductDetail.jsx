@@ -19,9 +19,12 @@ import {
 import { useState, useEffect } from "react";
 import { API } from "../../api/axios";
 import DataLoader from "../../components/DataLoader";
+import { useSelector } from "react-redux"
+import { Navigate } from "react-router-dom"
 
 const ProductDetail = () => {
     const { id } = useParams();
+    const user = useSelector((store) => store.auth.user)
 
     const [product, setProduct] = useState({});
     const [dataLoading, setDataLoading] = useState(true);
@@ -40,6 +43,10 @@ const ProductDetail = () => {
 
         fetchProduct();
     }, [id]);
+
+    if (!user?.role.permissions.some((permission) => permission.includes("product"))) {
+        return <Navigate to="/admin/dashboard" replace />
+    }
 
     if (dataLoading) {
         return <DataLoader />;

@@ -98,38 +98,67 @@ export const verifyOTP = async (req, res) => {
 
 export const login = async (req, res) => {
     try {
-        const { email, password } = req.body
+        const { email, password } = req.body;
+
         if (!email) {
-            return res.status(400).json({ message: "Email is required" })
+            return res.status(400).json({ message: "Email is required" });
         }
+
         if (!password) {
-            return res.status(400).json({ message: "Password is required" })
+            return res.status(400).json({ message: "Password is required" });
         }
+
         const user = await User.findOne({ email })
+            .populate("role", "name permissions");
+
         if (!user) {
-            return res.status(401).json({ message: "Email is invalid" })
+            return res.status(401).json({ message: "Email is invalid" });
         }
+
         if (!(await bcrypt.compare(password, user.password))) {
-            return res.status(401).json({ message: "Password is invalid" })
+            return res.status(401).json({ message: "Password is invalid" });
         }
-        const token = jwt.sign({ id: user._id, email: user.email, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1d' })
+
+        const token = jwt.sign(
+            {
+                id: user._id,
+                email: user.email,
+                role: user.role?._id
+            },
+            process.env.JWT_SECRET,
+            { expiresIn: "1d" }
+        );
 
         res.cookie("token", token, {
             httpOnly: true,
             secure: false,
             sameSite: "Lax",
             maxAge: 24 * 60 * 60 * 1000
-        })
+        });
 
         return res.status(200).json({
-            message: "Login successfull",
-            user: { id: user._id, email: user.email }
-        })
+            message: "Login successful",
+            user: {
+                id: user._id,
+                firstName: user.firstName,
+                lastName: user.lastName,
+                email: user.email,
+                role: user.role
+                    ? {
+                        id: user.role._id,
+                        name: user.role.name,
+                        permissions: user.role.permissions
+                    }
+                    : null
+            }
+        });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({
+            message: "Internal server error"
+        });
     }
-    catch (error) {
-        console.log(error)
-    }
-}
+};
 
 export const resetPassword = async (req, res) => {
     try {

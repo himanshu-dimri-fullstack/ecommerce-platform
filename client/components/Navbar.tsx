@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
     FiZap,
     FiMapPin,
@@ -14,10 +14,67 @@ import {
     FiChevronDown,
 } from "react-icons/fi";
 
+const NavbarSkeleton = () => {
+    return (
+        <header className="sticky top-0 z-50 border-b border-gray-200 bg-white">
+            {/* Main Navbar Skeleton */}
+            <div className="mx-auto flex max-w-360 items-center gap-4 px-4 py-3 sm:gap-5 sm:px-6 lg:px-8">
+                {/* Logo */}
+                <div className="flex shrink-0 items-center gap-2">
+                    <div className="h-11 w-11 animate-pulse rounded-2xl bg-gray-200" />
+
+                    <div className="space-y-2">
+                        <div className="h-6 w-28 animate-pulse rounded-md bg-gray-200" />
+                        <div className="h-2 w-24 animate-pulse rounded bg-gray-100" />
+                    </div>
+                </div>
+
+                {/* Desktop Location */}
+                <div className="hidden min-w-43.75 items-center gap-2 md:flex">
+                    <div className="h-6 w-6 animate-pulse rounded-full bg-gray-200" />
+
+                    <div className="space-y-2">
+                        <div className="h-4 w-24 animate-pulse rounded bg-gray-200" />
+                        <div className="h-3 w-32 animate-pulse rounded bg-gray-100" />
+                    </div>
+                </div>
+
+                {/* Search */}
+                <div className="flex h-12 min-w-0 flex-1 items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 px-3 sm:px-4">
+                    <div className="h-5 w-5 shrink-0 animate-pulse rounded bg-gray-200" />
+                    <div className="h-4 w-full max-w-64 animate-pulse rounded bg-gray-200" />
+                </div>
+
+                {/* Desktop Actions */}
+                <div className="hidden shrink-0 items-center gap-5 sm:flex">
+                    <div className="h-5 w-16 animate-pulse rounded bg-gray-200" />
+                    <div className="h-11 w-28 animate-pulse rounded-xl bg-gray-200" />
+                </div>
+
+                {/* Mobile Menu */}
+                <div className="h-10 w-10 shrink-0 animate-pulse rounded-lg bg-gray-100 sm:hidden" />
+            </div>
+
+            {/* Desktop Navigation */}
+            <nav className="hidden border-t border-gray-100 md:block">
+                <div className="mx-auto flex max-w-360 items-center gap-8 px-8 py-3">
+                    {[1, 2, 3, 4].map((item) => (
+                        <div
+                            key={item}
+                            className="h-4 w-20 animate-pulse rounded bg-gray-200"
+                        />
+                    ))}
+                </div>
+            </nav>
+        </header>
+    );
+};
+
 const Navbar = () => {
     const [menuOpen, setMenuOpen] = useState(false);
     const [search, setSearch] = useState("");
     const pathname = usePathname();
+    const router = useRouter();
 
     const handleSearch = (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -41,7 +98,6 @@ const Navbar = () => {
 
     const closeMenu = () => setMenuOpen(false);
 
-    // Active link check — nested routes bhi support karta hai
     const isActive = (href: string) => {
         if (href === "/") {
             return pathname === "/";
@@ -49,6 +105,19 @@ const Navbar = () => {
 
         return pathname === href || pathname.startsWith(`${href}/`);
     };
+
+    const handleSearchBar = () => {
+        router.push("/search");
+    };
+
+    const inputRef = useRef<HTMLInputElement>(null);
+    useEffect(() => {
+        if (pathname === "/search") {
+            inputRef.current?.focus();
+        }
+    }, [pathname]);
+
+
 
     return (
         <header className="sticky top-0 z-50 border-b border-gray-200 bg-white">
@@ -97,7 +166,9 @@ const Navbar = () => {
                     <FiSearch size={21} className="shrink-0 text-gray-500" />
 
                     <input
+                        ref={inputRef}
                         value={search}
+                        onFocus={(e) => handleSearchBar()}
                         onChange={(e) => setSearch(e.target.value)}
                         placeholder="Search for atta, milk, fruits..."
                         aria-label="Search products"
@@ -175,10 +246,10 @@ const Navbar = () => {
                 </div>
             </nav>
 
+
             {/* MOBILE NAVIGATION */}
             {menuOpen && (
                 <nav className="border-t border-gray-100 bg-white p-4 sm:hidden">
-                    {/* LOCATION */}
                     <button
                         type="button"
                         className="mb-4 flex w-full items-center gap-3 rounded-xl bg-gray-50 p-3 text-left transition hover:bg-green-50"
@@ -197,7 +268,6 @@ const Navbar = () => {
                         <FiChevronDown size={16} className="ml-auto text-gray-500" />
                     </button>
 
-                    {/* NAV LINKS */}
                     <div className="flex flex-col gap-1">
                         {navLinks.map((item) => {
                             const active = isActive(item.href);
@@ -248,7 +318,7 @@ const Navbar = () => {
 
 export default function Page() {
     return (
-        <Suspense fallback={<div>Loading product...</div>}>
+        <Suspense fallback={<NavbarSkeleton />}>
             <Navbar />
         </Suspense>
     );

@@ -49,7 +49,7 @@ const LoginPage = () => {
                 }
             )
             setForm({
-                email: "",
+                email: form.email,
                 password: ""
             })
             // setLoading(false)
@@ -59,7 +59,7 @@ const LoginPage = () => {
         }
         catch (error) {
             setForm({
-                email: "",
+                email: form.email,
                 password: ""
             })
             // setLoading(false)
@@ -195,6 +195,7 @@ const LoginPage = () => {
 
                             <input
                                 onChange={handleChange}
+                                value={form.email}
                                 type="email"
                                 name="email"
                                 placeholder="you@example.com"
@@ -223,6 +224,7 @@ const LoginPage = () => {
 
                             <input
                                 onChange={handleChange}
+                                value={form.password}
                                 type="password"
                                 name="password"
                                 placeholder="Enter your password"

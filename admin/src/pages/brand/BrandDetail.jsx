@@ -13,8 +13,11 @@ import {
 import { API } from "../../api/axios";
 import { useState, useEffect } from "react";
 import DataLoader from "../../components/DataLoader";
+import { useSelector } from "react-redux";
+import { Navigate } from "react-router-dom";
 
 const BrandDetail = () => {
+    const user = useSelector((store) => store.auth.user)
     const { id } = useParams();
 
     const [brand, setBrand] = useState({});
@@ -51,7 +54,9 @@ const BrandDetail = () => {
             ? parsedDate.toLocaleString()
             : parsedDate.toLocaleDateString();
     };
-
+    if (!user?.role.permissions.some((permission) => permission.includes("brand"))) {
+        return <Navigate to="/admin/dashboard" replace />
+    }
     if (dataLoading) {
         return <DataLoader />
     }

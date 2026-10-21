@@ -20,6 +20,8 @@ import { API } from "../../api/axios";
 import DataLoader from "../../components/DataLoader";
 import FormModal from "../../components/store/FormModal";
 import DeleteModal from "../../components/store/DeleteModal";
+import { useDispatch, useSelector } from "react-redux";
+import { Navigate } from "react-router-dom";
 
 const initialFormData = {
     name: "",
@@ -37,6 +39,8 @@ const inputClass =
 
 const Store = () => {
     const navigate = useNavigate();
+
+    const user = useSelector((store) => store.auth.user)
 
     const [dataLoading, setDataLoading] = useState(true);
     const [search, setSearch] = useState("");
@@ -374,6 +378,10 @@ const Store = () => {
         getAllManagers();
     }, []);
 
+    if (!user?.role.permissions.some((permission) => permission.includes("store"))) {
+        return <Navigate to="/admin/dashboard" replace />
+    }
+
     if (dataLoading) {
         return <DataLoader />;
     }
@@ -466,14 +474,20 @@ const Store = () => {
                         />
                     </div>
 
-                    <button
-                        type="button"
-                        onClick={handleAddModal}
-                        className="flex items-center justify-center gap-2 rounded-xl bg-linear-to-br from-[#064e3b] via-[#047857] to-[#022c22] px-5 py-2.5 text-sm font-semibold text-white transition active:scale-95"
-                    >
-                        <FiPlus size={19} />
-                        Add Store
-                    </button>
+                    {
+                        user?.role?.permissions.includes("store:add") &&
+
+                        <button
+                            type="button"
+                            onClick={handleAddModal}
+                            className="flex items-center justify-center gap-2 rounded-xl bg-linear-to-br from-[#064e3b] via-[#047857] to-[#022c22] px-5 py-2.5 text-sm font-semibold text-white transition active:scale-95"
+                        >
+                            <FiPlus size={19} />
+                            Add Store
+                        </button>
+                    }
+
+
                 </div>
             </div>
 
@@ -501,8 +515,8 @@ const Store = () => {
                         </thead>
 
                         <tbody className="divide-y divide-slate-100">
-                            {filteredStores.length > 0 ? (
-                                filteredStores.map((store) => (
+                            {stores.length > 0 ? (
+                                stores.map((store) => (
                                     <tr
                                         key={store._id}
                                         className="transition hover:bg-slate-50"
@@ -539,9 +553,9 @@ const Store = () => {
                                                     className="shrink-0 text-slate-400"
                                                     size={16}
                                                 />
-                                                <span className="text-sm font-medium text-slate-700">
+                                                {/* <span className="text-sm font-medium text-slate-700">
                                                     {`${store.manager.firstName}` + " " + `${store.manager.lastName}`}
-                                                </span>
+                                                </span> */}
                                             </div>
                                         </td>
 
@@ -561,41 +575,58 @@ const Store = () => {
 
                                         {/* ACTIONS */}
                                         <td className="px-6 py-4">
+
+
                                             <div className="flex items-center gap-2">
-                                                <button
-                                                    type="button"
-                                                    title="View Store"
-                                                    onClick={() =>
-                                                        navigate(
-                                                            `/admin/stores/${store._id}`
-                                                        )
-                                                    }
-                                                    className="rounded-lg p-2 text-blue-600 transition hover:bg-blue-50"
-                                                >
-                                                    <FiEye size={18} />
-                                                </button>
+                                                {
+                                                    user?.role?.permissions.includes("store:read") &&
+                                                    <button
+                                                        type="button"
+                                                        title="View Store"
+                                                        onClick={() =>
+                                                            navigate(
+                                                                `/admin/stores/${store._id}`
+                                                            )
+                                                        }
+                                                        className="rounded-lg p-2 text-blue-600 transition hover:bg-blue-50"
+                                                    >
+                                                        <FiEye size={18} />
+                                                    </button>
 
-                                                <button
-                                                    type="button"
-                                                    title="Edit Store"
-                                                    onClick={() =>
-                                                        handleEditModal(store)
-                                                    }
-                                                    className="rounded-lg p-2 text-amber-600 transition hover:bg-amber-50"
-                                                >
-                                                    <FiEdit2 size={18} />
-                                                </button>
+                                                }
+                                                {
 
-                                                <button
-                                                    type="button"
-                                                    title="Delete Store"
-                                                    onClick={() =>
-                                                        handleDeleteModal(store._id)
-                                                    }
-                                                    className="rounded-lg p-2 text-red-500 transition hover:bg-red-50"
-                                                >
-                                                    <FiTrash2 size={18} />
-                                                </button>
+                                                    user?.role?.permissions.includes("store:update") &&
+                                                    <button
+                                                        type="button"
+                                                        title="Edit Store"
+                                                        onClick={() =>
+                                                            handleEditModal(store)
+                                                        }
+                                                        className="rounded-lg p-2 text-amber-600 transition hover:bg-amber-50"
+                                                    >
+                                                        <FiEdit2 size={18} />
+                                                    </button>
+
+                                                }
+
+                                                {
+
+                                                    user?.role?.permissions.includes("store:delete") &&
+                                                    <button
+                                                        type="button"
+                                                        title="Delete Store"
+                                                        onClick={() =>
+                                                            handleDeleteModal(store._id)
+                                                        }
+                                                        className="rounded-lg p-2 text-red-500 transition hover:bg-red-50"
+                                                    >
+                                                        <FiTrash2 size={18} />
+                                                    </button>
+
+                                                }
+
+
                                             </div>
                                         </td>
                                     </tr>

@@ -9,14 +9,16 @@ import {
     FiXCircle,
     FiAward,
 } from "react-icons/fi";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Navigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { API } from "../../api/axios";
 import DeleteModal from "../../components/brand/DeleteModal";
 import FormModal from "../../components/brand/FormModal";
 import DataLoader from "../../components/DataLoader";
+import { useSelector } from "react-redux"
 
 const Brand = () => {
+    const user = useSelector((store) => store.auth.user)
     const navigate = useNavigate();
     const [dataLoading, setDataLoading] = useState(true)
 
@@ -292,6 +294,10 @@ const Brand = () => {
         getAllBrands();
     }, []);
 
+    if (!user?.role.permissions.some((permission) => permission.includes("brand"))) {
+        return <Navigate to="/admin/dashboard" replace />
+    }
+
     if (dataLoading) {
         return <DataLoader />
     }
@@ -403,19 +409,25 @@ const Brand = () => {
                         />
                     </div>
 
-                    <button
-                        type="button"
-                        onClick={handleAddBrandModal}
-                        className="
+                    {
+                        user?.role?.permissions.includes("brand:add") &&
+                        <button
+                            type="button"
+                            onClick={handleAddBrandModal}
+                            className="
                             flex items-center justify-center gap-2
                             rounded-xl  bg-linear-to-br from-[#064e3b] via-[#047857] to-[#022c22] px-5 py-2.5
                             text-sm font-semibold text-white
                             transition active:scale-95
                         "
-                    >
-                        <FiPlus size={19} />
-                        Add Brand
-                    </button>
+                        >
+                            <FiPlus size={19} />
+                            Add Brand
+                        </button>
+
+
+                    }
+
 
                 </div>
             </div>
@@ -526,16 +538,20 @@ const Brand = () => {
                                                 {/* VIEW */}
 
                                                 <div className="group relative">
-                                                    <button
-                                                        type="button"
-                                                        onClick={() =>
-                                                            handleBrandView(brand._id)
-                                                        }
-                                                        aria-label="View brand"
-                                                        className="rounded-lg p-2 text-blue-600 transition hover:bg-blue-50"
-                                                    >
-                                                        <FiEye size={18} />
-                                                    </button>
+                                                    {
+                                                        user?.role?.permissions.includes("brand:read") &&
+                                                        <button
+                                                            type="button"
+                                                            onClick={() =>
+                                                                handleBrandView(brand._id)
+                                                            }
+                                                            aria-label="View brand"
+                                                            className="rounded-lg p-2 text-blue-600 transition hover:bg-blue-50"
+                                                        >
+                                                            <FiEye size={18} />
+                                                        </button>
+                                                    }
+
 
                                                     <span className="pointer-events-none absolute bottom-full left-1/2 mb-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-800 px-2 py-1 text-xs text-white opacity-0 transition group-hover:opacity-100">
                                                         View
@@ -545,16 +561,20 @@ const Brand = () => {
                                                 {/* EDIT */}
 
                                                 <div className="group relative">
-                                                    <button
-                                                        type="button"
-                                                        onClick={() =>
-                                                            handleBrandEdit(brand)
-                                                        }
-                                                        aria-label="Edit brand"
-                                                        className="rounded-lg p-2 text-amber-600 transition hover:bg-amber-50"
-                                                    >
-                                                        <FiEdit2 size={18} />
-                                                    </button>
+                                                    {
+                                                        user?.role?.permissions.includes("brand:update") &&
+                                                        <button
+                                                            type="button"
+                                                            onClick={() =>
+                                                                handleBrandEdit(brand)
+                                                            }
+                                                            aria-label="Edit brand"
+                                                            className="rounded-lg p-2 text-amber-600 transition hover:bg-amber-50"
+                                                        >
+                                                            <FiEdit2 size={18} />
+                                                        </button>
+                                                    }
+
 
                                                     <span className="pointer-events-none absolute bottom-full left-1/2 mb-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-800 px-2 py-1 text-xs text-white opacity-0 transition group-hover:opacity-100">
                                                         Edit
@@ -564,16 +584,20 @@ const Brand = () => {
                                                 {/* DELETE */}
 
                                                 <div className="group relative">
-                                                    <button
-                                                        type="button"
-                                                        onClick={() =>
-                                                            handleDeleteModal(brand._id)
-                                                        }
-                                                        aria-label="Delete brand"
-                                                        className="rounded-lg p-2 text-red-500 transition hover:bg-red-50"
-                                                    >
-                                                        <FiTrash2 size={18} />
-                                                    </button>
+                                                    {
+                                                        user?.role?.permissions.includes("brand:delete") &&
+                                                        <button
+                                                            type="button"
+                                                            onClick={() =>
+                                                                handleDeleteModal(brand._id)
+                                                            }
+                                                            aria-label="Delete brand"
+                                                            className="rounded-lg p-2 text-red-500 transition hover:bg-red-50"
+                                                        >
+                                                            <FiTrash2 size={18} />
+                                                        </button>
+                                                    }
+
 
                                                     <span className="pointer-events-none absolute bottom-full left-1/2 mb-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-800 px-2 py-1 text-xs text-white opacity-0 transition group-hover:opacity-100">
                                                         Delete

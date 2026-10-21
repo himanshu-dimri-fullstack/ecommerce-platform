@@ -6,13 +6,10 @@ import {
   FiArrowRight,
   FiClock,
   FiPlus,
-  FiMinus,
   FiStar,
   FiShield,
   FiTruck,
   FiHeadphones,
-  FiShoppingBag,
-  FiZap,
 } from "react-icons/fi";
 import { API } from "../axios/axios.js";
 

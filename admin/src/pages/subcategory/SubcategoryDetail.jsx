@@ -13,9 +13,12 @@ import {
 import { API } from "../../api/axios";
 import { useState, useEffect } from "react";
 import DataLoader from "../../components/DataLoader";
+import { Navigate } from "react-router-dom";
+import { useSelector } from "react-redux";
 
 const SubcategoryDetail = () => {
     const { id } = useParams();
+    const user = useSelector((store) => store.auth.user)
 
     const [dataLoading, setDataLoading] = useState(true)
     const [subcategory, setSubcategory] = useState({});
@@ -42,6 +45,10 @@ const SubcategoryDetail = () => {
             ? subcategory.category
             : null;
 
+
+    if (!user?.role.permissions.some((permission) => permission.includes("subcategory"))) {
+        return <Navigate to="/admin/dashboard" replace />
+    }
 
     if (dataLoading) {
         return <DataLoader />

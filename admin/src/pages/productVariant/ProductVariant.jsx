@@ -19,6 +19,8 @@ import { API } from "../../api/axios";
 import DeleteModal from "../../components/productVariant/DeleteModal";
 import FormModal from "../../components/productVariant/FormModal";
 import DataLoader from "../../components/DataLoader";
+import { useSelector } from "react-redux";
+import { Navigate } from "react-router-dom";
 
 const initialFormData = {
     product: "",
@@ -40,7 +42,7 @@ const inputClass =
 
 const ProductVariant = () => {
     const navigate = useNavigate();
-
+    const user = useSelector((store) => store.auth.user)
     const [dataLoading, setDataLoading] = useState(true);
     const [search, setSearch] = useState("");
     const [showModal, setShowModal] = useState(false);
@@ -422,6 +424,10 @@ const ProductVariant = () => {
         getAllVariants();
     }, []);
 
+    if (!user?.role.permissions.some((permission) => permission.includes("productVariant"))) {
+        return <Navigate to="/admin/dashboard" replace />
+    }
+
     if (dataLoading) {
         return <DataLoader />;
     }
@@ -517,14 +523,18 @@ const ProductVariant = () => {
                         />
                     </div>
 
-                    <button
-                        type="button"
-                        onClick={handleAddModal}
-                        className="flex items-center justify-center gap-2 rounded-xl bg-linear-to-br from-[#064e3b] via-[#047857] to-[#022c22] px-5 py-2.5 text-sm font-semibold text-white transition active:scale-95"
-                    >
-                        <FiPlus size={19} />
-                        Add Variant
-                    </button>
+                    {
+                        user?.role?.permissions.includes("productVariant:add") &&
+                        <button
+                            type="button"
+                            onClick={handleAddModal}
+                            className="flex items-center justify-center gap-2 rounded-xl bg-linear-to-br from-[#064e3b] via-[#047857] to-[#022c22] px-5 py-2.5 text-sm font-semibold text-white transition active:scale-95"
+                        >
+                            <FiPlus size={19} />
+                            Add Variant
+                        </button>
+                    }
+
                 </div>
             </div>
 
@@ -538,8 +548,6 @@ const ProductVariant = () => {
                                 {[
                                     "Variant",
                                     "Product",
-                                    "SKU / Barcode",
-                                    "Unit",
                                     "Pricing",
                                     "Status",
                                     "Actions",
@@ -598,22 +606,6 @@ const ProductVariant = () => {
                                             </p>
                                         </td>
 
-                                        {/* SKU / BARCODE */}
-                                        <td className="px-6 py-4">
-                                            <p className="text-sm font-medium text-slate-700">
-                                                {variant.sku}
-                                            </p>
-                                            <p className="mt-1 text-xs text-slate-400">
-                                                {variant.barcode || "No barcode"}
-                                            </p>
-                                        </td>
-
-                                        {/* UNIT */}
-                                        <td className="px-6 py-4">
-                                            <span className="rounded-lg bg-slate-100 px-3 py-1.5 text-sm text-slate-700">
-                                                {variant.unitValue} {variant.unit}
-                                            </span>
-                                        </td>
 
                                         {/* PRICING */}
                                         <td className="px-6 py-4">
@@ -648,40 +640,51 @@ const ProductVariant = () => {
                                         {/* ACTIONS */}
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-2">
-                                                <button
-                                                    type="button"
-                                                    title="View Variant"
-                                                    onClick={() =>
-                                                        navigate(
-                                                            `/admin/product-variants/${variant._id}`
-                                                        )
-                                                    }
-                                                    className="rounded-lg p-2 text-blue-600 transition hover:bg-blue-50"
-                                                >
-                                                    <FiEye size={18} />
-                                                </button>
+                                                {
+                                                    user?.role?.permissions.includes("productVariant:read") &&
+                                                    <button
+                                                        type="button"
+                                                        title="View Variant"
+                                                        onClick={() =>
+                                                            navigate(
+                                                                `/admin/product-variants/${variant._id}`
+                                                            )
+                                                        }
+                                                        className="rounded-lg p-2 text-blue-600 transition hover:bg-blue-50"
+                                                    >
+                                                        <FiEye size={18} />
+                                                    </button>
+                                                }
 
-                                                <button
-                                                    type="button"
-                                                    title="Edit Variant"
-                                                    onClick={() =>
-                                                        handleEditModal(variant)
-                                                    }
-                                                    className="rounded-lg p-2 text-amber-600 transition hover:bg-amber-50"
-                                                >
-                                                    <FiEdit2 size={18} />
-                                                </button>
+                                                {
+                                                    user?.role?.permissions.includes("productVariant:update") &&
+                                                    <button
+                                                        type="button"
+                                                        title="Edit Variant"
+                                                        onClick={() =>
+                                                            handleEditModal(variant)
+                                                        }
+                                                        className="rounded-lg p-2 text-amber-600 transition hover:bg-amber-50"
+                                                    >
+                                                        <FiEdit2 size={18} />
+                                                    </button>
+                                                }
+                                                {
+                                                    user?.role?.permissions.includes("productVariant:delete") &&
+                                                    <button
+                                                        type="button"
+                                                        title="Delete Variant"
+                                                        onClick={() =>
+                                                            handleDeleteModal(variant._id)
+                                                        }
+                                                        className="rounded-lg p-2 text-red-500 transition hover:bg-red-50"
+                                                    >
+                                                        <FiTrash2 size={18} />
+                                                    </button>
+                                                }
 
-                                                <button
-                                                    type="button"
-                                                    title="Delete Variant"
-                                                    onClick={() =>
-                                                        handleDeleteModal(variant._id)
-                                                    }
-                                                    className="rounded-lg p-2 text-red-500 transition hover:bg-red-50"
-                                                >
-                                                    <FiTrash2 size={18} />
-                                                </button>
+
+
                                             </div>
                                         </td>
                                     </tr>

@@ -15,9 +15,11 @@ import FormModal from "../../components/role/FormModal";
 import DeleteModal from "../../components/role/DeleteModal";
 import { useNavigate } from "react-router-dom";
 import DataLoader from "../../components/DataLoader";
+import { Navigate } from "react-router-dom"
+import { useSelector } from "react-redux";
 
 const Role = () => {
-
+    const user = useSelector((store) => store.auth.user)
     const navigate = useNavigate()
     const [dataLoading, setDataLoading] = useState(true)
 
@@ -308,6 +310,10 @@ const Role = () => {
         navigate(`/admin/roles/${id}`)
     }
 
+    if (!user?.role.permissions.some((permission) => permission.includes("role"))) {
+        return <Navigate to="/admin/dashboard" replace />
+    }
+
     if (dataLoading) {
         return <DataLoader />
     }
@@ -445,9 +451,11 @@ const Role = () => {
 
                     {/* ADD Role */}
 
-                    <button
-                        onClick={handleAddRoleModal}
-                        className="
+                    {
+                        user?.role.permissions.includes("role:add") &&
+                        <button
+                            onClick={handleAddRoleModal}
+                            className="
                         flex items-center justify-center gap-2
                         rounded-lg
                         bg-linear-to-br from-[#064e3b] via-[#047857] to-[#022c22]
@@ -455,10 +463,13 @@ const Role = () => {
                         text-sm font-semibold text-white
                         transition
                     "
-                    >
-                        <FiPlus size={18} />
-                        Add Role
-                    </button>
+                        >
+                            <FiPlus size={18} />
+                            Add Role
+                        </button>
+                    }
+
+
 
                 </div>
             </div>
@@ -624,65 +635,75 @@ const Role = () => {
 
                                             <td className="px-6 py-4">
                                                 <div className="flex justify-end gap-2">
-                                                    <button
-                                                        onClick={() => handleRoleView(role._id)}
-                                                        title="View"
-                                                        className="
+                                                    {
+                                                        user?.role.permissions.includes("role:read") &&
+                                                        <button
+                                                            onClick={() => handleRoleView(role._id)}
+                                                            title="View"
+                                                            className="
                                                             rounded-lg p-2
                                                             text-slate-500
                                                             transition
                                                             hover:bg-slate-100
                                                             hover:text-[#003963]
                                                         "
-                                                    >
-                                                        <FiEye
-                                                            size={
-                                                                17
-                                                            }
-                                                        />
-                                                    </button>
+                                                        >
+                                                            <FiEye
+                                                                size={
+                                                                    17
+                                                                }
+                                                            />
+                                                        </button>
+                                                    }
 
-                                                    <button
-                                                        title="Edit"
-                                                        onClick={() =>
-                                                            handleEditRoleModal(
-                                                                role
-                                                            )
-                                                        }
-                                                        className="
+                                                    {
+                                                        user?.role.permissions.includes("role:update") &&
+                                                        <button
+                                                            title="Edit"
+                                                            onClick={() =>
+                                                                handleEditRoleModal(
+                                                                    role
+                                                                )
+                                                            }
+                                                            className="
                                                             rounded-lg p-2
                                                             text-blue-500
                                                             transition
                                                             hover:bg-blue-50
                                                         "
-                                                    >
-                                                        <FiEdit2
-                                                            size={
-                                                                17
-                                                            }
-                                                        />
-                                                    </button>
+                                                        >
+                                                            <FiEdit2
+                                                                size={
+                                                                    17
+                                                                }
+                                                            />
+                                                        </button>
+                                                    }
 
-                                                    <button
-                                                        title="Delete"
-                                                        onClick={() =>
-                                                            handleDeleteModal(
-                                                                role._id
-                                                            )
-                                                        }
-                                                        className="
+                                                    {
+                                                        user?.role.permissions.includes("role:delete") &&
+                                                        <button
+                                                            title="Delete"
+                                                            onClick={() =>
+                                                                handleDeleteModal(
+                                                                    role._id
+                                                                )
+                                                            }
+                                                            className="
                                                             rounded-lg p-2
                                                             text-red-500
                                                             transition
                                                             hover:bg-red-50
                                                         "
-                                                    >
-                                                        <FiTrash2
-                                                            size={
-                                                                17
-                                                            }
-                                                        />
-                                                    </button>
+                                                        >
+                                                            <FiTrash2
+                                                                size={
+                                                                    17
+                                                                }
+                                                            />
+                                                        </button>
+                                                    }
+
                                                 </div>
                                             </td>
                                         </tr>

@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useState, Suspense } from "react";
@@ -42,6 +41,12 @@ export interface Category {
     slug: string;
 }
 
+export interface Subcategory {
+    _id: string;
+    name: string;
+    slug: string;
+}
+
 export interface Product {
     _id: string;
     name: string;
@@ -69,10 +74,12 @@ export interface ProductVariant {
     updatedAt: string;
     dimensions: Dimensions;
     discountPercentage?: number;
-    images: [{
-        url: string;
-        public_url: string;
-    }]
+    images: [
+        {
+            url: string;
+            public_url: string;
+        }
+    ];
     mrp: number;
     name: string;
     product: Product;
@@ -92,23 +99,168 @@ export interface ProductVariantResponse {
     variant: ProductVariant;
 }
 
-function ProductDetail() {
-    const { slug } = useParams()
+/* Skeleton */
+function Skeleton({ className = "" }: { className?: string }) {
+    return (
+        <div
+            className={`animate-pulse rounded-lg bg-gray-200 ${className}`}
+        />
+    );
+}
 
-    const [category, setCategory] = useState<Category | null>(null);
-    const [brand, setBrand] = useState<Brand | null>(null);
-    const [product, setProduct] = useState<ProductVariant | null>(null);
+/* Product Detail Skeleton UI */
+function ProductDetailSkeleton() {
+    return (
+        <main className="min-h-screen bg-[#f8faf8] pb-12">
+            {/* Breadcrumb Skeleton */}
+            <div className="mx-auto max-w-7xl px-4 pt-6 sm:px-6 lg:px-8">
+                <Skeleton className="h-5 w-36 rounded-md" />
+
+                <div className="mt-5 flex flex-wrap items-center gap-3">
+                    <Skeleton className="h-4 w-12" />
+                    <Skeleton className="h-4 w-3" />
+                    <Skeleton className="h-4 w-20" />
+                    <Skeleton className="h-4 w-3" />
+                    <Skeleton className="h-4 w-36" />
+                </div>
+            </div>
+
+            {/* Main Product Skeleton */}
+            <div className="mx-auto mt-6 max-w-7xl px-4 sm:px-6 lg:px-8">
+                <div className="grid gap-8 lg:grid-cols-2 lg:gap-12">
+
+                    {/* Image Section */}
+                    <section>
+                        <div className="relative flex min-h-80 items-center justify-center overflow-hidden rounded-3xl border border-gray-100 bg-white p-6 sm:min-h-120 sm:p-12">
+                            <Skeleton className="absolute left-5 top-5 h-9 w-24 rounded-lg" />
+
+                            <Skeleton className="h-64 w-full max-w-sm rounded-2xl sm:h-96" />
+                        </div>
+
+                        {/* Delivery Benefits Skeleton */}
+                        <div className="mt-4 grid grid-cols-3 gap-3">
+                            {Array.from({ length: 3 }).map((_, index) => (
+                                <div
+                                    key={index}
+                                    className="flex flex-col items-start gap-3 rounded-2xl border border-gray-100 bg-white p-3 sm:flex-row sm:items-center"
+                                >
+                                    <Skeleton className="h-7 w-7 shrink-0 rounded-lg" />
+                                    <Skeleton className="h-3 w-full max-w-20" />
+                                </div>
+                            ))}
+                        </div>
+                    </section>
+
+                    {/* Product Information Skeleton */}
+                    <section className="rounded-3xl border border-gray-100 bg-white p-5 sm:p-8">
+
+                        {/* Brand */}
+                        <Skeleton className="mt-3 h-4 w-28" />
+
+                        {/* Product Name */}
+                        <Skeleton className="mt-4 h-8 w-4/5 sm:h-10" />
+                        <Skeleton className="mt-2 h-8 w-3/5 sm:h-10" />
+
+                        {/* Unit */}
+                        <Skeleton className="mt-4 h-4 w-24" />
+
+                        {/* Price */}
+                        <div className="mt-6 border-t border-gray-100 pt-6">
+                            <Skeleton className="h-4 w-14" />
+
+                            <div className="mt-3 flex items-center gap-3">
+                                <Skeleton className="h-9 w-32 rounded-md" />
+                                <Skeleton className="h-6 w-20 rounded-md" />
+                                <Skeleton className="h-7 w-24 rounded-md" />
+                            </div>
+
+                            <Skeleton className="mt-3 h-3 w-52" />
+                        </div>
+
+                        {/* Delivery Card */}
+                        <div className="mt-6 flex items-start gap-3 rounded-2xl bg-[#f2faf3] p-4">
+                            <Skeleton className="h-7 w-7 shrink-0 rounded-lg" />
+
+                            <div className="flex-1">
+                                <Skeleton className="h-4 w-48 max-w-full" />
+                                <Skeleton className="mt-2 h-3 w-40 max-w-full" />
+                            </div>
+                        </div>
+
+                        {/* Quantity and Cart */}
+                        <div className="mt-7">
+                            <Skeleton className="mb-4 h-4 w-32" />
+
+                            <div className="flex flex-wrap items-center gap-4">
+                                <div className="flex h-12 items-center rounded-xl border border-gray-200 bg-white">
+                                    <Skeleton className="h-10 w-10 rounded-lg" />
+                                    <Skeleton className="mx-2 h-4 w-5" />
+                                    <Skeleton className="h-10 w-10 rounded-lg" />
+                                </div>
+
+                                <Skeleton className="h-12 min-w-36 flex-1 rounded-xl" />
+                            </div>
+
+                            <Skeleton className="mt-4 h-4 w-36" />
+                        </div>
+
+                        {/* Product Metadata */}
+                        <div className="mt-7 border-t border-gray-100 pt-5">
+                            <Skeleton className="h-5 w-44" />
+
+                            <div className="mt-4 space-y-4">
+                                <div className="flex items-center justify-between gap-4">
+                                    <Skeleton className="h-4 w-20" />
+                                    <Skeleton className="h-4 w-28" />
+                                </div>
+
+                                <div className="flex items-center justify-between gap-4">
+                                    <Skeleton className="h-4 w-16" />
+                                    <Skeleton className="h-4 w-24" />
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+            </div>
+        </main>
+    );
+}
+
+function ProductDetail() {
+    const { slug } = useParams();
+
+    const [productVariant, setProductVariant] = useState<ProductVariant | null>(null);
+    const [product, setProduct] = useState<Product | null>(null);
+
+    // Skeleton loading state
+    const [loading, setLoading] = useState(true);
 
     const fetchProduct = async () => {
-        const res = await API.get(`/admin/product/variant/slug/${slug}`)
-        console.log(res)
-        setCategory(res.data.variant.product.category)
-        setProduct(res.data.variant)
-    }
+        try {
+            const res = await API.get(`/admin/product/variant/slug/${slug}`);
+            setProductVariant(res.data.variant);
+            setProduct(res.data.variant.product)
+        }
+        catch (error) {
+            if (error instanceof Error) {
+                console.log(error.message);
+            } else {
+                console.log("An unknown error occurred");
+            }
+        } finally {
+            setLoading(false);
+        }
+    };
 
     useEffect(() => {
-        fetchProduct()
-    }, [])
+        fetchProduct();
+    }, []);
+
+    // Show skeleton until the API request finishes
+    if (loading) {
+        return <ProductDetailSkeleton />;
+    }
 
     return (
         <main className="min-h-screen bg-[#f8faf8] pb-12">
@@ -130,15 +282,17 @@ function ProductDetail() {
                     <Link href="/products" className="hover:text-[#0c831f]">
                         Products
                     </Link>
-                    {category && (
+
+                    {product?.category && (
                         <>
                             <span>/</span>
-                            <span>{category.name}</span>
+                            <span>{product?.category.name}</span>
                         </>
                     )}
+
                     <span>/</span>
                     <span className="font-semibold text-gray-900">
-                        {product?.name}
+                        {productVariant?.name}
                     </span>
                 </div>
             </div>
@@ -146,20 +300,21 @@ function ProductDetail() {
             {/* Product Details */}
             <div className="mx-auto mt-6 max-w-7xl px-4 sm:px-6 lg:px-8">
                 <div className="grid gap-8 lg:grid-cols-2 lg:gap-12">
+
                     {/* Product Image */}
                     <section className="relative">
                         <div className="relative flex min-h-80 items-center justify-center overflow-hidden rounded-3xl border border-gray-100 bg-white p-6 sm:min-h-120 sm:p-12">
-                            {(product?.discountPercentage ?? 0) && (
+                            {(productVariant?.discountPercentage ?? 0) && (
                                 <span className="absolute left-5 top-5 z-10 rounded-lg bg-[#0c831f] px-3 py-2 text-sm font-extrabold text-white">
-                                    {product?.discountPercentage}% OFF
+                                    {productVariant?.discountPercentage}% OFF
                                 </span>
                             )}
 
-                            {product?.images ? (
+                            {productVariant?.images ? (
                                 <div className="relative h-72 w-full sm:h-100">
                                     <Image
-                                        src={product.images[0].url}
-                                        alt={product.name}
+                                        src={productVariant.images[0].url}
+                                        alt={productVariant.name}
                                         fill
                                         priority
                                         sizes="(max-width: 768px) 100vw, 50vw"
@@ -200,19 +355,18 @@ function ProductDetail() {
                     {/* Product Information */}
                     <section className="rounded-3xl border border-gray-100 bg-white p-5 sm:p-8">
 
-
-                        {brand && (
+                        {product?.brand && (
                             <p className="mt-3 text-sm font-bold uppercase tracking-wider text-[#0c831f]">
-                                {brand?.name}
+                                {product?.brand?.name}
                             </p>
                         )}
 
                         <h1 className="mt-2 text-2xl font-black leading-tight tracking-tight text-gray-900 sm:text-4xl">
-                            {product?.name}
+                            {productVariant?.name}
                         </h1>
 
                         <p className="mt-3 text-sm font-medium text-gray-500">
-                            {`${product?.unitValue}` + " " + `${product?.unit}`}
+                            {`${productVariant?.unitValue}` + " " + `${productVariant?.unit}`}
                         </p>
 
                         <div className="mt-6 border-t border-gray-100 pt-6">
@@ -222,16 +376,16 @@ function ProductDetail() {
 
                             <div className="mt-2 flex flex-wrap items-center gap-3">
                                 <span className="text-3xl font-black text-gray-900">
-                                    ₹{product?.sellingPrice}
+                                    ₹{productVariant?.sellingPrice}
                                 </span>
 
-                                {(product?.discountPercentage ?? 0) && (
+                                {(productVariant?.discountPercentage ?? 0) && (
                                     <>
                                         <span className="text-lg text-gray-400 line-through">
-                                            ₹{product?.mrp}
+                                            ₹{productVariant?.mrp}
                                         </span>
                                         <span className="rounded-md bg-green-50 px-2 py-1 text-sm font-bold text-[#0c831f]">
-                                            Save {product?.discountPercentage}%
+                                            Save {productVariant?.discountPercentage}%
                                         </span>
                                     </>
                                 )}
@@ -258,35 +412,8 @@ function ProductDetail() {
                             </div>
                         </div>
 
-                        {/* Quantity and Cart */}
                         <div className="mt-7">
-                            <p className="mb-3 text-sm font-bold text-gray-800">
-                                Select quantity
-                            </p>
-
                             <div className="flex flex-wrap items-center gap-4">
-                                <div className="flex h-12 items-center rounded-xl border border-gray-200">
-                                    <button
-                                        type="button"
-                                        aria-label="Decrease quantity"
-                                        className="flex h-full w-11 items-center justify-center text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
-                                    >
-                                        <FiMinus size={17} />
-                                    </button>
-
-                                    <span className="w-10 text-center font-bold text-gray-900">
-                                        1
-                                    </span>
-
-                                    <button
-                                        type="button"
-                                        aria-label="Increase quantity"
-                                        className="flex h-full w-11 items-center justify-center text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
-                                    >
-                                        <FiPlus size={17} />
-                                    </button>
-                                </div>
-
                                 <button
                                     type="button"
                                     className="flex h-12 flex-1 items-center justify-center gap-2 rounded-xl bg-[#0c831f] px-5 text-sm font-bold text-white transition hover:bg-[#096b19] disabled:cursor-not-allowed disabled:bg-gray-300"
@@ -294,40 +421,56 @@ function ProductDetail() {
                                     Add to Cart
                                 </button>
                             </div>
-
-                            <p className="mt-3 text-sm font-semibold text-gray-700">
-                                Subtotal: ₹
-                                {product?.sellingPrice ?? 0}
-                            </p>
                         </div>
 
                         {/* Product Metadata */}
-                        {(category?.name) && (
+                        {product?.name && (
                             <div className="mt-7 border-t border-gray-100 pt-5">
                                 <h2 className="text-sm font-bold text-gray-900">
                                     Product information
                                 </h2>
 
                                 <div className="mt-3 space-y-3 text-sm">
-                                    {category?.name && (
+                                    {product?.category?.name && (
                                         <div className="flex justify-between gap-4">
                                             <span className="text-gray-500">
-                                                Category
+                                                Category Type
                                             </span>
                                             <span className="text-right font-semibold text-gray-800">
-                                                {category?.name}
+                                                {product?.category?.name}
                                             </span>
                                         </div>
                                     )}
 
+                                    {product.subcategory?.name && (
+                                        <div className="flex justify-between gap-4">
+                                            <span className="text-gray-500">
+                                                Subcategory Type
+                                            </span>
+                                            <span className="text-right font-semibold text-gray-800">
+                                                {product?.subcategory?.name}
+                                            </span>
+                                        </div>
+                                    )}
 
-                                    {brand && (
+                                    {product?.name && (
+                                        <div className="flex justify-between gap-4">
+                                            <span className="text-gray-500">
+                                                Product Type
+                                            </span>
+                                            <span className="text-right font-semibold text-gray-800">
+                                                {product?.name}
+                                            </span>
+                                        </div>
+                                    )}
+
+                                    {product?.brand && (
                                         <div className="flex justify-between gap-4">
                                             <span className="text-gray-500">
                                                 Brand
                                             </span>
                                             <span className="font-semibold text-gray-800">
-                                                {brand?.name}
+                                                {product?.brand?.name}
                                             </span>
                                         </div>
                                     )}
@@ -343,7 +486,7 @@ function ProductDetail() {
 
 export default function Page() {
     return (
-        <Suspense fallback={<div>Loading product...</div>}>
+        <Suspense fallback={<ProductDetailSkeleton />}>
             <ProductDetail />
         </Suspense>
     );

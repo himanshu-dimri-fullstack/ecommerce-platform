@@ -16,9 +16,12 @@ import {
 import { useState, useEffect } from "react";
 import { API } from "../../api/axios";
 import DataLoader from "../../components/DataLoader";
+import { Navigate } from "react-router-dom";
+import { useSelector } from "react-redux";
 
 const StoreDetail = () => {
     const { id } = useParams();
+    const user = useSelector((store) => store.auth.user)
 
     const [dataLoading, setDataLoading] = useState(true);
     const [store, setStore] = useState({});
@@ -87,6 +90,10 @@ const StoreDetail = () => {
 
         return parts.length ? parts.join(", ") : "-";
     };
+
+    if (!user?.role.permissions.some((permission) => permission.includes("store"))) {
+        return <Navigate to="/admin/dashboard" replace />
+    }
 
     return (
         <div className="min-h-screen bg-gray-50 p-4 md:p-6">
