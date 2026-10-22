@@ -7,11 +7,11 @@ import { Auth } from "../middlewares/Auth.js";
 
 const router = express.Router();
 
-router.get("/admin/subcategories", getAllSubcategory)
-router.get("/admin/subcategories/:id", getSubcategoryById);
-router.post("/admin/subcategories", Auth, createSubcategory)
-router.put("/admin/subcategories/:id", Auth, updateSubcategory)
-router.delete("/admin/subcategories/:id", Auth, deleteSubcategoryById)
-router.patch("/admin/subcategory/status", Auth, changeSubcategoryStatus);
+router.get("/get", getAllSubcategory)
+router.get("/get/:id", getSubcategoryById);
+router.post("/add", Auth, createSubcategory)
+router.put("/update/:id", Auth, updateSubcategory)
+router.delete("/delete/:id", Auth, deleteSubcategoryById)
+router.patch("/update/status", Auth, changeSubcategoryStatus);
 
 export default router

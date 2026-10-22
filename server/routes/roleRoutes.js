@@ -12,16 +12,16 @@ import { Auth } from "../middlewares/Auth.js";
 
 const router = express.Router();
 
-router.get("/admin/role", Auth, getRoles);
+router.get("/get", Auth, getRoles);
 
-router.post("/admin/role", Auth, createRole);
+router.post("/add", Auth, createRole);
 
-router.put("/admin/role/:id", Auth, updateRole);
+router.put("/update/:id", Auth, updateRole);
 
-router.get("/admin/role/:id", Auth, getRoleById);
+router.get("/get/:id", Auth, getRoleById);
 
-router.delete("/admin/role/:id", Auth, deleteRole);
+router.delete("/delete/:id", Auth, deleteRole);
 
-router.patch("/admin/role/status/:id", Auth, updateRoleStatus);
+router.patch("/update/:id", Auth, updateRoleStatus);
 
 export default router;

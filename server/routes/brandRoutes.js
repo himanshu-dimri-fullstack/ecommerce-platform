@@ -13,16 +13,16 @@ import { Permission } from "../middlewares/Permission.js";
 
 const router = express.Router();
 
-router.get("/admin/brands", Auth, getBrands);
+router.get("/get", Auth, getBrands);
 
-router.post("/admin/brands", Auth, Permission("brands:add"), createBrand);
+router.post("/add", Auth, Permission("brands:add"), createBrand);
 
-router.put("/admin/brands/:id", Auth, updateBrand);
+router.put("/update/:id", Auth, updateBrand);
 
-router.get("/admin/brands/:id", Auth, getBrandById);
+router.get("/get/:id", Auth, getBrandById);
 
-router.delete("/admin/brands/:id", Auth, deleteBrand);
+router.delete("/delete/:id", Auth, deleteBrand);
 
-router.patch("/admin/brands/status/:id", Auth, updateBrandStatus);
+router.patch("/update/status/:id", Auth, updateBrandStatus);
 
 export default router;

@@ -26,7 +26,7 @@ export default function CategoriesPage() {
     const [loading, setLoading] = useState(true);
 
     const fetchCategories = async () => {
-        const res = await API.get("/admin/categories")
+        const res = await API.get("/category/get")
         setCategories(res.data.categories)
         setLoading(false)
     }

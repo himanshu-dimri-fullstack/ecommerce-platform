@@ -4,12 +4,12 @@ import { Auth } from "../middlewares/Auth.js";
 
 const router = express.Router();
 
-router.post("/admin/categories", Auth, createCategory)
-router.get("/admin/categories", getCategory)
+router.post("/add", Auth, createCategory)
+router.get("/get", getCategory)
 // router.get("/admin/categories/:slug", getCategoryBySlug);
-router.get("/admin/categories/:id", Auth, getCategoryByID);
-router.patch("/admin/category/status", Auth, changeCategoryStatus);
-router.put("/admin/categories/:id", Auth, updateCategory)
-router.delete("/admin/categories/:id", Auth, deleteCategoryById)
+router.get("/get/:id", Auth, getCategoryByID);
+router.patch("/update/status", Auth, changeCategoryStatus);
+router.put("/update/:id", Auth, updateCategory)
+router.delete("/delete/:id", Auth, deleteCategoryById)
 
 export default router

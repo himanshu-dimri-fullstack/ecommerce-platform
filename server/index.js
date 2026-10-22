@@ -34,16 +34,16 @@ app.use(cors({
     credentials: true
 }))
 
-app.use("/api", userRoutes)
-app.use("/api", categoryRoutes)
-app.use("/api", subcategoryRoutes)
-app.use("/api", roleRoutes)
-app.use("/api", brandRoutes)
-app.use("/api", adminRoutes)
+app.use("/user", userRoutes)
+app.use("/category", categoryRoutes)
+app.use("/subcategory", subcategoryRoutes)
+app.use("/role", roleRoutes)
+app.use("/brand", brandRoutes)
+app.use("/admin", adminRoutes)
 app.use("/api", dashboardRoutes)
-app.use("/api", productRoutes)
-app.use("/api", productVariantRoutes)
-app.use("/api", storeRoutes)
+app.use("/product", productRoutes)
+app.use("/variant", productVariantRoutes)
+app.use("/store", storeRoutes)
 app.use("/api", cartRoutes);
 
 app.listen(8000, () => {

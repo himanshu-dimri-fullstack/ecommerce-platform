@@ -6,12 +6,12 @@ import {
 
 const router = express.Router()
 
-router.get("/admin/user/get/managers", getAllManagers)
-router.get("/admin/store", getAllStores)
-router.post("/admin/store", createStore)
-router.get("/admin/store/:id", getStoreById)
-router.put("/admin/store/:id", updateStore)
-router.delete("/admin/store/:id", deleteStore)
-router.patch("/admin/store/status", updateStoreStatus)
+router.get("/user/get/managers", getAllManagers)
+router.get("/get", getAllStores)
+router.post("/add", createStore)
+router.get("/get/:id", getStoreById)
+router.put("/update/:id", updateStore)
+router.delete("/delete/:id", deleteStore)
+router.patch("/update/status", updateStoreStatus)
 
 export default router

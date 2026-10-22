@@ -12,20 +12,20 @@ import {
 const router = express.Router();
 
 router.post(
-    "/admin/products",
+    "/add",
     addProduct
 );
 
-router.get("/admin/products", getAllProducts);
+router.get("/get", getAllProducts);
 
-router.get("/admin/products/:id", getProductById);
+router.get("/get/:id", getProductById);
 
 router.put(
-    "/admin/products/:id",
+    "/update/:id",
     updateProduct
 );
 
-router.delete("/admin/products/:id", deleteProduct);
-router.patch("/admin/product/status", changeStatus);
+router.delete("/delete/:id", deleteProduct);
+router.patch("/update/status", changeStatus);
 
 export default router;

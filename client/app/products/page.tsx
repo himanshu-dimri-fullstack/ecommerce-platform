@@ -15,10 +15,14 @@ import {
     FiX,
 } from "react-icons/fi";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useDispatch } from "react-redux";
+import { addToCart } from "@/redux/cartSlice";
 
-interface Product {
-    slug: string;
+interface Variant {
+    _id: string
+    product: string;
     name: string;
+    slug: string;
     unitValue: string;
     unit: string;
     sellingPrice: number;
@@ -44,6 +48,7 @@ interface Category {
 const theme = "#0c831f";
 
 function ProductsPage() {
+    const dispatch = useDispatch()
     const searchParams = useSearchParams();
     const productSlug = searchParams.get("product");
     const categorySlug = searchParams.get("category");
@@ -52,13 +57,13 @@ function ProductsPage() {
 
     const [categories, setCategories] = useState<Category[]>([]);
     const [selectedCategory, setSelectedCategory] = useState<string>("All");
-    const [products, setProducts] = useState<Product[]>([]);
+    const [products, setProducts] = useState<Variant[]>([]);
     const [loading, setLoading] = useState(true);
     const [categoriesLoading, setCategoriesLoading] = useState(true);
 
     const fetchCategories = async () => {
         try {
-            const res = await API.get("/admin/categories");
+            const res = await API.get("/category/get");
             setCategories(res.data.categories);
         } catch (error) {
             console.error(error);
@@ -73,21 +78,23 @@ function ProductsPage() {
         try {
             if (productSlug) {
                 const res = await API.get(
-                    `/admin/product/variant?product=${slug}`
+                    `/variant/get?product=${slug}`
                 );
+
                 setProducts(res.data.variants);
                 setSelectedCategory(categorySlug ?? "All");
             } else if (categorySlug) {
                 const res = await API.get(
-                    `/admin/product/variant?category=${slug}`
+                    `/variant/get?category=${slug}`
                 );
                 setProducts(res.data.variants);
                 setSelectedCategory(categorySlug ?? "All");
             } else {
                 console.log("my slug", slug);
                 const res = await API.get(
-                    `/admin/product/variant?category=${slug}`
+                    `/variant/get?category=${slug}`
                 );
+                console.log("res", res.data)
                 setProducts(res.data.variants);
                 setSelectedCategory("All");
             }
@@ -107,6 +114,20 @@ function ProductsPage() {
         fetchCategories();
         fetchProducts((productSlug || categorySlug) ?? "All");
     }, [productSlug, categorySlug]);
+
+    const handleAddToCart = async (product: any) => {
+        dispatch(addToCart({
+            product: product.product._id,
+            _id: product._id,
+            name: product.name,
+            unitValue: product.unitValue,
+            unit: product.unit,
+            image: product.images[0].url,
+            sellingPrice: product.sellingPrice,
+            mrp: product.mrp,
+            quantity: 1,
+        }))
+    }
 
     return (
         <main className="min-h-screen bg-[#f7f8f7] text-gray-900">
@@ -232,7 +253,7 @@ function ProductsPage() {
                         </div>
                     ) : products?.length > 0 ? (
                         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-5 lg:grid-cols-4 xl:grid-cols-5">
-                            {products.map((product) => {
+                            {products.map((product: any) => {
                                 const discount = Math.round(
                                     ((product.mrp - product.sellingPrice) /
                                         product.mrp) *
@@ -240,7 +261,8 @@ function ProductsPage() {
                                 );
 
                                 return (
-                                    <Link href={`/products/${product.slug}`}
+                                    <Link
+                                        href={`/products/${product.slug}`}
                                         key={product.slug}
                                         className="group overflow-hidden rounded-2xl border border-gray-100 bg-white transition duration-200 hover:-translate-y-1 hover:border-green-100 hover:shadow-lg"
                                     >
@@ -282,7 +304,15 @@ function ProductsPage() {
                                                     </p>
                                                 </div>
 
-                                                <button className="flex items-center gap-1 rounded-lg border border-[#0c831f] bg-green-50 px-3 py-2 text-sm font-extrabold text-[#0c831f] transition hover:bg-[#0c831f] hover:text-white">
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                        e.preventDefault();
+                                                        e.stopPropagation();
+                                                        handleAddToCart(product);
+                                                    }}
+                                                    className="flex items-center gap-1 rounded-lg border border-[#0c831f] bg-green-50 px-3 py-2 text-sm font-extrabold text-[#0c831f] transition hover:bg-[#0c831f] hover:text-white"
+                                                >
                                                     ADD <FiPlus />
                                                 </button>
                                             </div>

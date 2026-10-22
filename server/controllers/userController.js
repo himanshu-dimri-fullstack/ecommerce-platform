@@ -99,6 +99,8 @@ export const verifyOTP = async (req, res) => {
 export const login = async (req, res) => {
     try {
         const { email, password } = req.body;
+        console.log(email, password)
+        // return
 
         if (!email) {
             return res.status(400).json({ message: "Email is required" });

@@ -16,6 +16,8 @@ import {
 } from "react-icons/fi";
 import { useParams } from "next/navigation";
 import { API } from "@/axios/axios";
+import { useDispatch } from "react-redux";
+import { addToCart } from "@/redux/cartSlice";
 
 export interface Image {
     url: string;
@@ -228,6 +230,7 @@ function ProductDetailSkeleton() {
 }
 
 function ProductDetail() {
+    const dispatch = useDispatch()
     const { slug } = useParams();
 
     const [productVariant, setProductVariant] = useState<ProductVariant | null>(null);
@@ -238,7 +241,7 @@ function ProductDetail() {
 
     const fetchProduct = async () => {
         try {
-            const res = await API.get(`/admin/product/variant/slug/${slug}`);
+            const res = await API.get(`/variant/get/slug/${slug}`);
             setProductVariant(res.data.variant);
             setProduct(res.data.variant.product)
         }
@@ -252,6 +255,20 @@ function ProductDetail() {
             setLoading(false);
         }
     };
+
+    const handleAddToCart = async (product: any) => {
+        dispatch(addToCart({
+            product: product.product._id,
+            _id: product._id,
+            name: product.name,
+            unitValue: product.unitValue,
+            unit: product.unit,
+            image: product.images[0].url,
+            sellingPrice: product.sellingPrice,
+            mrp: product.mrp,
+            quantity: 1,
+        }))
+    }
 
     useEffect(() => {
         fetchProduct();
@@ -415,6 +432,7 @@ function ProductDetail() {
                         <div className="mt-7">
                             <div className="flex flex-wrap items-center gap-4">
                                 <button
+                                    onClick={() => handleAddToCart(productVariant)}
                                     type="button"
                                     className="flex h-12 flex-1 items-center justify-center gap-2 rounded-xl bg-[#0c831f] px-5 text-sm font-bold text-white transition hover:bg-[#096b19] disabled:cursor-not-allowed disabled:bg-gray-300"
                                 >

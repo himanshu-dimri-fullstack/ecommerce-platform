@@ -2,14 +2,15 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 
 export interface CartItem {
+    _id: string
     product: string;
-    variant: string;
     name: string;
-    image: string;
-    price: number;
-    mrp: number;
-    quantity: number;
+    unitValue: string;
     unit: string;
+    sellingPrice: number;
+    mrp: number;
+    image: string;
+    quantity: number;
 }
 
 interface CartState {
@@ -26,11 +27,12 @@ const cartSlice = createSlice({
     reducers: {
         addToCart: (state, action: PayloadAction<CartItem>) => {
             const newItem = action.payload;
+            console.log("newItem", newItem)
 
             const existingItem = state.items.find(
                 (item) =>
                     item.product === newItem.product &&
-                    item.variant === newItem.variant
+                    item._id === newItem._id
             );
 
             if (existingItem) {
@@ -44,14 +46,14 @@ const cartSlice = createSlice({
             state,
             action: PayloadAction<{
                 product: string;
-                variant: string;
+                _id: string;
             }>
         ) => {
             state.items = state.items.filter(
                 (item) =>
                     !(
                         item.product === action.payload.product &&
-                        item.variant === action.payload.variant
+                        item._id === action.payload._id
                     )
             );
         },
@@ -60,13 +62,13 @@ const cartSlice = createSlice({
             state,
             action: PayloadAction<{
                 product: string;
-                variant: string;
+                _id: string;
             }>
         ) => {
             const item = state.items.find(
                 (item) =>
                     item.product === action.payload.product &&
-                    item.variant === action.payload.variant
+                    item._id === action.payload._id
             );
 
             if (item) item.quantity += 1;
@@ -76,13 +78,13 @@ const cartSlice = createSlice({
             state,
             action: PayloadAction<{
                 product: string;
-                variant: string;
+                _id: string;
             }>
         ) => {
             const item = state.items.find(
                 (item) =>
                     item.product === action.payload.product &&
-                    item.variant === action.payload.variant
+                    item._id === action.payload._id
             );
 
             if (item) {
@@ -93,7 +95,7 @@ const cartSlice = createSlice({
                         (cartItem) =>
                             !(
                                 cartItem.product === action.payload.product &&
-                                cartItem.variant === action.payload.variant
+                                cartItem._id === action.payload._id
                             )
                     );
                 }

@@ -8,12 +8,12 @@ import User from "../models/User.js";
 
 const router = express.Router()
 
-router.post("/admin/signup", signup)
-router.post("/admin/verify-email", verifyEmail)
-router.post("/admin/verify-otp", verifyOTP)
-router.post("/admin/login", login)
-router.post("/admin/logout", logout)
-router.post("/admin/reset-password", resetPassword)
+router.post("/signup", signup)
+router.post("/verify-email", verifyEmail)
+router.post("/verify-otp", verifyOTP)
+router.post("/login", login)
+router.post("/logout", logout)
+router.post("/reset-password", resetPassword)
 
 router.get("/admin/check-user", async (req, res) => {
     try {

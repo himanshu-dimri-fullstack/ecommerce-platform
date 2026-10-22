@@ -16,6 +16,9 @@ import {
     FiTruck,
     FiX,
 } from "react-icons/fi";
+import { useDispatch, useSelector } from "react-redux";
+import type { RootState } from "@/redux/store";
+import { increaseQuantity, decreaseQuantity, removeFromCart } from "@/redux/cartSlice";
 
 type CartItem = {
     id: number;
@@ -36,19 +39,22 @@ const formatPrice = (price: number) =>
     `₹${price.toLocaleString("en-IN")}`;
 
 export default function CartPage() {
+    const cartItems = useSelector((store: RootState) => store.cart.items);
+    const dispatch = useDispatch()
+    console.log("cartItems", cartItems)
     const [items, setItems] = useState<CartItem[]>(initialItems);
     const [couponInput, setCouponInput] = useState("");
     const [appliedCoupon, setAppliedCoupon] = useState("");
     const [couponError, setCouponError] = useState("");
 
     const subtotal = useMemo(
-        () => items.reduce((sum, item) => sum + item.price * item.quantity, 0),
-        [items]
+        () => cartItems.reduce((sum, item) => sum + item.sellingPrice * item.quantity, 0),
+        [cartItems]
     );
 
     const mrpTotal = useMemo(
-        () => items.reduce((sum, item) => sum + item.mrp * item.quantity, 0),
-        [items]
+        () => cartItems.reduce((sum, item) => sum + item.mrp * item.quantity, 0),
+        [cartItems]
     );
 
     const discount = mrpTotal - subtotal;
@@ -58,28 +64,23 @@ export default function CartPage() {
     const deliveryFee = subtotal === 0 || subtotal >= 499 ? 0 : 40;
     const total = subtotal - couponDiscount + deliveryFee;
     const remaining = Math.max(0, 499 - subtotal);
-    const totalQuantity = items.reduce(
+    const totalQuantity = cartItems.reduce(
         (sum, item) => sum + item.quantity,
         0
     );
 
-    const updateQuantity = (id: number, change: number) => {
-        setItems((current) =>
-            current
-                .map((item) =>
-                    item.id === id
-                        ? {
-                            ...item,
-                            quantity: item.quantity + change,
-                        }
-                        : item
-                )
-                .filter((item) => item.quantity > 0)
-        );
+    const updateQuantity = (product: string, _id: string, change: number) => {
+        if (change === -1) {
+
+            dispatch(decreaseQuantity({ product, _id }))
+        }
+        else {
+            dispatch(increaseQuantity({ product, _id }))
+        }
     };
 
-    const removeItem = (id: number) => {
-        setItems((current) => current.filter((item) => item.id !== id));
+    const removeItem = (product: string, _id: string) => {
+        dispatch(removeFromCart({ product, _id }))
     };
 
     const applyCoupon = () => {
@@ -129,7 +130,7 @@ export default function CartPage() {
                     </Link>
                 </div>
 
-                {items.length === 0 ? (
+                {cartItems.length === 0 ? (
                     <div className="rounded-3xl border border-slate-200 bg-white px-5 py-16 text-center shadow-sm">
                         <span className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-green-50 text-[#138a45]">
                             <FiShoppingBag size={34} />
@@ -161,14 +162,14 @@ export default function CartPage() {
                                         Cart Items
                                     </h2>
                                     <span className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-600">
-                                        {items.length} products
+                                        {cartItems.length} products
                                     </span>
                                 </div>
 
                                 <div className="divide-y divide-slate-100 px-4 sm:px-7">
-                                    {items.map((item) => (
+                                    {cartItems.map((item) => (
                                         <article
-                                            key={item.id}
+                                            key={item._id}
                                             className="flex gap-3 py-6 sm:gap-5"
                                         >
                                             <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-slate-50 sm:h-32 sm:w-32">
@@ -181,9 +182,9 @@ export default function CartPage() {
 
                                             <div className="flex min-w-0 flex-1 flex-col justify-between gap-3 sm:flex-row sm:gap-4">
                                                 <div className="min-w-0">
-                                                    <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                                                    {/* <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
                                                         {item.brand}
-                                                    </p>
+                                                    </p> */}
                                                     <h3 className="mt-1.5 text-sm font-extrabold leading-5 text-slate-800 sm:text-base">
                                                         {item.name}
                                                     </h3>
@@ -193,14 +194,14 @@ export default function CartPage() {
 
                                                     <div className="mt-2 flex flex-wrap items-center gap-2">
                                                         <span className="text-base font-black">
-                                                            {formatPrice(item.price)}
+                                                            {formatPrice(item.sellingPrice)}
                                                         </span>
                                                         <span className="text-xs text-slate-400 line-through">
                                                             {formatPrice(item.mrp)}
                                                         </span>
                                                         <span className="rounded-md bg-green-50 px-1.5 py-1 text-[10px] font-extrabold text-[#138a45]">
                                                             {Math.round(
-                                                                ((item.mrp - item.price) /
+                                                                ((item.mrp - item.sellingPrice) /
                                                                     item.mrp) *
                                                                 100
                                                             )}% OFF
@@ -213,7 +214,7 @@ export default function CartPage() {
                                                         <button
                                                             type="button"
                                                             onClick={() =>
-                                                                updateQuantity(item.id, -1)
+                                                                updateQuantity(item.product, item._id, -1)
                                                             }
                                                             aria-label={`Decrease ${item.name} quantity`}
                                                             className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-600 transition hover:bg-slate-100"
@@ -226,7 +227,7 @@ export default function CartPage() {
                                                         <button
                                                             type="button"
                                                             onClick={() =>
-                                                                updateQuantity(item.id, 1)
+                                                                updateQuantity(item.product, item._id, 1)
                                                             }
                                                             aria-label={`Increase ${item.name} quantity`}
                                                             className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-600 transition hover:bg-green-50 hover:text-[#138a45]"
@@ -236,12 +237,12 @@ export default function CartPage() {
                                                     </div>
 
                                                     <p className="hidden text-sm font-extrabold sm:block">
-                                                        {formatPrice(item.price * item.quantity)}
+                                                        {formatPrice(item.sellingPrice * item.quantity)}
                                                     </p>
 
                                                     <button
                                                         type="button"
-                                                        onClick={() => removeItem(item.id)}
+                                                        onClick={() => removeItem(item.product, item._id)}
                                                         className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-semibold text-slate-400 transition hover:bg-red-50 hover:text-red-600"
                                                     >
                                                         <FiTrash2 size={14} />

@@ -12,22 +12,22 @@ import {
 const router = express.Router();
 
 // Get all product variants
-router.get("/admin/product/variant", getAllProductVariants);
+router.get("/get", getAllProductVariants);
 
 // Get single product variant
-router.get("/admin/product/variant/:id", getProductVariantById);
-router.get("/admin/product/variant/slug/:slug", getProductVariantBySlug);
+router.get("/get/:id", getProductVariantById);
+router.get("/get/slug/:slug", getProductVariantBySlug);
 
 // Add product variant
-router.post("/admin/product/variant", addProductVariant);
+router.post("/add", addProductVariant);
 
 // Update product variant
-router.put("/admin/product/variant/:id", updateProductVariant);
+router.put("/update/:id", updateProductVariant);
 
 // Update product variant status
-router.patch("/admin/product/variant/status", updateProductVariantStatus);
+router.patch("/update/status", updateProductVariantStatus);
 
 // Delete product variant
-router.delete("/admin/product/variant/:id", deleteProductVariant);
+router.delete("/delete/:id", deleteProductVariant);
 
 export default router;
