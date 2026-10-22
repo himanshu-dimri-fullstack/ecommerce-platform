@@ -13,6 +13,8 @@ import {
     FiX,
     FiChevronDown,
 } from "react-icons/fi";
+import { useSelector } from "react-redux";
+import type { RootState } from "@/redux/store";
 
 const NavbarSkeleton = () => {
     return (
@@ -71,6 +73,7 @@ const NavbarSkeleton = () => {
 };
 
 const Navbar = () => {
+    const user = useSelector((store: RootState) => store.auth.user)
     const [menuOpen, setMenuOpen] = useState(false);
     const [search, setSearch] = useState("");
     const pathname = usePathname();
@@ -85,22 +88,22 @@ const Navbar = () => {
     };
 
     const navLinks = [
-        { label: "Home", href: "/" },
-        { label: "Categories", href: "/categories" },
-        { label: "All Products", href: "/products" },
-        { label: "Offers", href: "/offers" },
+        { label: "Home", href: "/shop" },
+        { label: "Categories", href: "/shop/categories" },
+        { label: "All Products", href: "/shop/products" },
+        { label: "Offers", href: "/shop/offers" },
     ];
 
     const accountLinks = [
-        { label: "Login", href: "/login", icon: FiUser },
-        { label: "My Cart", href: "/cart", icon: FiShoppingCart },
+        { label: "Login", href: "/auth/login", icon: FiUser },
+        { label: "My Cart", href: "/shop/cart", icon: FiShoppingCart },
     ];
 
     const closeMenu = () => setMenuOpen(false);
 
     const isActive = (href: string) => {
-        if (href === "/") {
-            return pathname === "/";
+        if (href === "/shop") {
+            return pathname === "/shop";
         }
 
         return pathname === href || pathname.startsWith(`${href}/`);
@@ -189,26 +192,39 @@ const Navbar = () => {
 
                 {/* DESKTOP ACTIONS */}
                 <div className="hidden shrink-0 items-center gap-5 sm:flex">
-                    {accountLinks.map(({ label, href, icon: Icon }) => (
-                        <Link
-                            key={href}
-                            href={href}
-                            className={
-                                href === "/cart"
-                                    ? `flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-bold transition ${isActive(href)
-                                        ? "bg-[#096b19] text-white"
-                                        : "bg-[#0c831f] text-white hover:bg-[#096b19]"
-                                    }`
-                                    : `flex items-center gap-2 text-sm font-semibold transition ${isActive(href)
+                    {accountLinks.map(({ label, href, icon: Icon }) => {
+                        const isCart = href === "/shop/cart";
+                        const disabled = isCart && !user;
+
+                        if (disabled) {
+                            return (
+                                <button
+                                    key={href}
+                                    type="button"
+                                    disabled
+                                    title="Please login to access your cart"
+                                    className="flex cursor-not-allowed items-center gap-2 rounded-xl bg-gray-200 px-4 py-3 text-sm font-bold text-gray-400 opacity-70"
+                                >
+                                    <Icon size={20} />
+                                    {label}
+                                </button>
+                            );
+                        }
+
+                        return (
+                            <Link
+                                key={href}
+                                href={href}
+                                className={`flex items-center gap-2 text-sm font-semibold transition ${isActive(href)
                                         ? "text-[#0c831f]"
                                         : "text-gray-700 hover:text-[#0c831f]"
-                                    }`
-                            }
-                        >
-                            <Icon size={20} />
-                            {label}
-                        </Link>
-                    ))}
+                                    }`}
+                            >
+                                <Icon size={20} />
+                                {label}
+                            </Link>
+                        );
+                    })}
                 </div>
 
                 {/* MOBILE MENU BUTTON */}

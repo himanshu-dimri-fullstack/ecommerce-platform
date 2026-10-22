@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -8,9 +8,10 @@ import {
     FiSearch,
     FiShoppingBag,
 } from "react-icons/fi";
-import { API } from "../../axios/axios.js"
+import { API } from "@/axios/axios.js"
+import { useParams } from "next/navigation.js";
 
-interface Category {
+interface Subategory {
     _id: string;
     name: string;
     slug: string;
@@ -19,16 +20,30 @@ interface Category {
         url: string;
         public_url?: string;
     };
+    category: string;
 }
 
-export default function CategoriesPage() {
-    const [categories, setCategories] = useState<Category[]>([]);
+function SubategoriesPage() {
+    const { slug } = useParams()
+    const [subcategories, setSubcategories] = useState<Subategory[]>([]);
     const [loading, setLoading] = useState(true);
 
     const fetchCategories = async () => {
-        const res = await API.get("/admin/categories")
-        setCategories(res.data.categories)
-        setLoading(false)
+        try {
+            const res = await API.get(`/admin/subcategories?category=${slug}`)
+            setSubcategories(res.data.subcategories)
+        }
+        catch (error) {
+            if (error instanceof Error) {
+                console.log(error.message);
+            } else {
+                console.log("An unknown error occurred");
+            }
+        }
+        finally {
+            setLoading(false)
+        }
+
     }
 
     useEffect(() => {
@@ -47,13 +62,13 @@ export default function CategoriesPage() {
                         </p>
 
                         <h2 className="mt-2 text-2xl font-extrabold text-gray-900 sm:text-3xl">
-                            All Categories
+                            All Subcategories
                         </h2>
                     </div>
 
                     {!loading && (
                         <span className="shrink-0 rounded-full bg-green-50 px-3 py-2 text-xs font-bold text-[#0c831f]">
-                            {categories.length} Categories
+                            {subcategories.length} Subcategories
                         </span>
                     )}
                 </div>
@@ -74,21 +89,21 @@ export default function CategoriesPage() {
                             </div>
                         ))}
                     </div>
-                ) : categories.length > 0 ? (
+                ) : subcategories.length > 0 ? (
                     <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4">
-                        {categories.map((category) => {
+                        {subcategories.map((subcategory) => {
                             return (
                                 <Link
-                                    key={category._id}
-                                    href={`/categories/${category.slug}`}
+                                    key={subcategory._id}
+                                    href={`/categories/${slug}/${subcategory.slug}`}
                                     className="group overflow-hidden rounded-2xl border border-gray-100 bg-white transition-all duration-300 hover:-translate-y-1 hover:border-green-100 hover:shadow-xl hover:shadow-green-950/5"
                                 >
                                     {/* Category Image */}
                                     <div className="relative aspect-16/10 overflow-hidden bg-green-50">
-                                        {category?.image?.url ? (
+                                        {subcategory?.image?.url ? (
                                             <Image
-                                                src={category.image.url}
-                                                alt={category.name}
+                                                src={subcategory.image.url}
+                                                alt={subcategory.name}
                                                 fill
                                                 sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
                                                 className="object-contain transition-transform duration-500 group-hover:scale-105"
@@ -113,7 +128,7 @@ export default function CategoriesPage() {
                                     <div className="p-5">
                                         <div className="flex items-start justify-between gap-3">
                                             <h3 className="text-lg font-extrabold text-gray-900 transition-colors group-hover:text-[#0c831f]">
-                                                {category.name}
+                                                {subcategory.name}
                                             </h3>
 
                                             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-green-50 text-[#0c831f] transition-all duration-300 group-hover:bg-[#0c831f] group-hover:text-white">
@@ -125,8 +140,8 @@ export default function CategoriesPage() {
                                         </div>
 
                                         <p className="mt-2 line-clamp-2 min-h-10 text-sm leading-5 text-gray-500">
-                                            {category.description ||
-                                                `Explore our collection of ${category.name.toLowerCase()} and find your everyday favourites.`}
+                                            {subcategory.description ||
+                                                `Explore our collection of ${subcategory.name.toLowerCase()} and find your everyday favourites.`}
                                         </p>
 
                                         <div className="mt-5 border-t border-gray-100 pt-4">
@@ -147,11 +162,19 @@ export default function CategoriesPage() {
                         />
 
                         <h3 className="mt-4 text-lg font-bold text-gray-900">
-                            No categories found
+                            No Subcategories found
                         </h3>
                     </div>
                 )}
             </section>
         </main>
+    );
+}
+
+export default function Page() {
+    return (
+        <Suspense fallback={<div>Loading product...</div>}>
+            <SubategoriesPage />
+        </Suspense>
     );
 }
