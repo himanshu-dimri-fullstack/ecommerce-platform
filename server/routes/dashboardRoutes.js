@@ -7,7 +7,7 @@ import { Auth } from "../middlewares/Auth.js";
 
 const router = express.Router();
 
-router.get("/admin/allModuleCounts", Auth, getAllModuleCounts);
+router.get("/allModuleCounts", Auth, getAllModuleCounts);
 
 
 export default router;

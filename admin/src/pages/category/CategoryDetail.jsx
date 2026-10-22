@@ -24,7 +24,7 @@ const CategoryDetail = () => {
     useEffect(() => {
         const fetchCategory = async () => {
             try {
-                const res = await API.get(`/admin/categories/${id}`);
+                const res = await API.get(`/category/get/${id}`);
                 setCategory(res.data.category);
             } catch (error) {
                 console.log(error);

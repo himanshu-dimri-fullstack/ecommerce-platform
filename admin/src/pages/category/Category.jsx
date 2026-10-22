@@ -97,7 +97,7 @@ const Category = () => {
 
         try {
 
-            const res = await API.get("/admin/categories");
+            const res = await API.get("/category/get");
 
             setCategories(res.data.categories);
 
@@ -150,7 +150,7 @@ const Category = () => {
             setDataLoading(true);
 
             const res = await API.post(
-                "/admin/categories",
+                "/category/add",
                 finalFormData
             );
 
@@ -207,7 +207,7 @@ const Category = () => {
             setDataLoading(true);
 
             const res = await API.delete(
-                `/admin/categories/${deleteId}`
+                `/category/delete/${deleteId}`
             );
 
             await getAllCategories();
@@ -244,7 +244,7 @@ const Category = () => {
             setDataLoading(true);
 
             const res = await API.patch(
-                "/admin/category/status",
+                "/category/update/status",
                 {
                     id,
                     status,
@@ -315,7 +315,7 @@ const Category = () => {
             }
 
             const res = await API.put(
-                `/admin/categories/${editId}`,
+                `/category/update/${editId}`,
                 finalFormData
             );
 

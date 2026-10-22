@@ -3,7 +3,7 @@ import { API } from "../api/axios";
 
 export const fetchUser = createAsyncThunk("user/fetch", async () => {
     try {
-        const res = await API.get("admin/check-user")
+        const res = await API.get("/user/check-user")
         return res.data.user
     }
     catch (error) {

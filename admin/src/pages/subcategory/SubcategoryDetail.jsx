@@ -26,7 +26,7 @@ const SubcategoryDetail = () => {
     useEffect(() => {
         const fetchSubcategory = async () => {
             try {
-                const res = await API.get(`/admin/subcategories/${id}`);
+                const res = await API.get(`/subcategory/get/${id}`);
 
                 setSubcategory(res.data.subcategory);
             } catch (error) {

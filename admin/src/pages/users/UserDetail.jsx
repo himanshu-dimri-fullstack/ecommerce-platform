@@ -23,7 +23,7 @@ const UserDetail = () => {
     useEffect(() => {
         const fetchUser = async () => {
             try {
-                const res = await API.get(`/admin/user/${id}`);
+                const res = await API.get(`/admin/get/${id}`);
                 setUser(res.data.user);
             } catch (error) {
                 toast.error(error?.response?.data?.message)

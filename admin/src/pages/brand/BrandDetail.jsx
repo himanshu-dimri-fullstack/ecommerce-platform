@@ -26,7 +26,7 @@ const BrandDetail = () => {
     useEffect(() => {
         const fetchBrand = async () => {
             try {
-                const res = await API.get(`/admin/brands/${id}`);
+                const res = await API.get(`/brand/get/${id}`);
                 setBrand(res.data.brand || {});
             } catch (error) {
                 console.error(

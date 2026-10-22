@@ -7,6 +7,8 @@ import {
     FiTag,
     FiShield,
     FiArrowUpRight,
+    FiPackage,
+    FiShoppingBag
 } from "react-icons/fi";
 import { API } from "../api/axios";
 import DataLoader from "../components/DataLoader";
@@ -19,7 +21,11 @@ const Dashboard = () => {
         users: null,
         brands: null,
         roles: null,
-    })
+        product: null,
+        variant: null,
+        store: null,
+    });
+
     const stats = [
         {
             title: "Total Categories",
@@ -42,14 +48,24 @@ const Dashboard = () => {
             borderColor: "border-purple-100",
         },
         {
-            title: "Total Users",
-            value: value.users,
-            description: "Registered users",
-            icon: FiUsers,
-            color: "emerald",
-            bg: "bg-emerald-50",
-            iconColor: "text-emerald-600",
-            borderColor: "border-emerald-100",
+            title: "Total Products",
+            value: value.product,
+            description: "Available products",
+            icon: FiPackage,
+            color: "indigo",
+            bg: "bg-indigo-50",
+            iconColor: "text-indigo-600",
+            borderColor: "border-indigo-100",
+        },
+        {
+            title: "Total Variants",
+            value: value.variant,
+            description: "Product variants",
+            icon: FiLayers,
+            color: "cyan",
+            bg: "bg-cyan-50",
+            iconColor: "text-cyan-600",
+            borderColor: "border-cyan-100",
         },
         {
             title: "Total Brands",
@@ -62,6 +78,16 @@ const Dashboard = () => {
             borderColor: "border-amber-100",
         },
         {
+            title: "Total Users",
+            value: value.users,
+            description: "Registered users",
+            icon: FiUsers,
+            color: "emerald",
+            bg: "bg-emerald-50",
+            iconColor: "text-emerald-600",
+            borderColor: "border-emerald-100",
+        },
+        {
             title: "Total Roles",
             value: value.roles,
             description: "Access control roles",
@@ -71,19 +97,32 @@ const Dashboard = () => {
             iconColor: "text-rose-600",
             borderColor: "border-rose-100",
         },
+        {
+            title: "Total Stores",
+            value: value.store,
+            description: "Registered stores",
+            icon: FiShoppingBag,
+            color: "orange",
+            bg: "bg-orange-50",
+            iconColor: "text-orange-600",
+            borderColor: "border-orange-100",
+        },
     ];
 
     useEffect(() => {
         const fetchAllValues = async () => {
             try {
-                const res = await API.get("/admin/allModuleCounts")
+                const res = await API.get("/dashboard/allModuleCounts")
                 setValue({
                     ...value,
                     category: res.data.category,
                     subcategory: res.data.subcategory,
                     users: res.data.user,
                     roles: res.data.role,
-                    brands: res.data.brand
+                    brands: res.data.brand,
+                    store: res.data.store,
+                    product: res.data.product,
+                    variant: res.data.variant
                 })
                 setDataLoading(false)
             }

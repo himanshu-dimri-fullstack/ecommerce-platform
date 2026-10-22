@@ -15,7 +15,7 @@ router.post("/login", login)
 router.post("/logout", logout)
 router.post("/reset-password", resetPassword)
 
-router.get("/admin/check-user", async (req, res) => {
+router.get("/check-user", async (req, res) => {
     try {
         const token = req.cookies?.token;
 

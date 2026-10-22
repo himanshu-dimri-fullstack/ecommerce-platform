@@ -96,7 +96,7 @@ const Subcategory = () => {
 
         try {
 
-            const res = await API.get("/admin/subcategories");
+            const res = await API.get("/subcategory/get");
 
             setSubcategories(res.data.subcategories);
 
@@ -136,7 +136,7 @@ const Subcategory = () => {
 
 
             const res = await API.post(
-                "/admin/subcategories",
+                "/subcategory/add",
                 finalFormData
             );
 
@@ -188,7 +188,7 @@ const Subcategory = () => {
             }
 
             const res = await API.put(
-                `/admin/subcategories/${editId}`,
+                `/subcategory/update/${editId}`,
                 finalFormData
             );
 
@@ -242,7 +242,7 @@ const Subcategory = () => {
             setDataLoading(true);
 
             const res = await API.delete(
-                `/admin/subcategories/${deleteId}`
+                `/subcategory/delete/${deleteId}`
             );
 
             await getAllSubcategories();
@@ -279,7 +279,7 @@ const Subcategory = () => {
             setDataLoading(true);
 
             const res = await API.patch(
-                "/admin/subcategory/status",
+                "/subcategory/update/status",
                 {
                     id,
                     status,
@@ -393,7 +393,7 @@ const Subcategory = () => {
     useEffect(() => {
         const getAllCategories = async () => {
             try {
-                const res = await API.get("/admin/categories");
+                const res = await API.get("/category/get");
                 setCategories(res.data.categories);
             }
             catch (error) {

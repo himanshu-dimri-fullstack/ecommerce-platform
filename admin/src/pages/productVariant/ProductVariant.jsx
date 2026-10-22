@@ -119,7 +119,7 @@ const ProductVariant = () => {
     // FETCH PRODUCTS FOR DROPDOWN
     const getAllProducts = async () => {
         try {
-            const res = await API.get("/admin/products");
+            const res = await API.get("/product/get");
             setProducts(res.data.products || []);
         } catch (error) {
             console.error(error);
@@ -134,7 +134,7 @@ const ProductVariant = () => {
     // FETCH ALL VARIANTS
     const getAllVariants = async () => {
         try {
-            const res = await API.get("/admin/product/variant");
+            const res = await API.get("/variant/get");
             setVariants(res.data.variants || []);
         } catch (error) {
             console.error(error);
@@ -254,7 +254,7 @@ const ProductVariant = () => {
             const finalFormData = buildVariantFormData();
 
             const res = await API.post(
-                "/admin/product/variant",
+                "/variant/add",
                 finalFormData
             );
 
@@ -319,7 +319,7 @@ const ProductVariant = () => {
             const finalFormData = buildVariantFormData();
 
             const res = await API.put(
-                `/admin/product/variant/${editId}`,
+                `/variant/update/${editId}`,
                 finalFormData
             );
 
@@ -355,7 +355,7 @@ const ProductVariant = () => {
             setDataLoading(true);
 
             const res = await API.delete(
-                `/admin/product/variant/${deleteId}`
+                `/variant/delete/${deleteId}`
             );
 
             toast.success(
@@ -384,7 +384,7 @@ const ProductVariant = () => {
             setDataLoading(true);
 
             const res = await API.patch(
-                "/admin/product/variant/status",
+                "/variant/update/status",
                 { id }
             );
 

@@ -69,11 +69,10 @@ const Store = () => {
     // FETCH ALL STORES
     const getAllStores = async () => {
         try {
-            const res = await API.get("/admin/store");
+            const res = await API.get("/store/get");
             setStores(res.data.stores || []);
         } catch (error) {
             console.error(error);
-
             toast.error(
                 error?.response?.data?.message ||
                 "Failed to fetch stores"
@@ -86,7 +85,7 @@ const Store = () => {
     // FETCH MANAGERS
     const getAllManagers = async () => {
         try {
-            const res = await API.get("/admin/user/get/managers");
+            const res = await API.get("/store/user/get/managers");
             setManagers(
                 res.data.managers)
         } catch (error) {
@@ -243,7 +242,7 @@ const Store = () => {
         try {
             setDataLoading(true);
             const res = await API.post(
-                "/admin/store",
+                "/store/add",
                 buildStorePayload()
             );
 
@@ -276,7 +275,7 @@ const Store = () => {
             setDataLoading(true);
 
             const res = await API.put(
-                `/admin/store/${editId}`,
+                `/store/update/${editId}`,
                 buildStorePayload()
             );
 
@@ -311,7 +310,7 @@ const Store = () => {
             setDataLoading(true);
 
             const res = await API.delete(
-                `/admin/store/${deleteId}`
+                `/store/delete/${deleteId}`
             );
 
             toast.success(
@@ -339,7 +338,7 @@ const Store = () => {
             setDataLoading(true);
 
             const res = await API.patch(
-                "/admin/store/status",
+                "/store/update/status",
                 { id }
             );
 

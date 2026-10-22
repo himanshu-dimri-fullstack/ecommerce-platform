@@ -31,7 +31,7 @@ const ProductVariantDetail = () => {
     useEffect(() => {
         const fetchProductVariant = async () => {
             try {
-                const res = await API.get(`/admin/product/variant/${id}`);
+                const res = await API.get(`/variant/get/${id}`);
                 setVariant(res.data.variant);
             } catch (error) {
                 console.log(error);

@@ -87,7 +87,7 @@ const Product = () => {
     // GET ALL PRODUCTS
     const getAllProducts = async () => {
         try {
-            const res = await API.get("/admin/products");
+            const res = await API.get("/product/get");
 
             setProducts(res.data.products || []);
         } catch (error) {
@@ -167,7 +167,7 @@ const Product = () => {
             // return
 
             const res = await API.post(
-                "/admin/products",
+                "/product/add",
                 finalFormData
             );
 
@@ -200,7 +200,7 @@ const Product = () => {
             setDataLoading(true);
 
             const res = await API.delete(
-                `/admin/products/${deleteId}`
+                `/product/delete/${deleteId}`
             );
 
             toast.success(
@@ -228,7 +228,7 @@ const Product = () => {
             setDataLoading(true);
 
             const res = await API.patch(
-                "/admin/product/status",
+                "/product/update/status",
                 {
                     id,
                 }
@@ -288,7 +288,7 @@ const Product = () => {
             const finalFormData = buildProductFormData();
 
             const res = await API.put(
-                `/admin/products/${editId}`,
+                `/product/update/${editId}`,
                 finalFormData
             );
 
@@ -331,7 +331,7 @@ const Product = () => {
 
     const getAllCategories = async () => {
         try {
-            const res = await API.get("/admin/categories")
+            const res = await API.get("/category/get")
             setCategories(res.data.categories)
         }
         catch (error) {
@@ -340,7 +340,7 @@ const Product = () => {
     }
     const getAllSubcategories = async () => {
         try {
-            const res = await API.get("/admin/subcategories")
+            const res = await API.get("/subcategory/get")
             setSubcategories(res.data.subcategories)
         }
         catch (error) {
@@ -349,7 +349,7 @@ const Product = () => {
     }
     const getAllBrands = async () => {
         try {
-            const res = await API.get("/admin/brands")
+            const res = await API.get("/brand/get")
             setBrands(res.data.brands)
         }
         catch (error) {

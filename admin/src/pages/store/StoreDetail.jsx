@@ -29,7 +29,7 @@ const StoreDetail = () => {
     useEffect(() => {
         const fetchStore = async () => {
             try {
-                const res = await API.get(`/admin/store/${id}`);
+                const res = await API.get(`/store/get/${id}`);
 
                 setStore(res.data.store);
             } catch (error) {

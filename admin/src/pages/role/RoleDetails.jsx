@@ -27,7 +27,7 @@ const RoleDetail = () => {
     useEffect(() => {
         const fetchRole = async () => {
             try {
-                const res = await API.get(`/admin/role/${id}`);
+                const res = await API.get(`/role/get/${id}`);
                 setRole(res.data.role);
             } catch (error) {
                 console.error("Error fetching role:", error);

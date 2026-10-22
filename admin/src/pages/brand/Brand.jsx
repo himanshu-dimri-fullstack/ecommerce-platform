@@ -80,7 +80,7 @@ const Brand = () => {
 
     const getAllBrands = async () => {
         try {
-            const res = await API.get("/admin/brands");
+            const res = await API.get("/brand/get");
 
             setBrands(res.data.brands || []);
         } catch (error) {
@@ -131,7 +131,7 @@ const Brand = () => {
             setDataLoading(true);
 
             const res = await API.post(
-                "/admin/brands",
+                "/brand/add",
                 finalFormData
             );
 
@@ -188,7 +188,7 @@ const Brand = () => {
             setDataLoading(true)
 
             const res = await API.put(
-                `/admin/brands/${editId}`,
+                `/brand/update/${editId}`,
                 finalFormData
             );
 
@@ -222,7 +222,7 @@ const Brand = () => {
             setDataLoading(true);
 
             const res = await API.delete(
-                `/admin/brands/${deleteId}`
+                `/brand/delete/${deleteId}`
             );
 
             await getAllBrands();
@@ -248,7 +248,7 @@ const Brand = () => {
             setDataLoading(true)
 
             const res = await API.patch(
-                `/admin/brands/status/${id}`
+                `/brand/update/status/${id}`
             );
 
             await getAllBrands()

@@ -15,7 +15,7 @@ const router = express.Router();
 
 router.get("/get", Auth, getBrands);
 
-router.post("/add", Auth, Permission("brands:add"), createBrand);
+router.post("/add", Auth, Permission("brand:add"), createBrand);
 
 router.put("/update/:id", Auth, updateBrand);
 

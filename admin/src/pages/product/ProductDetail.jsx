@@ -32,7 +32,7 @@ const ProductDetail = () => {
     useEffect(() => {
         const fetchProduct = async () => {
             try {
-                const res = await API.get(`/admin/products/${id}`);
+                const res = await API.get(`/product/get/${id}`);
                 setProduct(res.data.product);
             } catch (error) {
                 console.log(error);

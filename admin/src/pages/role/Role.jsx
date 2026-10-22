@@ -41,7 +41,7 @@ const Role = () => {
 
     const fetchRoles = async () => {
         try {
-            const res = await API.get("/admin/role");
+            const res = await API.get("/role/get");
             setRoles(res.data.roles);
         } catch (error) {
             toast.error(
@@ -124,7 +124,7 @@ const Role = () => {
             }
             setDataLoading(true)
             const { data } = await API.post(
-                "/admin/role",
+                "/role/add",
                 formData
             );
             toast.success(data.message)
@@ -171,7 +171,7 @@ const Role = () => {
             setDataLoading(true)
 
             const { data } = await API.put(
-                `/admin/role/${editId}`,
+                `/role/update/${editId}`,
                 payload
             );
 
@@ -215,7 +215,7 @@ const Role = () => {
         try {
             setDataLoading(true)
             const res = await API.delete(
-                `/admin/role/${deleteId}`
+                `/role/delete/${deleteId}`
             );
 
             toast.success(res.data.message)
@@ -248,7 +248,7 @@ const Role = () => {
         try {
             setDataLoading(true)
             const res = await API.patch(
-                `/admin/role/status/${id}`
+                `/role/update/${id}`
             );
             toast.success(res.data.message)
             await fetchRoles();

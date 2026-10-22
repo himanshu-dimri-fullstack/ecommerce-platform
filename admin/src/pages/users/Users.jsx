@@ -100,7 +100,7 @@ const Users = () => {
 
         try {
             setDataLoading(true)
-            const res = await API.post("/admin/user", formData)
+            const res = await API.post("/admin/add", formData)
             await getAllUsers()
             toast.success(res.data.message)
             setShowModal(false)
@@ -126,7 +126,7 @@ const Users = () => {
     const handleDeleteUser = async () => {
         try {
             setDataLoading(true)
-            const res = await API.delete(`/admin/user/${deleteId}`)
+            const res = await API.delete(`/admin/delete/${deleteId}`)
             await getAllUsers()
             toast.success(res.data.message)
         }
@@ -146,7 +146,7 @@ const Users = () => {
 
     const getAllUsers = async () => {
         try {
-            const res = await API.get("/admin/user")
+            const res = await API.get("/admin/get")
             console.log(res.data)
             setUsers(res.data.users)
         }
@@ -165,7 +165,7 @@ const Users = () => {
     const changeStatus = async (email, status) => {
         try {
             setDataLoading(true)
-            const res = await API.patch("/admin/user/status", { email, status })
+            const res = await API.patch("/admin/update/status", { email, status })
             await getAllUsers()
             toast.success(res.data.message)
         }
@@ -203,7 +203,7 @@ const Users = () => {
 
         try {
             setDataLoading(true)
-            const res = await API.put(`/admin/user/${editId}`, formData)
+            const res = await API.put(`/admin/update/${editId}`, formData)
             await getAllUsers()
             toast.success(res.data.message)
         }
@@ -218,7 +218,7 @@ const Users = () => {
 
     const getAllRoles = async () => {
         try {
-            const res = await API.get("admin/role")
+            const res = await API.get("/role/get")
             setRoles(res.data.roles)
         }
         catch (error) {
