@@ -291,7 +291,7 @@ const AdminLayout = () => {
                                 </p>
                                 <p className="text-xs text-slate-500">
                                     {
-                                        user ? user.role.name : ""
+                                        user?.role ? user.role?.name : "admin"
                                     }
                                 </p>
                             </div>
