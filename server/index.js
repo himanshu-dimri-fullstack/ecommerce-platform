@@ -29,8 +29,14 @@ app.use(filupload({
 
 app.use(express.json())
 app.use(cookieParser())
+
+// app.use(cors({
+//     origin: ["http://localhost:5173", "http://localhost:3000"],
+//     credentials: true
+// }))
+
 app.use(cors({
-    origin: ["https://ecommerce-platform-admin-nine.vercel.app", "https://ecommerce-platform-rosy-xi.vercel.app"],
+    origin: ["https://ecommerce-platform-rosy-xi.vercel.app", "https://ecommerce-platform-admin-nine.vercel.app"],
     credentials: true
 }))
 

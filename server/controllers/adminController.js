@@ -292,10 +292,17 @@ export const login = async (req, res) => {
             { expiresIn: "1d" }
         );
 
+        // res.cookie("token", token, {
+        //     httpOnly: true,
+        //     secure: false,
+        //     sameSite: "Lax",
+        //     maxAge: 24 * 60 * 60 * 1000
+        // });
+
         res.cookie("token", token, {
             httpOnly: true,
-            secure: false,
-            sameSite: "Lax",
+            secure: true,
+            sameSite: "None",
             maxAge: 24 * 60 * 60 * 1000
         });
 
@@ -358,10 +365,16 @@ export const resetPassword = async (req, res) => {
 }
 
 export const logout = (req, res) => {
+    // res.clearCookie("token", {
+    //     httpOnly: true,
+    //     secure: false,
+    //     sameSite: "Lax",
+    //     maxAge: 24 * 60 * 60 * 1000
+    // });
     res.clearCookie("token", {
         httpOnly: true,
-        secure: false,
-        sameSite: "Lax",
+        secure: true,
+        sameSite: "None",
         maxAge: 24 * 60 * 60 * 1000
     });
 
