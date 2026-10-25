@@ -7,7 +7,8 @@ export interface User {
     lastName: string;
     email: string;
     role: string;
-    [key: string]: unknown;
+    image?: string;
+    // [key: string]: unknown;
 }
 
 interface AuthState {
@@ -28,7 +29,7 @@ export const fetchUser = createAsyncThunk<
     "user/fetch",
     async (_, { rejectWithValue }) => {
         try {
-            const res = await API.get<{ user: User }>("admin/check-user");
+            const res = await API.get<{ user: User }>("/user/check-user");
             return res.data.user;
         } catch (error: unknown) {
             const err = error as ApiError;

@@ -45,13 +45,6 @@ router.get("/check-user", async (req, res) => {
                 firstName: user.firstName,
                 lastName: user.lastName,
                 email: user.email,
-                role: user.role
-                    ? {
-                        id: user.role._id,
-                        name: user.role.name,
-                        permissions: user.role.permissions
-                    }
-                    : null
             }
         });
     } catch (error) {

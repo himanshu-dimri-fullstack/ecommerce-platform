@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useRef, Suspense } from "react";
@@ -12,10 +13,16 @@ import {
     FiMenu,
     FiX,
     FiChevronDown,
+    FiLogOut,
 } from "react-icons/fi";
-import { useSelector } from "react-redux";
-import type { RootState } from "@/redux/store";
+import { useDispatch, useSelector } from "react-redux";
+import type { RootState, AppDispatch } from "@/redux/store";
+// import { logoutUser } from "@/redux/authSlice";
 import LoginModal from "@/components/auth/LoginModal";
+import SignupModal from "./auth/SignupModal";
+import { API } from "@/axios/axios";
+import { setUser } from "@/redux/authSlice";
+import toast from "react-hot-toast";
 
 // Navbar Skeleton
 function NavbarSkeleton() {
@@ -36,31 +43,46 @@ function NavbarSkeleton() {
 function Navbar() {
     const pathname = usePathname();
     const router = useRouter();
+    const dispatch = useDispatch<AppDispatch>();
 
     const user = useSelector((store: RootState) => store.auth.user);
+    const loading = useSelector((store: RootState) => store.auth.loading);
     const cartItems = useSelector((store: RootState) => store.cart.items);
 
-    // Unique cart items count
     const cartCount = cartItems?.length ?? 0;
 
     const [loginOpen, setLoginOpen] = useState(false);
+    const [isSignupOpen, setIsSignupOpen] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [search, setSearch] = useState("");
     const [location, setLocation] = useState("Select Location");
     const [locationOpen, setLocationOpen] = useState(false);
+    const [accountOpen, setAccountOpen] = useState(false);
+    const [loggingOut, setLoggingOut] = useState(false);
 
     const searchRef = useRef<HTMLInputElement>(null);
     const locationRef = useRef<HTMLDivElement>(null);
+    const accountRef = useRef<HTMLDivElement>(null);
 
     const navLinks = [
         { label: "Home", href: "/" },
-        { label: "All Products", href: "/products" },
+        { label: "Products", href: "/products" },
     ];
 
     const accountLinks = [
         { label: "Login", href: "#login", icon: FiUser },
         { label: "My Cart", href: "/cart", icon: FiShoppingCart },
     ];
+
+    const userName =
+        user?.firstName ||
+        "My Account";
+
+    const profileImage =
+        user?.image ||
+        "";
+
+    const avatarLetter = userName.trim().charAt(0).toUpperCase() || "U";
 
     const handleSearch = (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -89,6 +111,25 @@ function Navbar() {
         }
     };
 
+    const handleLogout = async () => {
+        if (loggingOut) return;
+
+        setLoggingOut(true);
+
+        try {
+            const res = await API.post("/user/logout")
+
+            dispatch(setUser(null));
+            setAccountOpen(false);
+            setMobileMenuOpen(false);
+            toast.success(res.data.message)
+        } catch (error: any) {
+            toast.error(error?.reaponse?.data?.error);
+        } finally {
+            setLoggingOut(false);
+        }
+    };
+
     useEffect(() => {
         if (pathname === "/search") {
             searchRef.current?.focus();
@@ -103,6 +144,13 @@ function Navbar() {
             ) {
                 setLocationOpen(false);
             }
+
+            if (
+                accountRef.current &&
+                !accountRef.current.contains(event.target as Node)
+            ) {
+                setAccountOpen(false);
+            }
         };
 
         document.addEventListener("mousedown", handleClickOutside);
@@ -111,6 +159,25 @@ function Navbar() {
             document.removeEventListener("mousedown", handleClickOutside);
         };
     }, []);
+
+    // Reusable profile avatar
+    const ProfileAvatar = ({ size = "h-9 w-9" }: { size?: string }) => (
+        <>
+            {profileImage ? (
+                <img
+                    src={profileImage}
+                    alt={userName}
+                    className={`${size} shrink-0 rounded-full border border-gray-200 object-cover`}
+                />
+            ) : (
+                <span
+                    className={`${size} flex shrink-0 items-center justify-center rounded-full bg-[#0c831f] text-sm font-extrabold text-white`}
+                >
+                    {avatarLetter}
+                </span>
+            )}
+        </>
+    );
 
     return (
         <>
@@ -222,59 +289,79 @@ function Navbar() {
                             </div>
                         </form>
 
-                        {/* Desktop Navigation */}
-                        <nav className="hidden items-center gap-5 xl:flex">
-                            {navLinks.map((item) => {
-                                const active =
-                                    pathname === item.href ||
-                                    (item.href !== "/" &&
-                                        pathname.startsWith(item.href));
-
-                                return (
-                                    <Link
-                                        key={item.href}
-                                        href={item.href}
-                                        className={`whitespace-nowrap text-sm font-bold transition ${active
-                                            ? "text-[#0c831f]"
-                                            : "text-gray-700 hover:text-[#0c831f]"
-                                            }`}
-                                    >
-                                        {item.label}
-                                    </Link>
-                                );
-                            })}
-                        </nav>
-
                         {/* Desktop Account Actions */}
                         <div className="hidden shrink-0 items-center gap-3 md:flex">
-                            {accountLinks.map(({ label, href, icon: Icon }) => (
+                            {loading ? (
+                                <div className="flex items-center gap-2 rounded-xl px-3 py-2.5">
+                                    <div className="h-5 w-5 animate-pulse rounded-full bg-gray-200" />
+                                    <div className="h-4 w-12 animate-pulse rounded-md bg-gray-200" />
+                                </div>
+                            ) : user ? (
+                                <div ref={accountRef} className="relative">
+                                    <button
+                                        type="button"
+                                        onClick={() => setAccountOpen(!accountOpen)}
+                                        className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-bold text-gray-700 transition hover:bg-gray-100"
+                                    >
+                                        <ProfileAvatar />
+
+                                        <span className="max-w-36 truncate">
+                                            {userName}
+                                        </span>
+
+                                        <FiChevronDown size={16} />
+                                    </button>
+
+                                    {accountOpen && (
+                                        <div className="absolute right-0 top-full z-50 mt-2 w-48 rounded-xl border border-gray-100 bg-white p-2 shadow-xl">
+                                            <Link
+                                                href="/profile"
+                                                onClick={() => setAccountOpen(false)}
+                                                className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-green-50 hover:text-[#0c831f]"
+                                            >
+                                                <FiUser size={18} />
+                                                Profile
+                                            </Link>
+
+                                            <button
+                                                type="button"
+                                                disabled={loggingOut}
+                                                onClick={handleLogout}
+                                                className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-50"
+                                            >
+                                                <FiLogOut size={18} />
+                                                {loggingOut ? "Logging out..." : "Logout"}
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            ) : (
                                 <Link
-                                    key={label}
-                                    href={href}
-                                    onClick={(e) =>
-                                        handleAccountClick(e, label)
-                                    }
-                                    className={`flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-bold transition ${label === "My Cart"
-                                        ? "bg-green-50 text-[#0c831f] hover:bg-green-100"
-                                        : "text-gray-700 hover:bg-gray-100"
-                                        }`}
+                                    href="#login"
+                                    onClick={(e) => handleAccountClick(e, "Login")}
+                                    className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-bold text-gray-700 transition hover:bg-gray-100"
                                 >
-                                    <span className="relative inline-flex">
-                                        <Icon size={20} />
-
-                                        {label === "My Cart" &&
-                                            cartCount > 0 && (
-                                                <span className="absolute -right-3 -top-3 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-extrabold text-white">
-                                                    {cartCount > 99
-                                                        ? "99+"
-                                                        : cartCount}
-                                                </span>
-                                            )}
-                                    </span>
-
-                                    <span>{label}</span>
+                                    <FiUser size={20} />
+                                    <span>Login</span>
                                 </Link>
-                            ))}
+                            )}
+
+                            <Link
+                                href="/cart"
+                                className="flex items-center gap-2 rounded-xl bg-green-50 px-3 py-2.5 text-sm font-bold text-[#0c831f] transition hover:bg-green-100"
+                            >
+                                <span className="relative inline-flex">
+                                    <FiShoppingCart size={20} />
+
+                                    {cartCount > 0 && (
+                                        <span className="absolute -right-3 -top-3 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-extrabold text-white">
+                                            {cartCount > 99 ? "99+" : cartCount}
+                                        </span>
+                                    )}
+                                </span>
+
+                                <span>My Cart</span>
+                            </Link>
                         </div>
 
                         {/* Mobile Actions */}
@@ -308,6 +395,31 @@ function Navbar() {
                                 )}
                             </button>
                         </div>
+                    </div>
+
+                    {/* Desktop Navigation - second row */}
+                    <div className="hidden border-t border-gray-100 py-3 xl:block">
+                        <nav className="flex items-center gap-6">
+                            {navLinks.map((item) => {
+                                const active =
+                                    pathname === item.href ||
+                                    (item.href !== "/" &&
+                                        pathname.startsWith(item.href));
+
+                                return (
+                                    <Link
+                                        key={item.href}
+                                        href={item.href}
+                                        className={`whitespace-nowrap text-sm font-bold transition ${active
+                                            ? "text-[#0c831f]"
+                                            : "text-gray-700 hover:text-[#0c831f]"
+                                            }`}
+                                    >
+                                        {item.label}
+                                    </Link>
+                                );
+                            })}
+                        </nav>
                     </div>
 
                     {/* Mobile Search */}
@@ -372,43 +484,110 @@ function Navbar() {
 
                             <div className="my-2 border-t border-gray-100" />
 
-                            {accountLinks.map(
-                                ({ label, href, icon: Icon }) => (
-                                    <Link
-                                        key={label}
-                                        href={href}
-                                        onClick={(e) =>
-                                            handleAccountClick(e, label)
+                            {user ? (
+                                <>
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            setAccountOpen(!accountOpen)
                                         }
-                                        className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold text-gray-700 transition hover:bg-gray-50"
+                                        className="flex items-center justify-between rounded-xl px-4 py-3 text-sm font-bold text-gray-700 transition hover:bg-gray-50"
                                     >
-                                        <span className="relative inline-flex">
-                                            <Icon size={19} />
-
-                                            {label === "My Cart" &&
-                                                cartCount > 0 && (
-                                                    <span className="absolute -right-3 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-extrabold text-white">
-                                                        {cartCount > 99
-                                                            ? "99+"
-                                                            : cartCount}
-                                                    </span>
-                                                )}
+                                        <span className="flex min-w-0 items-center gap-3">
+                                            <ProfileAvatar />
+                                            <span className="truncate">
+                                                {userName}
+                                            </span>
                                         </span>
 
-                                        <span>{label}</span>
-                                    </Link>
-                                )
+                                        <FiChevronDown
+                                            size={16}
+                                            className={`shrink-0 transition-transform ${accountOpen
+                                                ? "rotate-180"
+                                                : ""
+                                                }`}
+                                        />
+                                    </button>
+
+                                    {accountOpen && (
+                                        <div className="ml-4 flex flex-col gap-1">
+                                            <Link
+                                                href="/profile"
+                                                onClick={() => {
+                                                    setAccountOpen(false);
+                                                    setMobileMenuOpen(false);
+                                                }}
+                                                className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold text-gray-700 transition hover:bg-green-50 hover:text-[#0c831f]"
+                                            >
+                                                <FiUser size={18} />
+                                                Profile
+                                            </Link>
+
+                                            <button
+                                                type="button"
+                                                disabled={loggingOut}
+                                                onClick={handleLogout}
+                                                className="flex items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-50"
+                                            >
+                                                <FiLogOut size={18} />
+                                                {loggingOut
+                                                    ? "Logging out..."
+                                                    : "Logout"}
+                                            </button>
+                                        </div>
+                                    )}
+                                </>
+                            ) : (
+                                <Link
+                                    href="#login"
+                                    onClick={(e) =>
+                                        handleAccountClick(e, "Login")
+                                    }
+                                    className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold text-gray-700 transition hover:bg-gray-50"
+                                >
+                                    <FiUser size={19} />
+                                    Login
+                                </Link>
                             )}
+
+                            <Link
+                                href="/cart"
+                                onClick={() => setMobileMenuOpen(false)}
+                                className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold text-gray-700 transition hover:bg-gray-50"
+                            >
+                                <span className="relative inline-flex">
+                                    <FiShoppingCart size={19} />
+
+                                    {cartCount > 0 && (
+                                        <span className="absolute -right-3 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-extrabold text-white">
+                                            {cartCount > 99
+                                                ? "99+"
+                                                : cartCount}
+                                        </span>
+                                    )}
+                                </span>
+
+                                My Cart
+                            </Link>
                         </nav>
                     </div>
                 )}
             </header>
 
             {/* Login Modal */}
-            <LoginModal
-                isOpen={loginOpen}
-                onClose={() => setLoginOpen(false)}
-            />
+            {loginOpen && (
+                <LoginModal
+                    setLoginOpen={setLoginOpen}
+                    setIsSignupOpen={setIsSignupOpen}
+                />
+            )}
+
+            {/* Signup Modal */}
+            {isSignupOpen && (
+                <SignupModal
+                    setIsSignupOpen={setIsSignupOpen}
+                />
+            )}
         </>
     );
 }

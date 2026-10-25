@@ -8,7 +8,13 @@ import { handleResponseError } from "../utils/errorUtils.js"
 
 export const signup = async (req, res) => {
     try {
-        const { email, password } = req.body
+        const { firstName, lastName, email, password } = req.body
+        if (!firstName) {
+            return res.status(400).json({ message: "First Name is required" })
+        }
+        if (!lastName) {
+            return res.status(400).json({ message: "Last Name is required" })
+        }
         if (!email) {
             return res.status(400).json({ message: "Email is required" })
         }
@@ -17,11 +23,19 @@ export const signup = async (req, res) => {
         }
         const hashedPassword = await bcrypt.hash(password, 10)
 
-        const user = await User.create({
-            name: "Himanshu Dimri", email, password: hashedPassword,
-            status: "active", role: "admin",
+        const savedUser = await User.create({
+            firstName, lastName, email, password: hashedPassword,
+            role: "6adcca18c6ae8cdfc38138de"
         })
-        return res.status(201).json({ message: "user created successfully" })
+        return res.status(201).json({
+            message: "Account has been created",
+            user: {
+                id: savedUser._id,
+                firstName: savedUser.firstName,
+                lastName: savedUser.lastName,
+                email: savedUser.email
+            }
+        })
     }
     catch (error) {
         return handleResponseError(error, res)
@@ -99,8 +113,6 @@ export const verifyOTP = async (req, res) => {
 export const login = async (req, res) => {
     try {
         const { email, password } = req.body;
-        console.log(email, password)
-        // return
 
         if (!email) {
             return res.status(400).json({ message: "Email is required" });
@@ -111,7 +123,6 @@ export const login = async (req, res) => {
         }
 
         const user = await User.findOne({ email })
-            .populate("role", "name permissions");
 
         if (!user) {
             return res.status(401).json({ message: "Email is invalid" });
@@ -125,7 +136,6 @@ export const login = async (req, res) => {
             {
                 id: user._id,
                 email: user.email,
-                role: user.role?._id
             },
             process.env.JWT_SECRET,
             { expiresIn: "1d" }
@@ -145,13 +155,6 @@ export const login = async (req, res) => {
                 firstName: user.firstName,
                 lastName: user.lastName,
                 email: user.email,
-                role: user.role
-                    ? {
-                        id: user.role._id,
-                        name: user.role.name,
-                        permissions: user.role.permissions
-                    }
-                    : null
             }
         });
     } catch (error) {
@@ -209,3 +212,4 @@ export const logout = (req, res) => {
         message: "Logout successful",
     });
 };
+

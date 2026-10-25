@@ -19,6 +19,8 @@ import {
 import { useDispatch, useSelector } from "react-redux";
 import type { RootState } from "@/redux/store";
 import { increaseQuantity, decreaseQuantity, removeFromCart } from "@/redux/cartSlice";
+import LoginModal from "@/components/auth/LoginModal";
+import SignupModal from "@/components/auth/SignupModal";
 
 type CartItem = {
     id: number;
@@ -40,8 +42,12 @@ const formatPrice = (price: number) =>
 
 export default function CartPage() {
     const cartItems = useSelector((store: RootState) => store.cart.items);
+    const user = useSelector((store: RootState) => store.auth.user)
+    console.log("user at cart", user)
     const dispatch = useDispatch()
     console.log("cartItems", cartItems)
+    const [loginOpen, setLoginOpen] = useState(false);
+    const [isSignupOpen, setIsSignupOpen] = useState(false)
     const [items, setItems] = useState<CartItem[]>(initialItems);
     const [couponInput, setCouponInput] = useState("");
     const [appliedCoupon, setAppliedCoupon] = useState("");
@@ -71,7 +77,6 @@ export default function CartPage() {
 
     const updateQuantity = (product: string, _id: string, change: number) => {
         if (change === -1) {
-
             dispatch(decreaseQuantity({ product, _id }))
         }
         else {
@@ -100,6 +105,12 @@ export default function CartPage() {
         setCouponInput("");
         setCouponError("");
     };
+
+    const handleProceedToPay = () => {
+        if (!user) {
+            setLoginOpen(true)
+        }
+    }
 
     return (
         <main className="min-h-screen bg-[#f7f8fa] text-slate-900">
@@ -339,19 +350,6 @@ export default function CartPage() {
                                                 {couponError}
                                             </p>
                                         )}
-                                        <p className="mt-3 text-xs text-slate-400">
-                                            Demo coupon:{" "}
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    setCouponInput("SAVE10");
-                                                    setCouponError("");
-                                                }}
-                                                className="font-extrabold text-[#138a45] underline underline-offset-2"
-                                            >
-                                                SAVE10
-                                            </button>
-                                        </p>
                                     </div>
                                 )}
                             </div>
@@ -444,11 +442,12 @@ export default function CartPage() {
                                     <button
                                         type="button"
                                         onClick={() =>
-                                            alert("Connect your checkout route here.")
+                                            handleProceedToPay()
                                         }
                                         className="group flex w-full items-center justify-center gap-3 rounded-xl bg-[#138a45] px-5 py-4 font-extrabold text-white shadow-lg shadow-green-900/10 transition hover:bg-[#0e7138] active:scale-[0.99]"
                                     >
                                         Proceed to Checkout
+
                                         <FiArrowRight
                                             size={19}
                                             className="transition-transform group-hover:translate-x-1"
@@ -487,6 +486,17 @@ export default function CartPage() {
                     </div>
                 )}
             </div>
+            {
+                loginOpen && <LoginModal
+                    setLoginOpen={setLoginOpen}
+                    setIsSignupOpen={setIsSignupOpen}
+                />
+            }
+            {
+                isSignupOpen && <SignupModal
+                    setIsSignupOpen={setIsSignupOpen}
+                />
+            }
         </main>
     );
 }

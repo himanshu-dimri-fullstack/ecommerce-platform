@@ -1,5 +1,6 @@
 "use client";
 
+import { API } from "@/axios/axios";
 import { useEffect, useState } from "react";
 import {
     FiX,
@@ -10,53 +11,52 @@ import {
     FiZap,
     FiArrowRight,
 } from "react-icons/fi";
+import { useDispatch, useSelector } from "react-redux";
+import type { RootState } from "@/redux/store";
+import { setUser } from "@/redux/authSlice";
+import toast from "react-hot-toast";
 
 interface LoginModalProps {
-    isOpen: boolean;
-    onClose: () => void;
+    setLoginOpen: (value: boolean) => void;
+    setIsSignupOpen: (value: boolean) => void;
 }
 
 export default function LoginModal({
-    isOpen,
-    onClose,
+    setLoginOpen,
+    setIsSignupOpen
 }: LoginModalProps) {
+    const user = useSelector((store: RootState) => store.auth.user)
+    const dispatch = useDispatch()
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [showPassword, setShowPassword] = useState(false);
 
-    useEffect(() => {
-        if (!isOpen) return;
-
-        const handleEscape = (event: KeyboardEvent) => {
-            if (event.key === "Escape") onClose();
-        };
-
-        const previousOverflow = document.body.style.overflow;
-
-        document.body.style.overflow = "hidden";
-        document.addEventListener("keydown", handleEscape);
-
-        return () => {
-            document.body.style.overflow = previousOverflow;
-            document.removeEventListener("keydown", handleEscape);
-        };
-    }, [isOpen, onClose]);
-
-    if (!isOpen) return null;
-
-    const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
 
-        // Connect your login API here.
-        console.log({ email, password });
+        if (!email) {
+            toast.error("Email is required")
+            return
+        }
+        if (!password) {
+            toast.error("Password is required")
+            return
+        }
+
+        try {
+            const res = await API.post("/user/login", { email, password })
+            dispatch(setUser(res.data.user))
+            setLoginOpen(false)
+            toast.success(res.data.message)
+        }
+        catch (error: any) {
+            toast.error(error?.response?.data?.message)
+        }
     };
 
     return (
         <div
             className="fixed inset-0 z-100 flex items-center justify-center overflow-y-auto bg-black/50 p-4 backdrop-blur-sm"
-            onMouseDown={(event) => {
-                if (event.target === event.currentTarget) onClose();
-            }}
         >
             <div
                 role="dialog"
@@ -70,7 +70,7 @@ export default function LoginModal({
                 {/* Close Button */}
                 <button
                     type="button"
-                    onClick={onClose}
+                    onClick={() => setLoginOpen(false)}
                     aria-label="Close login modal"
                     className="absolute right-5 top-5 flex h-10 w-10 items-center justify-center rounded-full text-gray-500 transition hover:bg-gray-100 hover:text-gray-900"
                 >
@@ -129,7 +129,6 @@ export default function LoginModal({
                                     placeholder="you@example.com"
                                     autoComplete="email"
                                     autoFocus
-                                    required
                                     className="h-full w-full bg-transparent text-sm text-gray-900 outline-none placeholder:text-gray-400"
                                 />
                             </div>
@@ -148,7 +147,7 @@ export default function LoginModal({
                                 <button
                                     type="button"
                                     onClick={() => {
-                                        onClose();
+                                        setLoginOpen(false);
                                         window.location.href =
                                             "/auth/forgot-password";
                                     }}
@@ -173,7 +172,6 @@ export default function LoginModal({
                                     }
                                     placeholder="Enter your password"
                                     autoComplete="current-password"
-                                    required
                                     className="h-full w-full bg-transparent text-sm text-gray-900 outline-none placeholder:text-gray-400"
                                 />
 
@@ -215,6 +213,20 @@ export default function LoginModal({
                     {/* Footer */}
                     <div className="mt-7 border-t border-gray-100 pt-5">
                         <p className="text-center text-xs leading-5 text-gray-500">
+                            Don't have an account?{" "}
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setLoginOpen(false)
+                                    setIsSignupOpen(true)
+                                }}
+                                className="font-bold text-[#0c831f] transition-colors hover:text-[#096b19] hover:underline"
+                            >
+                                Sign Up
+                            </button>
+                        </p>
+
+                        <p className="mt-3 text-center text-xs leading-5 text-gray-500">
                             Shop smarter. Live better.
                             <span className="mx-1.5 text-gray-300">•</span>
                             <span className="font-bold text-[#0c831f]">

@@ -14,6 +14,7 @@ import {
 import { API } from "@/axios/axios.js";
 import { useDispatch } from "react-redux";
 import { addToCart } from "@/redux/cartSlice";
+import Image from "next/image";
 
 interface Category {
     name: string;
@@ -365,10 +366,14 @@ export default function ShopPage() {
                                 href={`/categories/${category.slug}`}
                                 className="group flex flex-col items-center rounded-2xl border border-gray-100 bg-white p-3 text-center shadow-sm transition duration-200 hover:-translate-y-1 hover:shadow-md"
                             >
-                                <div className="flex h-16 w-16 items-center justify-center rounded-2xl transition duration-300 group-hover:scale-110">
+                                <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl transition duration-300 group-hover:scale-110">
                                     {category.image?.url ? (
-                                        <img
+                                        <Image
+                                            loading="eager"
+                                            alt={category.name}
                                             src={category.image?.url}
+                                            fill
+                                            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
                                             className="h-full w-full object-cover"
                                         />
                                     ) : (
@@ -473,8 +478,12 @@ export default function ShopPage() {
                                             )}
 
                                             {product.images[0]?.url ? (
-                                                <img
+                                                <Image
+                                                    loading="eager"
+                                                    alt={product.name}
                                                     src={product.images[0].url}
+                                                    fill
+                                                    sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
                                                     className="h-full w-full object-contain"
                                                 />
                                             ) : (
