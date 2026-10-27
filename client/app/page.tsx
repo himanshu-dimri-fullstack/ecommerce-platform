@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import {
     FiArrowRight,
@@ -10,11 +10,14 @@ import {
     FiShield,
     FiTruck,
     FiHeadphones,
+    FiLoader
 } from "react-icons/fi";
 import { API } from "@/axios/axios.js";
-import { useDispatch } from "react-redux";
 import { addToCart } from "@/redux/cartSlice";
 import Image from "next/image";
+import { fetchCart, setCart } from "@/redux/cartSlice";
+import { useDispatch, useSelector } from "react-redux";
+import type { RootState, AppDispatch } from "@/redux/store";
 
 interface Category {
     name: string;
@@ -26,6 +29,7 @@ interface Category {
 }
 
 interface Product {
+    _id: string;
     slug: string;
     name: string;
     unit: string;
@@ -146,9 +150,13 @@ function ProductSkeleton() {
 }
 
 export default function ShopPage() {
-    const dispatch = useDispatch()
+    const user = useSelector((store: RootState) => store.auth.user);
+    const dispatch = useDispatch<AppDispatch>();
     const [categories, setCategories] = useState<Category[]>([]);
     const [products, setProducts] = useState<Product[]>([]);
+
+    const [addingItems, setAddingItems] = useState<string[]>([]);
+    const addingItemsRef = useRef(new Set<string>());
 
     // Skeleton loading states
     const [categoriesLoading, setCategoriesLoading] = useState(true);
@@ -174,18 +182,47 @@ export default function ShopPage() {
     };
 
     const handleAddToCart = async (product: any) => {
-        dispatch(addToCart({
-            product: product.product._id,
-            _id: product._id,
-            name: product.name,
-            unitValue: product.unitValue,
-            unit: product.unit,
-            image: product.images[0].url,
-            sellingPrice: product.sellingPrice,
-            mrp: product.mrp,
-            quantity: 1,
-        }))
-    }
+        if (!user) {
+            dispatch(addToCart({
+                product: product.product._id,
+                _id: product._id,
+                name: product.name,
+                unitValue: product.unitValue,
+                unit: product.unit,
+                image: product.images[0].url,
+                sellingPrice: product.sellingPrice,
+                mrp: product.mrp,
+                quantity: 1,
+            }));
+            return;
+        }
+
+        const productId = product._id;
+
+        // Prevent repeated clicks while the API request is running
+        if (addingItemsRef.current.has(productId)) return;
+
+        addingItemsRef.current.add(productId);
+        setAddingItems((prev) => [...prev, productId]);
+
+        try {
+            await API.post("/cart/add", {
+                product: product.product._id,
+                variant: product._id,
+                quantity: 1,
+            });
+
+            await dispatch(fetchCart());
+        } catch (error: any) {
+            console.error("Failed to add product to cart:", error);
+        } finally {
+            addingItemsRef.current.delete(productId);
+
+            setAddingItems((prev) =>
+                prev.filter((id) => id !== productId)
+            );
+        }
+    };
 
     useEffect(() => {
         fetchCategories();
@@ -454,6 +491,7 @@ export default function ShopPage() {
                 ) : (
                     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
                         {products.map((product) => {
+                            const isAdding = addingItems.includes(product._id);
                             const discount =
                                 product.mrp > product.sellingPrice
                                     ? Math.round(
@@ -527,15 +565,25 @@ export default function ShopPage() {
                                         </div>
 
                                         <button
+                                            type="button"
+                                            disabled={isAdding}
                                             onClick={(e) => {
                                                 e.preventDefault();
                                                 e.stopPropagation();
                                                 handleAddToCart(product);
                                             }}
-                                            type="button"
-                                            className="flex items-center gap-1 rounded-xl border-2 border-[#0c831f] bg-emerald-50 px-3 py-1.5 text-xs font-black text-[#0c831f] transition-all duration-150 hover:bg-[#0c831f] hover:text-white active:scale-95"
+                                            className="flex items-center gap-1 rounded-lg border border-[#0c831f] bg-green-50 px-3 py-2 text-sm font-extrabold text-[#0c831f] transition hover:bg-[#0c831f] hover:text-white disabled:cursor-not-allowed disabled:opacity-70"
                                         >
-                                            ADD <FiPlus size={14} />
+                                            {isAdding ? (
+                                                <>
+                                                    <FiLoader className="animate-spin" size={15} />
+                                                    <span>Adding...</span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    ADD <FiPlus />
+                                                </>
+                                            )}
                                         </button>
                                     </div>
                                 </article>

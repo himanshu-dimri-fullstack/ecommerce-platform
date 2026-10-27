@@ -26,6 +26,7 @@ export default function LoginModal({
     setIsSignupOpen
 }: LoginModalProps) {
     const user = useSelector((store: RootState) => store.auth.user)
+    const cart = useSelector((store: RootState) => store.cart.items)
     const dispatch = useDispatch()
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
@@ -45,6 +46,10 @@ export default function LoginModal({
 
         try {
             const res = await API.post("/user/login", { email, password })
+            if (cart.length > 0) {
+                const cartRes = await API.post("/cart/addCartItems", { cart })
+                console.log("cartRes", cartRes.data.message)
+            }
             dispatch(setUser(res.data.user))
             setLoginOpen(false)
             toast.success(res.data.message)

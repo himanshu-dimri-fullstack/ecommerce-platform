@@ -1,4 +1,5 @@
-"use client"
+"use client";
+
 import Link from "next/link";
 import {
     FiZap,
@@ -9,6 +10,9 @@ import {
     FiMapPin,
     FiPhone,
     FiArrowRight,
+    FiShoppingBag,
+    FiHeart,
+    FiArrowUpRight,
 } from "react-icons/fi";
 
 const Footer = () => {
@@ -32,184 +36,221 @@ const Footer = () => {
 
     const shopLinks = [
         { label: "All Products", href: "/products" },
-        { label: "Categories", href: "/categories" },
-        { label: "Today's Offers", href: "/offers" },
+        { label: "Explore Categories", href: "/categories" },
         { label: "Shopping Cart", href: "/cart" },
     ];
 
-    const companyLinks = [
-        { label: "About Us", href: "/about" },
-        { label: "Contact Us", href: "/contact" },
-        { label: "Privacy Policy", href: "/privacy" },
-        { label: "Terms & Conditions", href: "/terms" },
-    ];
-
     return (
-        <footer className="mt-10 border-t border-gray-200 bg-white">
-            {/* NEWSLETTER */}
-            <div className="border-b border-gray-100 bg-[#f4faef]">
-                <div className="mx-auto flex max-w-360 flex-col justify-between gap-5 px-4 py-8 sm:px-6 md:flex-row md:items-center lg:px-8">
-                    <div>
-                        <h2 className="text-xl font-black text-gray-900 sm:text-2xl">
-                            Fresh deals, straight to your inbox.
-                        </h2>
-                        <p className="mt-2 text-sm text-gray-600">
-                            Get updates on offers, new arrivals and everyday savings.
-                        </p>
-                    </div>
+        <footer className="relative mt-16 overflow-hidden border-t border-gray-100 bg-white">
 
-                    <form
-                        onSubmit={(e) => {
-                            e.preventDefault();
-                        }}
-                        className="flex w-full max-w-md gap-2"
-                    >
-                        <label htmlFor="newsletter-email" className="sr-only">
-                            Email address
-                        </label>
-
-                        <input
-                            id="newsletter-email"
-                            type="email"
-                            required
-                            placeholder="Enter your email address"
-                            className="min-w-0 flex-1 rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-[#0c831f]"
-                        />
-
-                        <button
-                            type="submit"
-                            aria-label="Subscribe to newsletter"
-                            className="flex shrink-0 items-center justify-center gap-2 rounded-xl bg-[#0c831f] px-4 py-3 text-sm font-bold text-white transition hover:bg-[#096b19]"
+            {/* MAIN FOOTER */}
+            <div className="mx-auto max-w-7xl px-5 py-12 sm:px-8 sm:py-14 lg:py-16">
+                <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 sm:gap-12 lg:grid-cols-12 lg:gap-10">
+                    {/* BRAND */}
+                    <div className="sm:col-span-2 lg:col-span-5">
+                        <Link
+                            href="/"
+                            className="group inline-flex items-center gap-3"
                         >
-                            Subscribe
-                            <FiArrowRight size={16} />
-                        </button>
-                    </form>
-                </div>
-            </div>
-
-            {/* FOOTER CONTENT */}
-            <div className="mx-auto grid max-w-360 grid-cols-2 gap-8 px-4 py-10 sm:px-6 md:grid-cols-4 lg:px-8 lg:py-14">
-                {/* BRAND */}
-                <div className="col-span-2 md:col-span-1">
-                    <Link href="/" className="inline-flex items-center gap-2">
-                        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#0c831f] text-white">
-                            <FiZap size={25} fill="currentColor" />
-                        </div>
-
-                        <span className="text-2xl font-black tracking-tight text-[#0c831f]">
-                            QuickKart
-                        </span>
-                    </Link>
-
-                    <p className="mt-4 max-w-xs text-sm leading-7 text-gray-500">
-                        Your neighbourhood shopping companion for groceries, fresh
-                        produce and all the little things you need every day.
-                    </p>
-
-                    {/* SOCIAL LINKS */}
-                    <div className="mt-5 flex items-center gap-3">
-                        {socialLinks.map(({ label, icon: Icon, href }) => (
-                            <a
-                                key={label}
-                                href={href}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                aria-label={label}
-                                className="flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 text-gray-600 transition hover:border-green-200 hover:bg-green-50 hover:text-[#0c831f]"
-                            >
-                                <Icon size={19} />
-                            </a>
-                        ))}
-                    </div>
-                </div>
-
-                {/* SHOP */}
-                <div>
-                    <h3 className="text-sm font-extrabold text-gray-900">
-                        Shop with us
-                    </h3>
-
-                    <ul className="mt-5 space-y-3 text-sm text-gray-500">
-                        {shopLinks.map((item) => (
-                            <li key={item.href}>
-                                <Link
-                                    href={item.href}
-                                    className="transition hover:text-[#0c831f]"
-                                >
-                                    {item.label}
-                                </Link>
-                            </li>
-                        ))}
-                    </ul>
-                </div>
-
-                {/* COMPANY */}
-                <div>
-                    <h3 className="text-sm font-extrabold text-gray-900">
-                        QuickKart
-                    </h3>
-
-                    <ul className="mt-5 space-y-3 text-sm text-gray-500">
-                        {companyLinks.map((item) => (
-                            <li key={item.href}>
-                                <Link
-                                    href={item.href}
-                                    className="transition hover:text-[#0c831f]"
-                                >
-                                    {item.label}
-                                </Link>
-                            </li>
-                        ))}
-                    </ul>
-                </div>
-
-                {/* CONTACT */}
-                <div className="col-span-2 md:col-span-1">
-                    <h3 className="text-sm font-extrabold text-gray-900">
-                        Need a hand?
-                    </h3>
-
-                    <p className="mt-3 text-sm leading-6 text-gray-500">
-                        Have a question about your order? We'd love to help.
-                    </p>
-
-                    <div className="mt-5 space-y-4">
-                        <a
-                            href="mailto:support@quickkart.example"
-                            className="flex items-center gap-3 text-sm text-gray-600 transition hover:text-[#0c831f]"
-                        >
-                            <FiMail size={18} className="shrink-0 text-[#0c831f]" />
-                            <span className="break-all">
-                                support@quickkart.example
+                            <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#0c831f] text-white shadow-lg shadow-green-900/15 transition duration-300 group-hover:-translate-y-0.5 group-hover:shadow-xl">
+                                <FiZap
+                                    size={26}
+                                    fill="currentColor"
+                                />
                             </span>
-                        </a>
 
-                        <div className="flex items-center gap-3 text-sm text-gray-600">
-                            <FiPhone size={18} className="shrink-0 text-[#0c831f]" />
-                            Customer support
+                            <span className="text-2xl font-black tracking-tight text-gray-900 sm:text-3xl">
+                                QUICK
+                                <span className="text-[#0c831f]">
+                                    KART
+                                </span>
+                                <span className="ml-1 text-[#0c831f]">
+                                    .
+                                </span>
+                            </span>
+                        </Link>
+
+                        <p className="mt-5 max-w-sm text-sm leading-7 text-gray-500 sm:text-base">
+                            Your neighbourhood shopping companion.
+                            From everyday groceries to daily essentials,
+                            get more of what you need, delivered with ease.
+                        </p>
+
+                        {/* BRAND HIGHLIGHT */}
+                        <div className="mt-6 inline-flex items-center gap-3 rounded-2xl border border-green-100 bg-green-50/70 px-4 py-3">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-[#0c831f] shadow-sm">
+                                <FiShoppingBag size={20} />
+                            </div>
+
+                            <div>
+                                <p className="text-sm font-extrabold text-gray-900">
+                                    Your daily essentials
+                                </p>
+                                <p className="mt-0.5 text-xs text-gray-500">
+                                    All in one convenient place
+                                </p>
+                            </div>
                         </div>
 
-                        <div className="flex items-center gap-3 text-sm text-gray-600">
-                            <FiMapPin size={18} className="shrink-0 text-[#0c831f]" />
-                            Delivering to selected locations
+                        {/* SOCIAL LINKS */}
+                        <div className="mt-7">
+                            <p className="mb-3 text-xs font-extrabold uppercase tracking-[0.15em] text-gray-400">
+                                Follow our journey
+                            </p>
+
+                            <div className="flex items-center gap-3">
+                                {socialLinks.map(
+                                    ({ label, icon: Icon, href }) => (
+                                        <a
+                                            key={label}
+                                            href={href}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            aria-label={label}
+                                            className="group flex h-11 w-11 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-500 transition duration-200 hover:-translate-y-1 hover:border-green-200 hover:bg-[#0c831f] hover:text-white hover:shadow-lg hover:shadow-green-900/15"
+                                        >
+                                            <Icon size={19} />
+                                        </a>
+                                    )
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* SHOP LINKS */}
+                    <div className="lg:col-span-3">
+                        <h3 className="text-sm font-extrabold uppercase tracking-wider text-gray-900">
+                            Explore Quick Kart
+                        </h3>
+
+                        <div className="mt-5 h-1 w-10 rounded-full bg-[#0c831f]" />
+
+                        <ul className="mt-6 space-y-4">
+                            {shopLinks.map((item) => (
+                                <li key={item.href}>
+                                    <Link
+                                        href={item.href}
+                                        className="group inline-flex items-center gap-2 text-sm font-medium text-gray-500 transition hover:text-[#0c831f]"
+                                    >
+                                        <span className="transition-transform duration-200 group-hover:translate-x-1">
+                                            {item.label}
+                                        </span>
+
+                                        <FiArrowUpRight
+                                            size={14}
+                                            className="opacity-0 transition group-hover:opacity-100"
+                                        />
+                                    </Link>
+                                </li>
+                            ))}
+                        </ul>
+
+                        <div className="mt-8 rounded-2xl border border-gray-100 bg-gray-50 p-4">
+                            <p className="text-sm font-bold text-gray-800">
+                                Shopping made simple.
+                            </p>
+                            <p className="mt-1 text-xs leading-5 text-gray-500">
+                                Browse your favourites and find your
+                                everyday essentials.
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* CONTACT */}
+                    <div className="lg:col-span-4">
+                        <h3 className="text-sm font-extrabold uppercase tracking-wider text-gray-900">
+                            We're here to help
+                        </h3>
+
+                        <div className="mt-5 h-1 w-10 rounded-full bg-[#0c831f]" />
+
+                        <p className="mt-6 max-w-sm text-sm leading-7 text-gray-500">
+                            Need help with an order or have a question?
+                            Reach out to us and we'll be happy to help.
+                        </p>
+
+                        <div className="mt-6 space-y-3">
+                            <a
+                                href="mailto:support@quickkart.example"
+                                className="group flex items-center gap-4 rounded-2xl border border-gray-100 p-4 transition duration-200 hover:border-green-200 hover:bg-green-50/50"
+                            >
+                                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-green-50 text-[#0c831f] transition group-hover:bg-[#0c831f] group-hover:text-white">
+                                    <FiMail size={19} />
+                                </span>
+
+                                <span className="min-w-0">
+                                    <span className="block text-xs font-semibold text-gray-400">
+                                        Email support
+                                    </span>
+                                    <span className="mt-1 block break-all text-sm font-bold text-gray-800 transition group-hover:text-[#0c831f]">
+                                        support@quickkart.example
+                                    </span>
+                                </span>
+                            </a>
+
+                            <div className="flex items-center gap-4 rounded-2xl border border-gray-100 p-4">
+                                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-green-50 text-[#0c831f]">
+                                    <FiPhone size={19} />
+                                </span>
+
+                                <span>
+                                    <span className="block text-xs font-semibold text-gray-400">
+                                        Customer care
+                                    </span>
+                                    <span className="mt-1 block text-sm font-bold text-gray-800">
+                                        We're here to help
+                                    </span>
+                                </span>
+                            </div>
+
+                            <div className="flex items-center gap-4 rounded-2xl border border-gray-100 p-4">
+                                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-green-50 text-[#0c831f]">
+                                    <FiMapPin size={19} />
+                                </span>
+
+                                <span>
+                                    <span className="block text-xs font-semibold text-gray-400">
+                                        Delivery coverage
+                                    </span>
+                                    <span className="mt-1 block text-sm font-bold text-gray-800">
+                                        Selected locations
+                                    </span>
+                                </span>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
 
             {/* BOTTOM BAR */}
-            <div className="border-t border-gray-100">
-                <div className="mx-auto flex max-w-360 flex-col items-center justify-between gap-3 px-4 py-5 text-center sm:px-6 md:flex-row md:text-left lg:px-8">
-                    <p className="text-xs text-gray-500 sm:text-sm">
-                        © 2026 QuickKart. All rights reserved.
+            <div className="border-t border-gray-100 bg-gray-50/80">
+                <div className="mx-auto flex max-w-7xl flex-col gap-4 px-5 py-6 sm:px-8 md:flex-row md:items-center md:justify-between">
+                    <p className="text-center text-xs leading-6 text-gray-500 sm:text-sm md:text-left">
+                        © {new Date().getFullYear()}{" "}
+                        <span className="font-extrabold text-gray-800">
+                            QuickKart
+                        </span>
+                        . All rights reserved.
                     </p>
 
-                    <div className="flex items-center gap-2 text-xs font-semibold text-gray-500">
+                    <div className="flex flex-wrap items-center justify-center gap-2 text-xs font-medium text-gray-500 sm:text-sm">
                         <span>Made with</span>
-                        <span className="text-red-500">♥</span>
+
+                        <FiHeart
+                            size={15}
+                            className="fill-red-500 text-red-500"
+                        />
+
                         <span>for everyday shopping</span>
                     </div>
+
+                    <Link
+                        href="/"
+                        className="hidden items-center gap-2 text-xs font-bold text-gray-500 transition hover:text-[#0c831f] lg:inline-flex"
+                    >
+                        Back to home
+                        <FiArrowRight size={14} />
+                    </Link>
                 </div>
             </div>
         </footer>

@@ -146,6 +146,8 @@ export const addProductVariant = async (req, res) => {
 export const getAllProductVariants = async (req, res) => {
     try {
         const { category, product } = req.query
+        console.log("my", product)
+
         if (category) {
             if (category === "All") {
                 const variants = await ProductVariant.find()
@@ -178,15 +180,22 @@ export const getAllProductVariants = async (req, res) => {
             }
         }
         else if (product) {
-            const getProduct = await Product.findOne({ slug: product })
-            const variants = await ProductVariant.find({ product: getProduct._id })
+            let productId = product;
+
+            if (!mongoose.Types.ObjectId.isValid(product)) {
+                const getProduct = await Product.findOne({ slug: product });
+                productId = getProduct._id;
+            }
+
+            const variants = await ProductVariant.find({ product: productId })
                 .populate("product", "name")
-                .sort({ createdAt: -1 })
+                .sort({ createdAt: -1 });
+
             return res.status(200).json({
                 success: true,
                 message: "Product variants fetched successfully",
                 variants,
-            })
+            });
         }
         const variants = await ProductVariant.find()
             .populate("product", "name")

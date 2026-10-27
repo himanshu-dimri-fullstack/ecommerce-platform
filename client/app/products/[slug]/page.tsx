@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useState, Suspense, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -13,11 +13,14 @@ import {
     FiShield,
     FiRefreshCw,
     FiCheckCircle,
+    FiLoader
 } from "react-icons/fi";
 import { useParams } from "next/navigation";
 import { API } from "@/axios/axios";
-import { useDispatch } from "react-redux";
 import { addToCart } from "@/redux/cartSlice";
+import { useDispatch, useSelector } from "react-redux";
+import type { RootState, AppDispatch } from "@/redux/store";
+import { fetchCart, setCart } from "@/redux/cartSlice";
 
 export interface Image {
     url: string;
@@ -230,11 +233,18 @@ function ProductDetailSkeleton() {
 }
 
 function ProductDetail() {
-    const dispatch = useDispatch()
     const { slug } = useParams();
+    const user = useSelector((store: RootState) => store.auth.user);
+    const dispatch = useDispatch<AppDispatch>();
+
+    const [addingItems, setAddingItems] = useState<string[]>([]);
+    const addingItemsRef = useRef(new Set<string>());
 
     const [productVariant, setProductVariant] = useState<ProductVariant | null>(null);
     const [product, setProduct] = useState<Product | null>(null);
+
+    console.log("my product", product)
+    console.log("my variant", productVariant)
 
     // Skeleton loading state
     const [loading, setLoading] = useState(true);
@@ -257,18 +267,49 @@ function ProductDetail() {
     };
 
     const handleAddToCart = async (product: any) => {
-        dispatch(addToCart({
-            product: product.product._id,
-            _id: product._id,
-            name: product.name,
-            unitValue: product.unitValue,
-            unit: product.unit,
-            image: product.images[0].url,
-            sellingPrice: product.sellingPrice,
-            mrp: product.mrp,
-            quantity: 1,
-        }))
-    }
+        if (!user) {
+            dispatch(addToCart({
+                product: product.product._id,
+                _id: product._id,
+                name: product.name,
+                unitValue: product.unitValue,
+                unit: product.unit,
+                image: product.images[0].url,
+                sellingPrice: product.sellingPrice,
+                mrp: product.mrp,
+                quantity: 1,
+            }));
+            return;
+        }
+
+        console.log("my product at??????", product)
+        // return
+        const productId = product._id;
+
+        // Prevent repeated clicks while the API request is running
+        if (addingItemsRef.current.has(productId)) return;
+
+        addingItemsRef.current.add(productId);
+        setAddingItems((prev) => [...prev, productId]);
+
+        try {
+            await API.post("/cart/add", {
+                product: product.product._id,
+                variant: product._id,
+                quantity: 1,
+            });
+
+            await dispatch(fetchCart());
+        } catch (error: any) {
+            console.error("Failed to add product to cart:", error);
+        } finally {
+            addingItemsRef.current.delete(productId);
+
+            setAddingItems((prev) =>
+                prev.filter((id) => id !== productId)
+            );
+        }
+    };
 
     useEffect(() => {
         fetchProduct();
@@ -432,12 +473,39 @@ function ProductDetail() {
                         <div className="mt-7">
                             <div className="flex flex-wrap items-center gap-4">
                                 <button
-                                    onClick={() => handleAddToCart(productVariant)}
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        handleAddToCart(product);
+                                    }}
                                     type="button"
                                     className="flex h-12 flex-1 items-center justify-center gap-2 rounded-xl bg-[#0c831f] px-5 text-sm font-bold text-white transition hover:bg-[#096b19] disabled:cursor-not-allowed disabled:bg-gray-300"
                                 >
                                     Add to Cart
                                 </button>
+
+                                {/* <button
+                                    type="button"
+                                    disabled={isAdding}
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        handleAddToCart(product);
+                                    }}
+                                    className="flex items-center gap-1 rounded-lg border border-[#0c831f] bg-green-50 px-3 py-2 text-sm font-extrabold text-[#0c831f] transition hover:bg-[#0c831f] hover:text-white disabled:cursor-not-allowed disabled:opacity-70"
+                                >
+                                    {isAdding ? (
+                                        <>
+                                            <FiLoader className="animate-spin" size={15} />
+                                            <span>Adding...</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            ADD <FiPlus />
+                                        </>
+                                    )}
+                                    
+                                </button> */}
                             </div>
                         </div>
 

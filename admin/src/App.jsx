@@ -23,6 +23,8 @@ import ProductVariant from "./pages/productVariant/ProductVariant"
 import ProductVariantDetail from "./pages/productVariant/ProductVariantDetail"
 import Store from "./pages/store/Store"
 import StoreDetail from "./pages/store/StoreDetail"
+import Inventory from "./pages/inventory/Inventory"
+import InventoryDetail from "./pages/inventory/InventoryDetail"
 
 const App = () => {
   return (
@@ -51,6 +53,8 @@ const App = () => {
           <Route path="/admin/product-variants/:id" element={<ProductVariantDetail />} />
           <Route path="/admin/stores" element={<Store />} />
           <Route path="/admin/stores/:id" element={<StoreDetail />} />
+          <Route path="/admin/inventory" element={<Inventory />} />
+          <Route path="/admin/inventory/:id" element={<InventoryDetail />} />
         </Route>
       </Routes>
       <ToastContainer />

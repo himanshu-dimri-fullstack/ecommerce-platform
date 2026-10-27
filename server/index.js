@@ -15,6 +15,7 @@ import productRoutes from "./routes/productRoutes.js"
 import productVariantRoutes from "./routes/productVariantRoutes.js"
 import storeRoutes from "./routes/storeRoutes.js"
 import cartRoutes from "./routes/cartRoutes.js";
+import inventoryRoutes from "./routes/inventoryRoutes.js"
 
 dotenv.config()
 
@@ -36,9 +37,9 @@ app.use(cookieParser())
 // }))
 
 app.use(cors({
-    origin: ["https://ecommerce-platform-rosy-xi.vercel.app", "https://ecommerce-platform-admin-nine.vercel.app"],
+    origin: [process.env.CLIENT_URL, process.env.ADMIN_URL],
     credentials: true
-}))
+}));
 
 app.use("/user", userRoutes)
 app.use("/category", categoryRoutes)
@@ -50,7 +51,8 @@ app.use("/dashboard", dashboardRoutes)
 app.use("/product", productRoutes)
 app.use("/variant", productVariantRoutes)
 app.use("/store", storeRoutes)
-app.use("/api", cartRoutes);
+app.use("/cart", cartRoutes)
+app.use("/inventory", inventoryRoutes)
 
 app.listen(8000, () => {
     console.log("server running on port 8000")

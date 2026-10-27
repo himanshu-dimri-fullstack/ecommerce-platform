@@ -22,7 +22,9 @@ import LoginModal from "@/components/auth/LoginModal";
 import SignupModal from "./auth/SignupModal";
 import { API } from "@/axios/axios";
 import { setUser } from "@/redux/authSlice";
+import { fetchCart, setCart } from "@/redux/cartSlice";
 import toast from "react-hot-toast";
+
 
 // Navbar Skeleton
 function NavbarSkeleton() {
@@ -120,6 +122,7 @@ function Navbar() {
             const res = await API.post("/user/logout")
 
             dispatch(setUser(null));
+            dispatch(setCart([]));
             setAccountOpen(false);
             setMobileMenuOpen(false);
             toast.success(res.data.message)
@@ -160,6 +163,12 @@ function Navbar() {
         };
     }, []);
 
+
+    useEffect(() => {
+        if (!user) return
+        dispatch(fetchCart())
+    }, [user])
+
     // Reusable profile avatar
     const ProfileAvatar = ({ size = "h-9 w-9" }: { size?: string }) => (
         <>
@@ -178,6 +187,8 @@ function Navbar() {
             )}
         </>
     );
+
+
 
     return (
         <>

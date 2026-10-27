@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, Suspense, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { API } from "@/axios/axios.js";
@@ -13,10 +13,13 @@ import {
     FiClock,
     FiArrowRight,
     FiX,
+    FiLoader
 } from "react-icons/fi";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useDispatch } from "react-redux";
 import { addToCart } from "@/redux/cartSlice";
+import { fetchCart, setCart } from "@/redux/cartSlice";
+import { useDispatch, useSelector } from "react-redux";
+import type { RootState, AppDispatch } from "@/redux/store";
 
 interface Variant {
     _id: string
@@ -48,7 +51,12 @@ interface Category {
 const theme = "#0c831f";
 
 function ProductsPage() {
-    const dispatch = useDispatch()
+    const user = useSelector((store: RootState) => store.auth.user);
+    const dispatch = useDispatch<AppDispatch>();
+
+    const [addingItems, setAddingItems] = useState<string[]>([]);
+    const addingItemsRef = useRef(new Set<string>());
+
     const searchParams = useSearchParams();
     const productSlug = searchParams.get("product");
     const categorySlug = searchParams.get("category");
@@ -116,18 +124,47 @@ function ProductsPage() {
     }, [productSlug, categorySlug]);
 
     const handleAddToCart = async (product: any) => {
-        dispatch(addToCart({
-            product: product.product._id,
-            _id: product._id,
-            name: product.name,
-            unitValue: product.unitValue,
-            unit: product.unit,
-            image: product.images[0].url,
-            sellingPrice: product.sellingPrice,
-            mrp: product.mrp,
-            quantity: 1,
-        }))
-    }
+        if (!user) {
+            dispatch(addToCart({
+                product: product.product._id,
+                _id: product._id,
+                name: product.name,
+                unitValue: product.unitValue,
+                unit: product.unit,
+                image: product.images[0].url,
+                sellingPrice: product.sellingPrice,
+                mrp: product.mrp,
+                quantity: 1,
+            }));
+            return;
+        }
+
+        const productId = product._id;
+
+        // Prevent repeated clicks while the API request is running
+        if (addingItemsRef.current.has(productId)) return;
+
+        addingItemsRef.current.add(productId);
+        setAddingItems((prev) => [...prev, productId]);
+
+        try {
+            await API.post("/cart/add", {
+                product: product.product._id,
+                variant: product._id,
+                quantity: 1,
+            });
+
+            await dispatch(fetchCart());
+        } catch (error: any) {
+            console.error("Failed to add product to cart:", error);
+        } finally {
+            addingItemsRef.current.delete(productId);
+
+            setAddingItems((prev) =>
+                prev.filter((id) => id !== productId)
+            );
+        }
+    };
 
     return (
         <main className="min-h-screen bg-[#f7f8f7] text-gray-900">
@@ -254,6 +291,7 @@ function ProductsPage() {
                     ) : products?.length > 0 ? (
                         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-5 lg:grid-cols-4 xl:grid-cols-5">
                             {products.map((product: any) => {
+                                const isAdding = addingItems.includes(product._id);
                                 const discount = Math.round(
                                     ((product.mrp - product.sellingPrice) /
                                         product.mrp) *
@@ -306,14 +344,24 @@ function ProductsPage() {
 
                                                 <button
                                                     type="button"
+                                                    disabled={isAdding}
                                                     onClick={(e) => {
                                                         e.preventDefault();
                                                         e.stopPropagation();
                                                         handleAddToCart(product);
                                                     }}
-                                                    className="flex items-center gap-1 rounded-lg border border-[#0c831f] bg-green-50 px-3 py-2 text-sm font-extrabold text-[#0c831f] transition hover:bg-[#0c831f] hover:text-white"
+                                                    className="flex items-center gap-1 rounded-lg border border-[#0c831f] bg-green-50 px-3 py-2 text-sm font-extrabold text-[#0c831f] transition hover:bg-[#0c831f] hover:text-white disabled:cursor-not-allowed disabled:opacity-70"
                                                 >
-                                                    ADD <FiPlus />
+                                                    {isAdding ? (
+                                                        <>
+                                                            <FiLoader className="animate-spin" size={15} />
+                                                            <span>Adding...</span>
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            ADD <FiPlus />
+                                                        </>
+                                                    )}
                                                 </button>
                                             </div>
                                         </div>
