@@ -17,11 +17,11 @@ router.get("/get", Auth, getBrands);
 
 router.post("/add", Auth, Permission("brand:add"), createBrand);
 
-router.put("/update/:id", Auth, updateBrand);
+router.put("/update/:id", Auth, Permission("brand:update"), updateBrand);
 
-router.get("/get/:id", Auth, getBrandById);
+router.get("/get/:id", Auth, Permission("brand:read"), getBrandById);
 
-router.delete("/delete/:id", Auth, deleteBrand);
+router.delete("/delete/:id", Auth, Permission("brand:delete"), deleteBrand);
 
 router.patch("/update/status/:id", Auth, updateBrandStatus);
 

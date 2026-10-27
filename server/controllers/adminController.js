@@ -371,6 +371,7 @@ export const logout = (req, res) => {
     //     sameSite: "Lax",
     //     maxAge: 24 * 60 * 60 * 1000
     // });
+
     res.clearCookie("token", {
         httpOnly: true,
         secure: true,

@@ -45,7 +45,6 @@ const FormModal = ({
                 p-4
                 backdrop-blur-sm
             "
-            onClick={() => setShowModal(false)}
         >
             <div
                 onClick={(e) => e.stopPropagation()}

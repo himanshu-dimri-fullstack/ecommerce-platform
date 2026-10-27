@@ -27,7 +27,7 @@ const FormModal = ({
 }) => {
     return (
         <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/50 p-4"
-            onClick={() => setShowModal(false)}>
+        >
             <div className="flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
                 onClick={(e) => e.stopPropagation()}>
 

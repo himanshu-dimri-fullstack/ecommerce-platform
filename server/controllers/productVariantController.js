@@ -146,7 +146,6 @@ export const addProductVariant = async (req, res) => {
 export const getAllProductVariants = async (req, res) => {
     try {
         const { category, product } = req.query
-        console.log("my", product)
 
         if (category) {
             if (category === "All") {

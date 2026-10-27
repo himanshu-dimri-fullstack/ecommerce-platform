@@ -1,4 +1,4 @@
-import React from 'react'
+import { FiTrash2 } from "react-icons/fi";
 
 const DeleteModal = ({ setShowDeleteModal, handleDeleteInventory, setDeleteId }) => {
     return (

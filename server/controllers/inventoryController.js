@@ -1,9 +1,21 @@
-import StoreInventory from "../models/Inventory.js";
+import Inventory from "../models/Inventory.js";
 
 // CREATE INVENTORY
-export const createStoreInventory = async (req, res) => {
+export const createInventory = async (req, res) => {
     try {
-        const inventory = await StoreInventory.create(req.body);
+        const { product, store, variant } = req.body
+
+        if (!product) {
+            return res.status(400).json({ message: "Product Id is required" })
+        }
+        if (!store) {
+            return res.status(400).json({ message: "Store Id is required" })
+        }
+        if (!variant) {
+            return res.status(400).json({ message: "Variant Id is required" })
+        }
+
+        const inventory = await Inventory.create(req.body);
 
         res.status(201).json({
             success: true,
@@ -19,9 +31,9 @@ export const createStoreInventory = async (req, res) => {
 };
 
 // GET ALL INVENTORIES
-export const getStoreInventories = async (req, res) => {
+export const getInventories = async (req, res) => {
     try {
-        const inventories = await StoreInventory.find()
+        const inventories = await Inventory.find()
             .populate("store")
             .populate("product")
             .populate("variant")
@@ -41,9 +53,9 @@ export const getStoreInventories = async (req, res) => {
 };
 
 // GET INVENTORY BY ID
-export const getStoreInventoryById = async (req, res) => {
+export const getInventoryById = async (req, res) => {
     try {
-        const inventory = await StoreInventory.findById(req.params.id)
+        const inventory = await Inventory.findById(req.params.id)
             .populate("store")
             .populate("product")
             .populate("variant");
@@ -68,16 +80,21 @@ export const getStoreInventoryById = async (req, res) => {
 };
 
 // UPDATE INVENTORY
-export const updateStoreInventory = async (req, res) => {
+export const updateInventory = async (req, res) => {
     try {
-        const inventory = await StoreInventory.findByIdAndUpdate(
-            req.params.id,
-            req.body,
-            {
-                new: true,
-                runValidators: true,
-            }
-        );
+        const { product, store, variant } = req.body
+
+        if (!product) {
+            return res.status(400).json({ message: "Product Id is required" })
+        }
+        if (!store) {
+            return res.status(400).json({ message: "Store Id is required" })
+        }
+        if (!variant) {
+            return res.status(400).json({ message: "Variant Id is required" })
+        }
+
+        const inventory = await Inventory.updateOne({ _id: req.params.id }, req.body)
 
         if (!inventory) {
             return res.status(404).json({
@@ -100,9 +117,9 @@ export const updateStoreInventory = async (req, res) => {
 };
 
 // DELETE INVENTORY
-export const deleteStoreInventory = async (req, res) => {
+export const deleteInventory = async (req, res) => {
     try {
-        const inventory = await StoreInventory.findByIdAndDelete(
+        const inventory = await Inventory.findByIdAndDelete(
             req.params.id
         );
 
@@ -121,6 +138,39 @@ export const deleteStoreInventory = async (req, res) => {
         res.status(500).json({
             success: false,
             message: error.message,
+        });
+    }
+};
+
+export const changeStatus = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const inventory = await Inventory.findById(id);
+
+        if (!inventory) {
+            return res.status(404).json({
+                success: false,
+                message: "Inventory not found",
+            });
+        }
+
+        inventory.status =
+            inventory.status === "active" ? "inactive" : "active";
+
+        await inventory.save();
+
+        return res.status(200).json({
+            success: true,
+            message: `Inventory ${inventory.status} successfully`,
+            inventory,
+        });
+    } catch (error) {
+        console.error("Change Inventory Status Error:", error);
+
+        return res.status(500).json({
+            success: false,
+            message: "Internal server error",
         });
     }
 };

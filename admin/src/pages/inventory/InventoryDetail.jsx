@@ -31,7 +31,7 @@ const InventoryDetail = () => {
     useEffect(() => {
         const fetchInventory = async () => {
             try {
-                const res = await API.get(`/store-inventory/${id}`);
+                const res = await API.get(`/inventory/get/${id}`);
 
                 setInventory(res.data.inventory || {});
             } catch (error) {
@@ -234,8 +234,8 @@ const InventoryDetail = () => {
 
                         <span
                             className={`mt-4 rounded-full px-4 py-1.5 text-xs font-semibold ${isActive
-                                    ? "bg-green-100 text-green-700"
-                                    : "bg-red-100 text-red-700"
+                                ? "bg-green-100 text-green-700"
+                                : "bg-red-100 text-red-700"
                                 }`}
                         >
                             {inventory.status || "Inactive"}
@@ -499,8 +499,8 @@ const InventoryDetail = () => {
 
                             <div
                                 className={`h-full rounded-full transition-all ${isLowStock
-                                        ? "bg-amber-500"
-                                        : "bg-[#003963]"
+                                    ? "bg-amber-500"
+                                    : "bg-[#003963]"
                                     }`}
                                 style={{
                                     width: `${stockPercentage}%`,

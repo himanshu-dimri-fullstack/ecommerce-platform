@@ -18,7 +18,7 @@ import { toast } from "react-toastify";
 import { API } from "../../api/axios";
 import DataLoader from "../../components/DataLoader";
 import { useSelector } from "react-redux";
-import { Navigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import DeleteModal from "../../components/inventory/DeleteModal";
 import FormModal from "../../components/inventory/FormModal";
 
@@ -38,14 +38,13 @@ const inputClass =
 
 const Inventory = () => {
     const user = useSelector((store) => store.auth.user);
-
+    const navigate = useNavigate()
     const [dataLoading, setDataLoading] = useState(true);
     const [search, setSearch] = useState("");
     const [inventories, setInventories] = useState([]);
 
     const [showModal, setShowModal] = useState(false);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
-    const [showViewModal, setShowViewModal] = useState(false);
 
     const [isEdit, setIsEdit] = useState(false);
     const [editId, setEditId] = useState(null);
@@ -74,7 +73,7 @@ const Inventory = () => {
     // FETCH ALL INVENTORY
     const getAllInventory = async () => {
         try {
-            const res = await API.get("/store-inventory");
+            const res = await API.get("/inventory/get")
 
             setInventories(
                 res.data.inventories || []
@@ -219,7 +218,7 @@ const Inventory = () => {
             setDataLoading(true);
 
             const res = await API.post(
-                "/store-inventory",
+                "/inventory/add",
                 buildPayload()
             );
 
@@ -253,7 +252,7 @@ const Inventory = () => {
             setDataLoading(true);
 
             const res = await API.put(
-                `/store-inventory/${editId}`,
+                `/inventory/update/${editId}`,
                 buildPayload()
             );
 
@@ -289,7 +288,7 @@ const Inventory = () => {
             setDataLoading(true);
 
             const res = await API.delete(
-                `/store-inventory/${deleteId}`
+                `/inventory/delete/${deleteId}`
             );
 
             toast.success(
@@ -317,15 +316,8 @@ const Inventory = () => {
         try {
             setDataLoading(true);
 
-            const newStatus =
-                inventory.status === "active" ? "inactive" : "active";
-
-            const res = await API.put(
-                `/store-inventory/${inventory._id}`,
-                {
-                    status: newStatus,
-                }
-            );
+            const res = await API.patch(
+                `/inventory/update/status/${inventory._id}`)
 
             toast.success(
                 res.data.message || "Inventory status updated"
@@ -413,14 +405,6 @@ const Inventory = () => {
                     </p>
                 </div>
 
-                <button
-                    type="button"
-                    onClick={getAllInventory}
-                    className="flex items-center justify-center gap-2 self-start rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-                >
-                    <FiRefreshCw size={17} />
-                    Refresh
-                </button>
             </div>
 
             {/* STATISTICS */}
@@ -538,23 +522,18 @@ const Inventory = () => {
             {/* INVENTORY TABLE */}
             <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
                 <div className="overflow-x-auto">
-                    <table className="w-full min-w-275">
+                    <table className="w-full min-w-full">
                         <thead className="border-b border-slate-200 bg-slate-50">
                             <tr>
                                 {[
                                     "Store",
-                                    "Product",
                                     "Variant",
-                                    "Total Stock",
-                                    "Reserved",
-                                    "Available",
-                                    "Stock Status",
                                     "Status",
                                     "Actions",
                                 ].map((heading) => (
                                     <th
                                         key={heading}
-                                        className="whitespace-nowrap px-5 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500"
+                                        className="whitespace-nowrap px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500"
                                     >
                                         {heading}
                                     </th>
@@ -591,19 +570,19 @@ const Inventory = () => {
                                             className="transition hover:bg-slate-50"
                                         >
                                             {/* STORE */}
-                                            <td className="px-5 py-4">
+                                            <td className="px-3 py-3">
                                                 <div className="flex items-center gap-2">
                                                     <FiLayers
                                                         className="shrink-0 text-[#003963]"
                                                         size={17}
                                                     />
 
-                                                    <div>
+                                                    <div className="min-w-0">
                                                         <p className="font-semibold text-slate-800">
                                                             {storeName || "Store"}
                                                         </p>
 
-                                                        <p className="mt-1 text-xs text-slate-400">
+                                                        <p className="mt-1 truncate text-xs text-slate-400">
                                                             {String(
                                                                 item.store?._id ||
                                                                 item.store ||
@@ -614,28 +593,13 @@ const Inventory = () => {
                                                 </div>
                                             </td>
 
-                                            {/* PRODUCT */}
-                                            <td className="px-5 py-4">
-                                                <p className="font-medium text-slate-800">
-                                                    {productName || "Product"}
-                                                </p>
-
-                                                <p className="mt-1 text-xs text-slate-400">
-                                                    {String(
-                                                        item.product?._id ||
-                                                        item.product ||
-                                                        "—"
-                                                    )}
-                                                </p>
-                                            </td>
-
                                             {/* VARIANT */}
-                                            <td className="px-5 py-4">
+                                            <td className="px-3 py-3">
                                                 <p className="font-medium text-slate-700">
                                                     {variantName || "Variant"}
                                                 </p>
 
-                                                <p className="mt-1 text-xs text-slate-400">
+                                                <p className="mt-1 truncate text-xs text-slate-400">
                                                     {String(
                                                         item.variant?._id ||
                                                         item.variant ||
@@ -644,52 +608,15 @@ const Inventory = () => {
                                                 </p>
                                             </td>
 
-                                            {/* TOTAL */}
-                                            <td className="px-5 py-4">
-                                                <span className="font-semibold text-slate-800">
-                                                    {item.quantity}
-                                                </span>
-                                            </td>
-
-                                            {/* RESERVED */}
-                                            <td className="px-5 py-4">
-                                                <span className="font-medium text-amber-600">
-                                                    {item.reservedQuantity}
-                                                </span>
-                                            </td>
-
-                                            {/* AVAILABLE */}
-                                            <td className="px-5 py-4">
-                                                <span className="font-semibold text-green-700">
-                                                    {item.availableQuantity}
-                                                </span>
-                                            </td>
-
-                                            {/* STOCK STATUS */}
-                                            <td className="px-5 py-4">
-                                                <span
-                                                    className={`whitespace-nowrap rounded-lg px-3 py-2 text-xs font-semibold ${isLowStock
-                                                        ? "bg-amber-100 text-amber-700"
-                                                        : "bg-green-100 text-green-700"
-                                                        }`}
-                                                >
-                                                    {isLowStock
-                                                        ? "Low Stock"
-                                                        : "In Stock"}
-                                                </span>
-                                            </td>
-
                                             {/* STATUS */}
-                                            <td className="px-5 py-4">
+                                            <td className="px-3 py-3">
                                                 {user?.role?.permissions?.includes(
                                                     "inventory:update"
                                                 ) ? (
                                                     <button
                                                         type="button"
-                                                        onClick={() =>
-                                                            changeStatus(item)
-                                                        }
-                                                        className={`rounded-lg px-3 py-2 text-xs font-semibold transition ${item.status === "active"
+                                                        onClick={() => changeStatus(item)}
+                                                        className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold transition ${item.status === "active"
                                                             ? "bg-green-100 text-green-700 hover:bg-green-200"
                                                             : "bg-red-100 text-red-700 hover:bg-red-200"
                                                             }`}
@@ -704,22 +631,23 @@ const Inventory = () => {
                                             </td>
 
                                             {/* ACTIONS */}
-                                            <td className="px-5 py-4">
-                                                <div className="flex items-center gap-2">
-
+                                            <td className="px-3 py-3">
+                                                <div className="flex items-center gap-1">
                                                     {user?.role?.permissions?.includes(
                                                         "inventory:read"
                                                     ) && (
+
                                                             <button
                                                                 type="button"
                                                                 title="View Inventory"
-                                                                onClick={() => {
-                                                                    setSelectedInventory(item);
-                                                                    setShowViewModal(true);
-                                                                }}
-                                                                className="rounded-lg p-2 text-blue-600 transition hover:bg-blue-50"
+                                                                onClick={() =>
+                                                                    navigate(
+                                                                        `/admin/inventory/${item._id}`
+                                                                    )
+                                                                }
+                                                                className="rounded-lg p-1.5 text-blue-600 transition hover:bg-blue-50"
                                                             >
-                                                                <FiEye size={18} />
+                                                                <FiEye size={17} />
                                                             </button>
                                                         )}
 
@@ -729,12 +657,10 @@ const Inventory = () => {
                                                             <button
                                                                 type="button"
                                                                 title="Edit Inventory"
-                                                                onClick={() =>
-                                                                    handleEditModal(item)
-                                                                }
-                                                                className="rounded-lg p-2 text-amber-600 transition hover:bg-amber-50"
+                                                                onClick={() => handleEditModal(item)}
+                                                                className="rounded-lg p-1.5 text-amber-600 transition hover:bg-amber-50"
                                                             >
-                                                                <FiEdit2 size={18} />
+                                                                <FiEdit2 size={17} />
                                                             </button>
                                                         )}
 
@@ -745,13 +671,11 @@ const Inventory = () => {
                                                                 type="button"
                                                                 title="Delete Inventory"
                                                                 onClick={() =>
-                                                                    handleDeleteModal(
-                                                                        item._id
-                                                                    )
+                                                                    handleDeleteModal(item._id)
                                                                 }
-                                                                className="rounded-lg p-2 text-red-500 transition hover:bg-red-50"
+                                                                className="rounded-lg p-1.5 text-red-500 transition hover:bg-red-50"
                                                             >
-                                                                <FiTrash2 size={18} />
+                                                                <FiTrash2 size={17} />
                                                             </button>
                                                         )}
                                                 </div>
@@ -762,8 +686,8 @@ const Inventory = () => {
                             ) : (
                                 <tr>
                                     <td
-                                        colSpan={9}
-                                        className="px-6 py-12 text-center"
+                                        colSpan={4}
+                                        className="px-4 py-10 text-center"
                                     >
                                         <FiBox
                                             size={40}
@@ -797,122 +721,6 @@ const Inventory = () => {
                     handleChange={handleChange}
                     inputClass={inputClass}
                 />
-            )}
-
-            {/* VIEW INVENTORY MODAL */}
-            {showViewModal && selectedInventory && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
-                    <div className="w-full max-w-xl overflow-hidden rounded-2xl bg-white shadow-2xl">
-
-                        <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
-                            <div>
-                                <h2 className="text-xl font-bold text-slate-800">
-                                    Inventory Details
-                                </h2>
-
-                                <p className="mt-1 text-sm text-slate-500">
-                                    Complete stock information
-                                </p>
-                            </div>
-
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    setShowViewModal(false);
-                                    setSelectedInventory(null);
-                                }}
-                                className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"
-                            >
-                                <FiX size={21} />
-                            </button>
-                        </div>
-
-                        <div className="grid grid-cols-1 gap-4 p-6 sm:grid-cols-2">
-                            {[
-                                ["Inventory ID", selectedInventory._id],
-                                [
-                                    "Store",
-                                    selectedInventory.store?.name ||
-                                    selectedInventory.store?._id ||
-                                    selectedInventory.store,
-                                ],
-                                [
-                                    "Product",
-                                    selectedInventory.product?.name ||
-                                    selectedInventory.product?._id ||
-                                    selectedInventory.product,
-                                ],
-                                [
-                                    "Variant",
-                                    selectedInventory.variant?.name ||
-                                    selectedInventory.variant?.sku ||
-                                    selectedInventory.variant?._id ||
-                                    selectedInventory.variant,
-                                ],
-                                ["Total Quantity", selectedInventory.quantity],
-                                [
-                                    "Reserved Quantity",
-                                    selectedInventory.reservedQuantity,
-                                ],
-                                [
-                                    "Available Quantity",
-                                    selectedInventory.availableQuantity,
-                                ],
-                                [
-                                    "Reorder Level",
-                                    selectedInventory.reorderLevel,
-                                ],
-                                [
-                                    "Maximum Stock",
-                                    selectedInventory.maxStockLevel,
-                                ],
-                                ["Status", selectedInventory.status],
-                                [
-                                    "Last Restocked",
-                                    selectedInventory.lastRestockedAt
-                                        ? new Date(
-                                            selectedInventory.lastRestockedAt
-                                        ).toLocaleString()
-                                        : "Not restocked yet",
-                                ],
-                                [
-                                    "Created At",
-                                    selectedInventory.createdAt
-                                        ? new Date(
-                                            selectedInventory.createdAt
-                                        ).toLocaleString()
-                                        : "—",
-                                ],
-                            ].map(([label, value]) => (
-                                <div
-                                    key={label}
-                                    className="rounded-xl border border-slate-100 bg-slate-50 p-4"
-                                >
-                                    <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
-                                        {label}
-                                    </p>
-
-                                    <p className="mt-2 break-all text-sm font-semibold text-slate-800">
-                                        {value ?? "—"}
-                                    </p>
-                                </div>
-                            ))}
-                        </div>
-
-                        <div className="flex justify-end border-t border-slate-100 px-6 py-4">
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    setShowViewModal(false);
-                                    setSelectedInventory(null);
-                                }}
-                                className="rounded-xl bg-[#003963] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#002b4a]"
-                            >
-                                Close
-                            </button>
-                        </div>
-                    </div>
-                </div>
             )}
 
             {/* DELETE CONFIRMATION MODAL */}

@@ -1,5 +1,6 @@
 import express from "express"
 import { Auth } from "../middlewares/Auth.js";
+import { Permission } from "../middlewares/Permission.js";
 import {
     createUser,
     getAllUsers, changeUserStatus, deleteUser, getUserById, updateUser
@@ -13,12 +14,12 @@ import jwt from "jsonwebtoken"
 
 const router = express.Router()
 
-router.post("/add", Auth, createUser)
-router.put("/update/:id", Auth, updateUser)
+router.post("/add", Auth, Permission("user:add"), createUser)
+router.put("/update/:id", Auth, Permission("user:update"), updateUser)
 router.get("/get", Auth, getAllUsers)
-router.get("/get/:id", Auth, getUserById)
+router.get("/get/:id", Auth, Permission("user:read"), getUserById)
 router.patch("/update/status", Auth, changeUserStatus)
-router.delete("/delete/:id", Auth, deleteUser)
+router.delete("/delete/:id", Auth, Permission("user:delete"), deleteUser)
 
 router.post("/signup", signup)
 router.post("/verify-email", verifyEmail)

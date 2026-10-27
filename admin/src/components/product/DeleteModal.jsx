@@ -8,7 +8,6 @@ const DeleteModal = ({
     return (
         <div
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 backdrop-blur-sm"
-            onClick={() => setShowDeleteModal(false)}
         >
             <div
                 onClick={(e) => e.stopPropagation()}

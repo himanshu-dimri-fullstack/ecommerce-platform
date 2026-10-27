@@ -487,10 +487,6 @@ const Role = () => {
                                 </th>
 
                                 <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                                    Permissions
-                                </th>
-
-                                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
                                     Status
                                 </th>
 
@@ -553,44 +549,6 @@ const Role = () => {
                                                 </div>
                                             </td>
 
-                                            {/* PERMISSIONS */}
-
-                                            <td className="px-6 py-4">
-                                                <div className="flex flex-wrap gap-2">
-                                                    {role.permissions?.length >
-                                                        0 ? (
-                                                        role.permissions.map(
-                                                            (
-                                                                permission,
-                                                                index
-                                                            ) => (
-                                                                <span
-                                                                    key={
-                                                                        index
-                                                                    }
-                                                                    className="
-                                                                        rounded-full
-                                                                        bg-slate-100
-                                                                        px-3 py-1
-                                                                        text-xs
-                                                                        font-medium
-                                                                        text-slate-600
-                                                                    "
-                                                                >
-                                                                    {
-                                                                        permission
-                                                                    }
-                                                                </span>
-                                                            )
-                                                        )
-                                                    ) : (
-                                                        <span className="text-sm text-slate-400">
-                                                            No
-                                                            permissions
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            </td>
 
                                             {/* STATUS */}
 

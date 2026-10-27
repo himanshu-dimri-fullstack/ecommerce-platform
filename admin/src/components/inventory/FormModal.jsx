@@ -282,7 +282,6 @@ const FormModal = ({
                                     value={formData.quantity}
                                     onChange={handleChange}
                                     className={inputClass}
-                                    required
                                 />
                             </div>
 
@@ -299,7 +298,6 @@ const FormModal = ({
                                     value={formData.reservedQuantity}
                                     onChange={handleChange}
                                     className={inputClass}
-                                    required
                                 />
                             </div>
 
@@ -316,7 +314,6 @@ const FormModal = ({
                                     value={formData.reorderLevel}
                                     onChange={handleChange}
                                     className={inputClass}
-                                    required
                                 />
                             </div>
 
@@ -333,7 +330,6 @@ const FormModal = ({
                                     value={formData.maxStockLevel}
                                     onChange={handleChange}
                                     className={inputClass}
-                                    required
                                 />
                             </div>
                         </div>
