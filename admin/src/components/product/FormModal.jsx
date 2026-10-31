@@ -92,7 +92,6 @@ const FormModal = ({
                                     value={formData.name || ""}
                                     onChange={handleChange}
                                     placeholder="Enter product name"
-                                    required
                                     className="w-full rounded-xl border border-slate-200 py-2.5 pl-10 pr-4 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#003963] focus:ring-2 focus:ring-[#003963]/10"
                                 />
                             </div>
@@ -115,7 +114,6 @@ const FormModal = ({
                                         name="category"
                                         value={formData.category || ""}
                                         onChange={handleChange}
-                                        required
                                         className="w-full appearance-none rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-3 text-sm text-slate-700 outline-none focus:border-[#003963] focus:ring-2 focus:ring-[#003963]/10"
                                     >
                                         <option value="">
@@ -136,7 +134,7 @@ const FormModal = ({
 
                             <div>
                                 <label className="mb-2 block text-sm font-medium text-slate-700">
-                                    Subcategory *
+                                    Subcategory
                                 </label>
 
                                 <div className="relative">
@@ -149,7 +147,6 @@ const FormModal = ({
                                         name="subcategory"
                                         value={formData.subcategory || ""}
                                         onChange={handleChange}
-                                        required
                                         className="w-full appearance-none rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-3 text-sm text-slate-700 outline-none focus:border-[#003963] focus:ring-2 focus:ring-[#003963]/10"
                                     >
                                         <option value="">
@@ -197,7 +194,6 @@ const FormModal = ({
                                     name="brand"
                                     value={formData.brand || ""}
                                     onChange={handleChange}
-                                    required
                                     className="w-full appearance-none rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-3 text-sm text-slate-700 outline-none focus:border-[#003963] focus:ring-2 focus:ring-[#003963]/10"
                                 >
                                     <option value="">

@@ -134,7 +134,6 @@ const FormModal = ({
                                     value={formData.name}
                                     onChange={handleChange}
                                     placeholder="Enter category name"
-                                    required
                                     className="
                                         w-full
                                         rounded-xl
@@ -262,7 +261,6 @@ const FormModal = ({
                                         image/avif
                                     "
                                     onChange={handleChange}
-                                    // required={!isEdit}
                                     className="
                                         absolute
                                         inset-0

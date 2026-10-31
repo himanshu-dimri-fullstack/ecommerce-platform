@@ -17,7 +17,7 @@ import {
     FiLayers,
     FiShield,
     FiAward,
-    // FiLayers
+    FiImage
 } from "react-icons/fi";
 
 import { API } from "./api/axios";
@@ -43,6 +43,7 @@ const AdminLayout = () => {
 
     const menuItems = [
         { name: "Dashboard", path: "/admin/dashboard", icon: FiHome, permission: "dashboard" },
+        { name: "Banner", path: "/admin/banner", icon: FiImage, permission: "banner" },
         { name: "Roles & Permissions", path: "/admin/roles", icon: FiShield, permission: "role" },
         { name: "Users", path: "/admin/users", icon: FiUsers, permission: "user" },
         { name: "Store", path: "/admin/stores", icon: FiShoppingBag, permission: "store" },

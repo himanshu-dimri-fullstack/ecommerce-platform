@@ -17,7 +17,7 @@ router.post("/reset-password", resetPassword)
 
 router.get("/check-user", async (req, res) => {
     try {
-        const token = req.cookies?.token;
+        const token = req.cookies?.clientToken;
 
         if (!token) {
             return res.status(200).json({

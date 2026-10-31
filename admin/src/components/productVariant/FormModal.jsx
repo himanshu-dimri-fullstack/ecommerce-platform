@@ -79,7 +79,6 @@ const FormModal = ({
                                         name="product"
                                         value={formData.product}
                                         onChange={handleChange}
-                                        required
                                         className={inputClass}
                                     >
                                         <option value="">
@@ -107,7 +106,6 @@ const FormModal = ({
                                         value={formData.name}
                                         onChange={handleChange}
                                         placeholder="e.g. 500ml, Large, 1kg"
-                                        required
                                         className={inputClass}
                                     />
                                 </div>
@@ -150,7 +148,6 @@ const FormModal = ({
                                         onChange={handleChange}
                                         min="0.01"
                                         step="any"
-                                        required
                                         className={inputClass}
                                     />
                                 </div>
@@ -164,7 +161,6 @@ const FormModal = ({
                                         name="unit"
                                         value={formData.unit}
                                         onChange={handleChange}
-                                        required
                                         className={inputClass}
                                     >
                                         {[
@@ -211,7 +207,6 @@ const FormModal = ({
                                         onChange={handleChange}
                                         min="0"
                                         step="0.01"
-                                        required
                                         className={inputClass}
                                     />
                                 </div>
@@ -228,7 +223,6 @@ const FormModal = ({
                                         onChange={handleChange}
                                         min="0"
                                         step="0.01"
-                                        required
                                         className={inputClass}
                                     />
                                 </div>

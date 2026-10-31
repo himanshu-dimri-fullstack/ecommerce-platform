@@ -3,12 +3,13 @@ import { Auth } from "../middlewares/Auth.js";
 import { Permission } from "../middlewares/Permission.js";
 import {
     createUser,
-    getAllUsers, changeUserStatus, deleteUser, getUserById, updateUser
+    getAllUsers, changeUserStatus, deleteUser, getUserById, updateUser,
+    signup, verifyEmail, verifyOTP, login, logout, resetPassword,
 } from "../controllers/adminController.js"
 
-import {
-    signup, verifyEmail, verifyOTP, login, logout, resetPassword,
-} from "../controllers/userController.js"
+// import {
+//     signup, verifyEmail, verifyOTP, login, logout, resetPassword,
+// } from "../controllers/userController.js"
 import User from "../models/User.js";
 import jwt from "jsonwebtoken"
 
@@ -31,15 +32,13 @@ router.post("/reset-password", resetPassword)
 
 router.get("/check-user", async (req, res) => {
     try {
-        const token = req.cookies?.token;
-
+        const token = req.cookies?.adminToken;
         if (!token) {
             return res.status(200).json({
                 user: null,
                 message: "No Token"
             });
         }
-
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
         const user = await User.findById(decoded.id)

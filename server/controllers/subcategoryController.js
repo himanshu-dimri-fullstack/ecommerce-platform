@@ -105,7 +105,6 @@ export const updateSubcategory = async (req, res) => {
 export const getAllSubcategory = async (req, res) => {
     try {
         const { category } = req.query
-        console.log(category)
         if (category) {
             const getCategory = await Category.findOne({ slug: category })
             const subcategories = await Subcategory.find({ category: getCategory._id })

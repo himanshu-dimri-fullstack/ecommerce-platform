@@ -5,7 +5,7 @@ import { handleResponseError } from "../utils/errorUtils.js"
 
 export const getAllManagers = async (_, res) => {
     try {
-        const role = await Role.findOne({ name: "Manager" })
+        const role = await Role.findOne({ name: "manager" })
         const managers = await User.find({ role: role._id })
         return res.status(200).json({ managers })
     }

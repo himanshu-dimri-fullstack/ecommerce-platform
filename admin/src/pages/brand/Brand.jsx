@@ -505,6 +505,7 @@ const Brand = () => {
 
                                         <td className="px-6 py-4">
                                             <button
+                                                disabled={!(user?.role.permissions.includes("brand:status"))}
                                                 type="button"
                                                 onClick={() =>
                                                     changeStatus(

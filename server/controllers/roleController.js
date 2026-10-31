@@ -6,7 +6,7 @@ import { handleResponseError } from "../utils/errorUtils.js"
 // ===============================
 export const getRoles = async (req, res) => {
     try {
-        const roles = await Role.find({ name: { $ne: "Super_Admin" } }).sort({ createdAt: -1 });
+        const roles = await Role.find({ name: { $ne: "super_admin" } }).sort({ createdAt: -1 });
         res.status(200).json({ roles })
     } catch (error) {
         res.status(500).json({
@@ -14,7 +14,6 @@ export const getRoles = async (req, res) => {
         });
     }
 };
-
 
 // ===============================
 // CREATE ROLE
@@ -26,9 +25,8 @@ export const createRole = async (req, res) => {
         if (!name) {
             return res.status(400).json({ message: "Name is required" })
         }
-        if (!permissions) {
-            return res.status(400).json({ message: "Permissions are required" })
-        }
+
+        permissions.push("dashboard:read")
 
         await Role.create({
             name,
@@ -70,6 +68,8 @@ export const updateRole = async (req, res) => {
                 message: "Role already exists",
             });
         }
+
+        permissions.push("dashboard:read")
 
         const role = await Role.findByIdAndUpdate(
             id,

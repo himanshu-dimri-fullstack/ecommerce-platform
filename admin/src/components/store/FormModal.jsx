@@ -61,7 +61,6 @@ const FormModal = (
                                 onChange={handleChange}
                                 placeholder="e.g. Jaipur Central Store"
                                 className={inputClass}
-                                required
                             />
                         </div>
 
@@ -76,7 +75,6 @@ const FormModal = (
                                 onChange={handleChange}
                                 placeholder="e.g. JPR001"
                                 className={inputClass}
-                                required
                             />
                         </div>
 
@@ -90,7 +88,6 @@ const FormModal = (
                                 value={formData.manager}
                                 onChange={handleChange}
                                 className={inputClass}
-                                required
                             >
                                 <option value="">
                                     Select manager
@@ -126,7 +123,6 @@ const FormModal = (
                                 onChange={handleChange}
                                 placeholder="Enter phone number"
                                 className={inputClass}
-                                required
                             />
                         </div>
 
@@ -143,7 +139,6 @@ const FormModal = (
                                 min="0"
                                 step="any"
                                 className={inputClass}
-                                required
                             />
                         </div>
                     </div>
@@ -160,7 +155,6 @@ const FormModal = (
                             placeholder="Enter complete store address"
                             rows={3}
                             className={`${inputClass} resize-y`}
-                            required
                         />
                     </div>
 
@@ -239,7 +233,7 @@ const FormModal = (
 
                         <button
                             type="submit"
-                            className="rounded-xl bg-[#003963] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#002b4b] active:scale-95"
+                            className="rounded-xl bg-linear-to-br from-[#064e3b] via-[#047857] to-[#022c22] px-5 py-2.5 text-sm font-semibold text-white transition active:scale-95"
                         >
                             {isEdit ? "Update Store" : "Create Store"}
                         </button>

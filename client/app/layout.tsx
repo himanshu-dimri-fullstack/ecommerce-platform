@@ -9,6 +9,7 @@ import ReduxProvider from "@/redux/provider";
 import { Suspense } from "react";
 import { Toaster } from "react-hot-toast";
 import AuthProvider from "@/components/AuthProvider";
+import LocationGate from "@/components/LocationGate";
 
 const urbanist = Urbanist({
     subsets: ["latin"],
@@ -28,6 +29,7 @@ export default function RootLayout({
         <html lang="en" className={urbanist.className}>
             <body className="flex min-h-full flex-col antialiased">
                 <Suspense fallback={<div />}>
+                    {/* <LocationGate> */}
                     <ReduxProvider>
                         <AuthProvider>
                             <Navbar />
@@ -35,6 +37,7 @@ export default function RootLayout({
                             <Footer />
                         </AuthProvider>
                     </ReduxProvider>
+                    {/* </LocationGate> */}
 
                     <Toaster
                         position="top-center"

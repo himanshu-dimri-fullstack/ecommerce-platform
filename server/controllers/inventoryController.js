@@ -1,9 +1,11 @@
 import Inventory from "../models/Inventory.js";
+import { handleResponseError } from "../utils/errorUtils.js"
 
 // CREATE INVENTORY
 export const createInventory = async (req, res) => {
     try {
-        const { product, store, variant } = req.body
+        const { product, store, variant, quantity, reservedQuantity,
+            reorderLevel, maxStockLevel } = req.body
 
         if (!product) {
             return res.status(400).json({ message: "Product Id is required" })
@@ -14,8 +16,34 @@ export const createInventory = async (req, res) => {
         if (!variant) {
             return res.status(400).json({ message: "Variant Id is required" })
         }
+        if (!quantity) {
+            return res.status(400).json({ message: "Quantity is required" })
+        }
 
-        const inventory = await Inventory.create(req.body);
+        let finalReorderLevel
+
+        if (!reorderLevel) {
+            finalReorderLevel = quantity * 10 / 100
+        }
+        else {
+            finalReorderLevel = reorderLevel
+        }
+
+        let finalReservedQuantity
+
+        if (!reservedQuantity) {
+            finalReservedQuantity = quantity * 20 / 100
+        }
+        else {
+            finalReservedQuantity = reservedQuantity
+        }
+
+        let availableQuantity = quantity - finalReservedQuantity
+
+        const inventory = await Inventory.create({
+            product, store, variant, quantity, reservedQuantity: finalReservedQuantity,
+            reorderLevel: finalReorderLevel, maxStockLevel, availableQuantity
+        });
 
         res.status(201).json({
             success: true,
@@ -23,10 +51,7 @@ export const createInventory = async (req, res) => {
             inventory,
         });
     } catch (error) {
-        res.status(500).json({
-            success: false,
-            message: error.message,
-        });
+        return handleResponseError(error, res)
     }
 };
 
@@ -82,7 +107,8 @@ export const getInventoryById = async (req, res) => {
 // UPDATE INVENTORY
 export const updateInventory = async (req, res) => {
     try {
-        const { product, store, variant } = req.body
+        const { product, store, variant, quantity, reservedQuantity,
+            reorderLevel, maxStockLevel } = req.body
 
         if (!product) {
             return res.status(400).json({ message: "Product Id is required" })
@@ -93,8 +119,35 @@ export const updateInventory = async (req, res) => {
         if (!variant) {
             return res.status(400).json({ message: "Variant Id is required" })
         }
+        if (!quantity) {
+            return res.status(400).json({ message: "Quantity is required" })
+        }
 
-        const inventory = await Inventory.updateOne({ _id: req.params.id }, req.body)
+        let finalReorderLevel
+
+        if (!reorderLevel) {
+            finalReorderLevel = (10 / quantity) * 100
+        }
+        else {
+            finalReorderLevel = reorderLevel
+        }
+
+        let finalReservedQuantity
+
+        if (!reservedQuantity) {
+            finalReservedQuantity = (20 / quantity) * 100
+        }
+        else {
+            finalReservedQuantity = reservedQuantity
+        }
+
+        let availableQuantity = quantity - finalReservedQuantity
+
+        const inventory = await Inventory.updateOne({ _id: req.params.id },
+            {
+                product, store, variant, quantity, reservedQuantity: finalReservedQuantity,
+                reorderLevel: finalReorderLevel, maxStockLevel, availableQuantity
+            })
 
         if (!inventory) {
             return res.status(404).json({
@@ -109,10 +162,7 @@ export const updateInventory = async (req, res) => {
             inventory,
         });
     } catch (error) {
-        res.status(500).json({
-            success: false,
-            message: error.message,
-        });
+        return handleResponseError(error, res)
     }
 };
 

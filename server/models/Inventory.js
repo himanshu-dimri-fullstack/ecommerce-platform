@@ -73,7 +73,7 @@ storeInventorySchema.index(
 );
 
 const StoreInventory = mongoose.model(
-    "StoreInventory",
+    "Inventory",
     storeInventorySchema
 );
 

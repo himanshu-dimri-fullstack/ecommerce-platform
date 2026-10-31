@@ -626,6 +626,7 @@ const ProductVariant = () => {
                                         {/* STATUS */}
                                         <td className="px-6 py-4">
                                             <button
+                                                disabled={!(user?.role.permissions.includes("productVariant:status"))}
                                                 type="button"
                                                 onClick={() => changeStatus(variant._id)}
                                                 className={`rounded-lg px-3 py-2 text-xs font-semibold transition ${variant.status === "active"

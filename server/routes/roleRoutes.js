@@ -21,7 +21,7 @@ router.put("/update/:id", Auth, Permission("role:update"), updateRole);
 
 router.get("/get/:id", Auth, Permission("role:read"), getRoleById);
 
-router.delete("/delete/:id", Permission("role:delete"), Auth, deleteRole);
+router.delete("/delete/:id", Auth, Permission("role:delete"), deleteRole);
 
 router.patch("/update/:id", Auth, updateRoleStatus);
 

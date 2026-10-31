@@ -44,11 +44,11 @@ export const addProduct = async (req, res) => {
                 message: "Category is required.",
             });
         }
-        if (!subcategory) {
-            return res.status(400).json({
-                message: "Subcategory is required.",
-            });
-        }
+        // if (!subcategory) {
+        //     return res.status(400).json({
+        //         message: "Subcategory is required.",
+        //     });
+        // }
         if (!brand) {
             return res.status(400).json({
                 message: "Brand is required.",
@@ -170,11 +170,11 @@ export const updateProduct = async (req, res) => {
                 message: "Category is required.",
             });
         }
-        if (!subcategory) {
-            return res.status(400).json({
-                message: "Subcategory is required.",
-            });
-        }
+        // if (!subcategory) {
+        //     return res.status(400).json({
+        //         message: "Subcategory is required.",
+        //     });
+        // }
         if (!brand) {
             return res.status(400).json({
                 message: "Brand is required.",

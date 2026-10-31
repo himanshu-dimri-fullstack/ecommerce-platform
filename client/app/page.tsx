@@ -162,6 +162,9 @@ export default function ShopPage() {
     const [categoriesLoading, setCategoriesLoading] = useState(true);
     const [productsLoading, setProductsLoading] = useState(true);
 
+    const [banners, setBanners] = useState([])
+    console.log("banners", banners)
+
     const fetchCategories = async () => {
         try {
             const res = await API.get("/category/get");
@@ -224,9 +227,33 @@ export default function ShopPage() {
         }
     };
 
+    const getBanners = async () => {
+        try {
+            const res = await API.get("/banner/get");
+
+            if (res.data.success) {
+                setBanners(res.data.banners || []);
+            }
+        } catch (error) {
+            console.error("Get banners error:", error);
+        }
+    };
+
+    const formatBannerHtml = (html = "") => {
+        // CKEditor ke automatically added paragraph wrappers remove karo
+        const cleanedHtml = html.replace(/<\/?p>/g, "");
+
+        // HTML entities decode karo
+        const textarea = document.createElement("textarea");
+        textarea.innerHTML = cleanedHtml;
+
+        return textarea.value;
+    };
+
     useEffect(() => {
         fetchCategories();
         fetchProducts();
+        getBanners()
     }, []);
 
     return (
@@ -326,6 +353,22 @@ export default function ShopPage() {
                     </div>
                 </div>
             </section>
+
+            {/* <section className="mx-auto max-w-7xl px-4 pt-4 sm:px-6 sm:pt-6 lg:px-8">
+                {
+                    banners.map((item: any) => {
+                        return (
+                            <div>
+                                <div
+                                    dangerouslySetInnerHTML={{
+                                        __html: formatBannerHtml(item.htmlContent),
+                                    }}
+                                />
+                            </div>
+                        )
+                    })
+                }
+            </section> */}
 
             {/* VALUE PROPOSITION STRIP */}
             <section className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">

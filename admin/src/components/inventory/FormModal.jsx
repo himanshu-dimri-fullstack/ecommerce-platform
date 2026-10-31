@@ -287,7 +287,7 @@ const FormModal = ({
 
                             <div>
                                 <label className="mb-2 block text-sm font-semibold text-slate-700">
-                                    Reserved Quantity *
+                                    Reserved Quantity
                                 </label>
 
                                 <input
@@ -303,7 +303,7 @@ const FormModal = ({
 
                             <div>
                                 <label className="mb-2 block text-sm font-semibold text-slate-700">
-                                    Reorder Level *
+                                    Reorder Level
                                 </label>
 
                                 <input
@@ -334,26 +334,6 @@ const FormModal = ({
                             </div>
                         </div>
 
-                        {/* AVAILABLE QUANTITY */}
-                        <div className="mt-4 rounded-xl border border-green-100 bg-green-50 p-4">
-                            <p className="text-sm font-medium text-green-800">
-                                Available Quantity
-                            </p>
-
-                            <p className="mt-1 text-2xl font-bold text-green-700">
-                                {Math.max(
-                                    0,
-                                    Number(formData.quantity || 0) -
-                                    Number(
-                                        formData.reservedQuantity || 0
-                                    )
-                                )}
-                            </p>
-
-                            <p className="mt-1 text-xs text-green-700">
-                                Total quantity − Reserved quantity
-                            </p>
-                        </div>
                     </div>
 
                     {/* ACTIONS */}

@@ -87,7 +87,7 @@ const FormModal = ({
 
                         <div>
                             <label className="mb-2 block text-sm font-medium text-slate-700">
-                                First Name
+                                First Name*
                             </label>
 
                             <div className="relative">
@@ -107,7 +107,6 @@ const FormModal = ({
                                     value={formData.firstName}
                                     onChange={handleChange}
                                     placeholder="First name"
-                                    required
                                     className="
                                         w-full
                                         rounded-xl
@@ -132,7 +131,7 @@ const FormModal = ({
 
                         <div>
                             <label className="mb-2 block text-sm font-medium text-slate-700">
-                                Last Name
+                                Last Name*
                             </label>
 
                             <div className="relative">
@@ -152,7 +151,6 @@ const FormModal = ({
                                     value={formData.lastName}
                                     onChange={handleChange}
                                     placeholder="Last name"
-                                    required
                                     className="
                                         w-full
                                         rounded-xl
@@ -180,7 +178,7 @@ const FormModal = ({
                     <div>
 
                         <label className="mb-2 block text-sm font-medium text-slate-700">
-                            Email Address
+                            Email Address*
                         </label>
 
                         <div className="relative">
@@ -200,7 +198,6 @@ const FormModal = ({
                                 value={formData.email}
                                 onChange={handleChange}
                                 placeholder="Enter email address"
-                                required
                                 className="
                                     w-full
                                     rounded-xl
@@ -227,7 +224,7 @@ const FormModal = ({
                     <div>
 
                         <label className="mb-2 block text-sm font-medium text-slate-700">
-                            Phone Number
+                            Phone Number*
                         </label>
 
                         <div className="relative">
@@ -247,7 +244,6 @@ const FormModal = ({
                                 value={formData.phone}
                                 onChange={handleChange}
                                 placeholder="Enter phone number"
-                                required
                                 className="
                                     w-full
                                     rounded-xl
@@ -274,7 +270,7 @@ const FormModal = ({
                     <div>
 
                         <label className="mb-2 block text-sm font-medium text-slate-700">
-                            Role
+                            Role*
                         </label>
 
                         <div className="relative">

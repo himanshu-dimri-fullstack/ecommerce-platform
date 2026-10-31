@@ -109,7 +109,6 @@ const FormModal = ({
                                     value={formData.name || ""}
                                     onChange={handleChange}
                                     placeholder="Enter brand name"
-                                    required
                                     className="
                                         w-full rounded-xl
                                         border border-slate-200

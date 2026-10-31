@@ -59,6 +59,11 @@ function Navbar() {
     const [search, setSearch] = useState("");
     const [location, setLocation] = useState("Select Location");
     const [locationOpen, setLocationOpen] = useState(false);
+    const [locationModalOpen, setLocationModalOpen] = useState(false);
+    const [manualAddress, setManualAddress] = useState("");
+    const [locationSubmitting, setLocationSubmitting] = useState(false);
+    const [locationError, setLocationError] = useState("");
+    const [locationLoading, setLocationLoading] = useState(true);
     const [accountOpen, setAccountOpen] = useState(false);
     const [loggingOut, setLoggingOut] = useState(false);
 
@@ -132,6 +137,135 @@ function Navbar() {
             setLoggingOut(false);
         }
     };
+
+    const saveLocation = (value: {
+        label: string;
+        latitude: number;
+        longitude: number;
+        source: "gps" | "manual";
+    }) => {
+        setLocation(value.label);
+        sessionStorage.setItem("quickkart_location", JSON.stringify(value));
+        setLocationModalOpen(false);
+        setLocationError("");
+        setLocationLoading(false);
+    };
+
+    const getAreaName = (address: Record<string, string> = {}) =>
+        address.neighbourhood ||
+        address.suburb ||
+        address.residential ||
+        address.city_district ||
+        address.city ||
+        address.town ||
+        address.village ||
+        address.county ||
+        address.state ||
+        "Selected Location";
+
+    const requestCurrentLocation = () => {
+        setLocationError("");
+
+        if (!navigator.geolocation) {
+            setLocationLoading(false);
+            setLocationModalOpen(true);
+            setLocationError("Your browser does not support location. Please enter your address.");
+            return;
+        }
+
+        setLocationLoading(true);
+        navigator.geolocation.getCurrentPosition(
+            async ({ coords }) => {
+                try {
+                    const { latitude, longitude } = coords;
+                    const response = await fetch(
+                        `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}`
+                    );
+                    if (!response.ok) throw new Error("Unable to find your area.");
+                    const data = await response.json();
+                    saveLocation({
+                        label: getAreaName(data.address || {}),
+                        latitude,
+                        longitude,
+                        source: "gps",
+                    });
+                } catch {
+                    setLocationLoading(false);
+                    setLocationModalOpen(true);
+                    setLocationError("Could not identify your area. Please enter your address manually.");
+                }
+            },
+            (error) => {
+                setLocationLoading(false);
+                setLocationModalOpen(true);
+                if (error.code === 1) {
+                    setLocationError("Location permission was denied. Please enter your address manually.");
+                } else if (error.code === 3) {
+                    setLocationError("Location request timed out. Please enter your address manually.");
+                } else {
+                    setLocationError("Unable to get your location. Please enter your address manually.");
+                }
+            },
+            { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+        );
+    };
+
+    const submitManualAddress = async (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        const query = manualAddress.trim();
+        if (query.length < 3) {
+            setLocationError("Please enter a valid address or area.");
+            return;
+        }
+
+        setLocationSubmitting(true);
+        setLocationError("");
+        try {
+            const response = await fetch(
+                `https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=1&q=${encodeURIComponent(query)}`
+            );
+            if (!response.ok) throw new Error("Address search failed.");
+            const results = await response.json();
+            if (!results.length) {
+                setLocationError("Address not found. Please try a nearby area or landmark.");
+                return;
+            }
+
+            const result = results[0];
+            const address = result.address || {};
+            saveLocation({
+                label: getAreaName(address) === "Selected Location" ? query : getAreaName(address),
+                latitude: Number(result.lat),
+                longitude: Number(result.lon),
+                source: "manual",
+            });
+            setManualAddress("");
+        } catch {
+            setLocationError("Something went wrong while searching. Please try again.");
+        } finally {
+            setLocationSubmitting(false);
+        }
+    };
+
+    useEffect(() => {
+        const savedLocation = sessionStorage.getItem("quickkart_location");
+        if (savedLocation) {
+            try {
+                const parsed = JSON.parse(savedLocation);
+                if (parsed?.label && typeof parsed.latitude === "number" && typeof parsed.longitude === "number") {
+                    setLocation(parsed.label);
+                    setLocationLoading(false);
+                    return;
+                }
+            } catch {
+                sessionStorage.removeItem("quickkart_location");
+            }
+        }
+
+        requestCurrentLocation();
+        // Only check sessionStorage/request GPS once when Navbar mounts.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     useEffect(() => {
         if (pathname === "/search") {
@@ -216,7 +350,10 @@ function Navbar() {
                         >
                             <button
                                 type="button"
-                                onClick={() => setLocationOpen(!locationOpen)}
+                                onClick={() => {
+                                    setLocationError("");
+                                    setLocationModalOpen(true);
+                                }}
                                 className="flex items-center gap-2 rounded-xl px-3 py-2 text-left transition hover:bg-gray-50"
                             >
                                 <FiMapPin
@@ -229,41 +366,11 @@ function Navbar() {
                                         Deliver to
                                     </p>
                                     <p className="flex items-center gap-1 text-sm font-bold text-gray-800">
-                                        {location}
+                                        {locationLoading ? "Detecting location..." : location}
                                         <FiChevronDown size={14} />
                                     </p>
                                 </div>
                             </button>
-
-                            {locationOpen && (
-                                <div className="absolute left-0 top-full mt-2 w-64 rounded-2xl border border-gray-100 bg-white p-4 shadow-xl">
-                                    <p className="mb-3 text-sm font-bold text-gray-800">
-                                        Choose your location
-                                    </p>
-
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            setLocation("Jaipur");
-                                            setLocationOpen(false);
-                                        }}
-                                        className="w-full rounded-lg px-3 py-2 text-left text-sm text-gray-700 transition hover:bg-green-50 hover:text-[#0c831f]"
-                                    >
-                                        Jaipur
-                                    </button>
-
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            setLocation("Delhi");
-                                            setLocationOpen(false);
-                                        }}
-                                        className="w-full rounded-lg px-3 py-2 text-left text-sm text-gray-700 transition hover:bg-green-50 hover:text-[#0c831f]"
-                                    >
-                                        Delhi
-                                    </button>
-                                </div>
-                            )}
                         </div>
 
                         {/* Search */}
@@ -598,6 +705,65 @@ function Navbar() {
                 <SignupModal
                     setIsSignupOpen={setIsSignupOpen}
                 />
+            )}
+
+            {locationModalOpen && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 px-4 py-6">
+                    <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+                        <div className="mb-5 flex items-start justify-between gap-4">
+                            <div>
+                                <h2 className="text-xl font-extrabold text-gray-900">Choose your location</h2>
+                                <p className="mt-1 text-sm text-gray-500">We’ll use this to show delivery availability near you.</p>
+                            </div>
+                            {location && location !== "Select Location" && (
+                                <button
+                                    type="button"
+                                    onClick={() => setLocationModalOpen(false)}
+                                    className="rounded-lg p-2 text-gray-500 transition hover:bg-gray-100 hover:text-gray-800"
+                                    aria-label="Close location dialog"
+                                >
+                                    <FiX size={20} />
+                                </button>
+                            )}
+                        </div>
+
+                        <button
+                            type="button"
+                            onClick={requestCurrentLocation}
+                            disabled={locationLoading}
+                            className="flex w-full items-center justify-center gap-2 rounded-xl border border-[#0c831f] px-4 py-3 font-bold text-[#0c831f] transition hover:bg-green-50 disabled:opacity-60"
+                        >
+                            <FiMapPin size={19} />
+                            {locationLoading ? "Detecting location..." : "Use my current location"}
+                        </button>
+
+                        <div className="my-5 flex items-center gap-3 text-xs font-semibold uppercase tracking-wider text-gray-400">
+                            <span className="h-px flex-1 bg-gray-200" />
+                            Or enter your address
+                            <span className="h-px flex-1 bg-gray-200" />
+                        </div>
+
+                        <form onSubmit={submitManualAddress} className="space-y-3">
+                            <input
+                                type="text"
+                                value={manualAddress}
+                                onChange={(e) => setManualAddress(e.target.value)}
+                                placeholder="Enter area, address or landmark"
+                                className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none transition focus:border-[#0c831f] focus:ring-4 focus:ring-green-50"
+                            />
+                            {locationError && (
+                                <p className="text-sm font-medium text-red-600">{locationError}</p>
+                            )}
+                            <button
+                                type="submit"
+                                disabled={locationSubmitting}
+                                className="w-full rounded-xl bg-[#0c831f] px-4 py-3 font-bold text-white transition hover:bg-green-800 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                                {locationSubmitting ? "Finding address..." : "Confirm location"}
+                            </button>
+                        </form>
+                    </div>
+                </div>
             )}
         </>
     );

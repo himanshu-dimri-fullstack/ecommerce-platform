@@ -238,8 +238,6 @@ const Role = () => {
         setDeleteId(id)
     }
 
-
-
     // =========================
     // STATUS
     // =========================
@@ -554,6 +552,7 @@ const Role = () => {
 
                                             <td className="px-6 py-4">
                                                 <button
+                                                    disabled={!(user?.role.permissions.includes("role:status"))}
                                                     onClick={() =>
                                                         handleStatus(
                                                             role._id

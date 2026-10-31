@@ -561,6 +561,7 @@ const Store = () => {
                                         {/* STATUS */}
                                         <td className="px-6 py-4">
                                             <button
+                                                disabled={!(user?.role.permissions.includes("store:status"))}
                                                 type="button"
                                                 onClick={() => changeStatus(store._id)}
                                                 className={`rounded-lg px-3 py-2 text-xs font-semibold transition ${store.status === "active"

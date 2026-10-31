@@ -576,6 +576,7 @@ const Product = () => {
                                         {/* STATUS */}
                                         <td className="px-6 py-4">
                                             <button
+                                                disabled={!(user?.role.permissions.includes("product:status"))}
                                                 type="button"
                                                 onClick={() =>
                                                     changeStatus(

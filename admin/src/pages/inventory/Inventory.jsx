@@ -26,11 +26,10 @@ const initialFormData = {
     store: "",
     product: "",
     variant: "",
-    quantity: "0",
-    reservedQuantity: "0",
-    reorderLevel: "10",
-    maxStockLevel: "100",
-    status: "active",
+    quantity: "",
+    reservedQuantity: "",
+    reorderLevel: "",
+    maxStockLevel: "",
 };
 
 const inputClass =
@@ -119,14 +118,13 @@ const Inventory = () => {
         setIsEdit(true);
 
         setFormData({
-            store: inventory.store?._id || inventory.store || "",
-            product: inventory.product?._id || inventory.product || "",
-            variant: inventory.variant?._id || inventory.variant || "",
-            quantity: String(inventory.quantity ?? 0),
-            reservedQuantity: String(inventory.reservedQuantity ?? 0),
-            reorderLevel: String(inventory.reorderLevel ?? 10),
-            maxStockLevel: String(inventory.maxStockLevel ?? 100),
-            status: inventory.status || "active",
+            store: inventory.store._id,
+            product: inventory.product._id,
+            variant: inventory.variant._id,
+            quantity: inventory.quantity,
+            reservedQuantity: inventory.reservedQuantity,
+            reorderLevel: inventory.reorderLevel,
+            maxStockLevel: inventory.maxStockLevel || inventory.quantity,
         });
 
         setShowModal(true);
@@ -134,20 +132,6 @@ const Inventory = () => {
 
     // VALIDATE FORM
     const validateForm = () => {
-        if (!formData.store.trim()) {
-            toast.error("Store ID is required");
-            return false;
-        }
-
-        if (!formData.product.trim()) {
-            toast.error("Product ID is required");
-            return false;
-        }
-
-        if (!formData.variant.trim()) {
-            toast.error("Variant ID is required");
-            return false;
-        }
 
         const quantity = Number(formData.quantity);
         const reservedQuantity = Number(formData.reservedQuantity);
@@ -179,7 +163,12 @@ const Inventory = () => {
             );
             return false;
         }
-
+        if (reorderLevel > reservedQuantity) {
+            toast.error(
+                "Reorder level cannot exceed reserved quantity"
+            );
+            return false;
+        }
         if (maxStockLevel < quantity) {
             toast.error(
                 "Maximum stock level cannot be less than total quantity"
@@ -196,15 +185,13 @@ const Inventory = () => {
         const reservedQuantity = Number(formData.reservedQuantity);
 
         return {
-            store: formData.store.trim(),
-            product: formData.product.trim(),
-            variant: formData.variant.trim(),
+            store: formData.store,
+            product: formData.product,
+            variant: formData.variant,
             quantity,
             reservedQuantity,
-            availableQuantity: quantity - reservedQuantity,
             reorderLevel: Number(formData.reorderLevel),
             maxStockLevel: Number(formData.maxStockLevel),
-            status: formData.status,
         };
     };
 
@@ -610,24 +597,17 @@ const Inventory = () => {
 
                                             {/* STATUS */}
                                             <td className="px-3 py-3">
-                                                {user?.role?.permissions?.includes(
-                                                    "inventory:update"
-                                                ) ? (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => changeStatus(item)}
-                                                        className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold transition ${item.status === "active"
-                                                            ? "bg-green-100 text-green-700 hover:bg-green-200"
-                                                            : "bg-red-100 text-red-700 hover:bg-red-200"
-                                                            }`}
-                                                    >
-                                                        {item.status || "inactive"}
-                                                    </button>
-                                                ) : (
-                                                    <span className="text-sm text-slate-600">
-                                                        {item.status || "inactive"}
-                                                    </span>
-                                                )}
+                                                <button
+                                                    disabled={!(user?.role.permissions.includes("inventory:status"))}
+                                                    type="button"
+                                                    onClick={() => changeStatus(item)}
+                                                    className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold transition ${item.status === "active"
+                                                        ? "bg-green-100 text-green-700 hover:bg-green-200"
+                                                        : "bg-red-100 text-red-700 hover:bg-red-200"
+                                                        }`}
+                                                >
+                                                    {item.status || "inactive"}
+                                                </button>
                                             </td>
 
                                             {/* ACTIONS */}

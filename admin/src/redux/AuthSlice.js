@@ -4,6 +4,7 @@ import { API } from "../api/axios";
 export const fetchUser = createAsyncThunk("user/fetch", async () => {
     try {
         const res = await API.get("/admin/check-user")
+        console.log("user at redux", res.data.user)
         return res.data.user
     }
     catch (error) {

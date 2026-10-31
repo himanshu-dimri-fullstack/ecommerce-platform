@@ -682,6 +682,7 @@ const Category = () => {
 
                                         <td className="px-6 py-4">
                                             <button
+                                                disabled={!(user?.role.permissions.includes("category:status"))}
                                                 type="button"
                                                 onClick={() =>
                                                     changeStatus(

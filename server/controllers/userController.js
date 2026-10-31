@@ -5,6 +5,7 @@ import { sendMail } from "../utils/sendMail.js";
 import { sendPasswordOnMail } from "../utils/sendPasswordOnMail.js";
 import moment from "moment"
 import { handleResponseError } from "../utils/errorUtils.js"
+import Role from "../models/Role.js";
 
 export const signup = async (req, res) => {
     try {
@@ -12,9 +13,9 @@ export const signup = async (req, res) => {
         if (!firstName) {
             return res.status(400).json({ message: "First Name is required" })
         }
-        if (!lastName) {
-            return res.status(400).json({ message: "Last Name is required" })
-        }
+        // if (!lastName) {
+        //     return res.status(400).json({ message: "Last Name is required" })
+        // }
         if (!email) {
             return res.status(400).json({ message: "Email is required" })
         }
@@ -128,6 +129,16 @@ export const login = async (req, res) => {
             return res.status(401).json({ message: "Email is invalid" });
         }
 
+        if (user.status === "inactive") {
+            return res.status(401).json({ message: "Not allowed to login" });
+        }
+
+        const role = await Role.findOne({ _id: user.role })
+
+        if (role.name !== "customer") {
+            return res.status(401).json({ message: "Access denied" })
+        }
+
         if (!(await bcrypt.compare(password, user.password))) {
             return res.status(401).json({ message: "Password is invalid" });
         }
@@ -148,7 +159,7 @@ export const login = async (req, res) => {
         //     maxAge: 24 * 60 * 60 * 1000
         // });
 
-        res.cookie("token", token, {
+        res.cookie("clientToken", token, {
             httpOnly: true,
             secure: true,
             sameSite: "None",
@@ -214,7 +225,7 @@ export const logout = (req, res) => {
     //     maxAge: 24 * 60 * 60 * 1000
     // });
 
-    res.clearCookie("token", {
+    res.clearCookie("clientToken", {
         httpOnly: true,
         secure: true,
         sameSite: "None",

@@ -564,6 +564,7 @@ const Users = () => {
                                                 <div className="group relative">
 
                                                     <button
+                                                        disabled={!(permissions.includes("user:status"))}
                                                         type="button"
                                                         onClick={() =>
                                                             changeStatus(

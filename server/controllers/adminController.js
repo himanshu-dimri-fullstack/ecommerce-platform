@@ -97,11 +97,9 @@ export const updateUser = async (req, res) => {
     }
 }
 
-export const getAllUsers = async (_, res) => {
+export const getAllUsers = async (req, res) => {
     try {
-        const superAdmin = await Role.findOne({ name: "Super_Admin" })
-
-        const users = await User.find({ role: { $ne: superAdmin._id } }).sort({ createdAt: -1 })
+        const users = await User.find({ _id: { $ne: req.user.id } }).sort({ createdAt: -1 })
             .populate("role", "name")
         return res.status(200).json({ users })
     }
@@ -260,8 +258,6 @@ export const verifyOTP = async (req, res) => {
 export const login = async (req, res) => {
     try {
         const { email, password } = req.body;
-        console.log(email, password)
-        // return
 
         if (!email) {
             return res.status(400).json({ message: "Email is required" });
@@ -276,6 +272,16 @@ export const login = async (req, res) => {
 
         if (!user) {
             return res.status(401).json({ message: "Email is invalid" });
+        }
+
+        if (user.status === "inactive") {
+            return res.status(401).json({ message: "Not allowed to login" });
+        }
+
+        const role = await Role.findOne({ _id: user.role })
+
+        if (role.name === "customer") {
+            return res.status(401).json({ message: "Access denied" })
         }
 
         if (!(await bcrypt.compare(password, user.password))) {
@@ -299,7 +305,7 @@ export const login = async (req, res) => {
         //     maxAge: 24 * 60 * 60 * 1000
         // });
 
-        res.cookie("token", token, {
+        res.cookie("adminToken", token, {
             httpOnly: true,
             secure: true,
             sameSite: "None",
@@ -372,7 +378,7 @@ export const logout = (req, res) => {
     //     maxAge: 24 * 60 * 60 * 1000
     // });
 
-    res.clearCookie("token", {
+    res.clearCookie("adminToken", {
         httpOnly: true,
         secure: true,
         sameSite: "None",
