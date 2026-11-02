@@ -120,7 +120,6 @@ const Category = () => {
     // HANDLE ADD MODAL 
     // =========================
 
-
     const handleAddCategoryModal = () => {
         setIsEdit(false)
         setFormData({

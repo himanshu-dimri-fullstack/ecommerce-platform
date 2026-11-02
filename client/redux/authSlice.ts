@@ -4,10 +4,13 @@ import { API } from "../axios/axios.js";
 export interface User {
     _id: string;
     firstName: string;
-    lastName: string;
+    lastName?: string;
     email: string;
-    role: string;
-    image?: string;
+    profileImage?: {
+        url: string;
+        public_id: string;
+    };
+    phone?: string
     // [key: string]: unknown;
 }
 

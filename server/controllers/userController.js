@@ -173,6 +173,7 @@ export const login = async (req, res) => {
                 firstName: user.firstName,
                 lastName: user.lastName,
                 email: user.email,
+                phone: user.phone
             }
         });
     } catch (error) {
@@ -217,7 +218,7 @@ export const resetPassword = async (req, res) => {
 
 }
 
-export const logout = (req, res) => {
+export const logout = async (req, res) => {
     // res.clearCookie("token", {
     //     httpOnly: true,
     //     secure: false,
@@ -236,5 +237,68 @@ export const logout = (req, res) => {
         success: true,
         message: "Logout successful",
     });
+};
+
+export const updateProfile = async (req, res) => {
+    try {
+        const userId = req.user.id;
+
+        const { firstName, lastName, phone } = req.body;
+
+        const user = await User.findById(userId);
+
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: "User not found",
+            });
+        }
+
+        // Update basic profile fields
+        user.firstName = firstName?.trim() ?? user.firstName;
+        user.lastName = lastName?.trim() ?? user.lastName;
+        user.phone = phone?.trim() ?? user.phone;
+
+        // Profile image upload
+        if (req.file) {
+
+            // Delete previous image from Cloudinary
+            if (user.profileImage?.public_id) {
+                await cloudinary.uploader.destroy(
+                    user.profileImage.public_id
+                );
+            }
+
+            // Upload new image
+            const result = await cloudinary.uploader.upload(
+                req.file.path,
+                {
+                    folder: "ecommerce_platform/users",
+                    resource_type: "image",
+                }
+            );
+
+            user.profileImage = {
+                url: result.secure_url,
+                public_id: result.public_id,
+            };
+        }
+
+        await user.save();
+
+        return res.status(200).json({
+            success: true,
+            message: "Profile updated successfully",
+            user,
+        });
+
+    } catch (error) {
+        console.error("Update Profile Error:", error);
+
+        return res.status(500).json({
+            success: false,
+            message: "Internal server error",
+        });
+    }
 };
 

@@ -9,7 +9,6 @@ export const Auth = async (req, res, next) => {
         } else {
             token = req.cookies?.clientToken;
         }
-
         if (!token) {
             return res.status(401).json({
                 message: "Access denied",

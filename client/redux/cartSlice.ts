@@ -10,8 +10,8 @@ export interface CartItem {
     _id: string;
     product: string;
     name: string;
-    unitValue: string;
-    unit: string;
+    unitValue?: string;
+    unit?: string;
     sellingPrice: number;
     mrp: number;
     image: string;

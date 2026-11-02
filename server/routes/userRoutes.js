@@ -1,9 +1,10 @@
 import express from "express";
 import {
-    signup, verifyEmail, verifyOTP, login, logout, resetPassword,
+    signup, verifyEmail, verifyOTP, login, logout, resetPassword, updateProfile
 } from "../controllers/userController.js"
 import jwt from "jsonwebtoken"
 import User from "../models/User.js";
+import { Auth } from "../middlewares/Auth.js";
 
 
 const router = express.Router()
@@ -14,6 +15,8 @@ router.post("/verify-otp", verifyOTP)
 router.post("/login", login)
 router.post("/logout", logout)
 router.post("/reset-password", resetPassword)
+
+router.post("/update-profile", Auth, updateProfile)
 
 router.get("/check-user", async (req, res) => {
     try {
@@ -29,7 +32,7 @@ router.get("/check-user", async (req, res) => {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
         const user = await User.findById(decoded.id)
-            .select("firstName lastName email role")
+            .select("firstName lastName email role phone")
             .populate("role", "name permissions");
 
         if (!user) {
@@ -45,6 +48,7 @@ router.get("/check-user", async (req, res) => {
                 firstName: user.firstName,
                 lastName: user.lastName,
                 email: user.email,
+                phone: user.phone
             }
         });
     } catch (error) {

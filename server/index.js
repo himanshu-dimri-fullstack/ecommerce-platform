@@ -9,7 +9,7 @@ import brandRoutes from "./routes/brandRoutes.js"
 import adminRoutes from "./routes/adminRoutes.js"
 import dotenv from "dotenv"
 import cookieParser from "cookie-parser"
-import filupload from "express-fileupload"
+import fileUpload from "express-fileupload"
 import dashboardRoutes from "./routes/dashboardRoutes.js"
 import productRoutes from "./routes/productRoutes.js"
 import productVariantRoutes from "./routes/productVariantRoutes.js"
@@ -17,6 +17,7 @@ import storeRoutes from "./routes/storeRoutes.js"
 import cartRoutes from "./routes/cartRoutes.js";
 import inventoryRoutes from "./routes/inventoryRoutes.js"
 import bannerRoutes from "./routes/bannerRoutes.js"
+import addressRoutes from "./routes/addressRoutes.js"
 
 dotenv.config()
 
@@ -24,7 +25,7 @@ const app = express()
 
 connectDB()
 
-app.use(filupload({
+app.use(fileUpload({
     useTempFiles: true,
     tempFileDir: "/tmp/"
 }))
@@ -50,6 +51,7 @@ app.use("/store", storeRoutes)
 app.use("/cart", cartRoutes)
 app.use("/inventory", inventoryRoutes)
 app.use("/banner", bannerRoutes)
+app.use("/address", addressRoutes)
 
 app.listen(8000, () => {
     console.log("server running on port 8000")

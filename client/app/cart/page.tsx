@@ -27,12 +27,16 @@ import {
 import LoginModal from "@/components/auth/LoginModal";
 import SignupModal from "@/components/auth/SignupModal";
 import { API } from "@/axios/axios";
+import { useRouter } from "next/navigation";
 
 const formatPrice = (price: number) =>
     `₹${price.toLocaleString("en-IN")}`;
 
 export default function CartPage() {
+
     const user = useSelector((store: RootState) => store.auth.user);
+
+    const router = useRouter()
 
     const cartItems = useSelector(
         (store: RootState) => store.cart.items
@@ -187,8 +191,8 @@ export default function CartPage() {
             setLoginOpen(true);
             return;
         }
+        router.push("/checkout")
 
-        // Add your checkout navigation here.
     };
 
     return (
@@ -283,8 +287,8 @@ export default function CartPage() {
                                             <article
                                                 key={key}
                                                 className={`flex gap-3 py-6 transition-opacity sm:gap-5 ${isRemoving
-                                                        ? "opacity-60"
-                                                        : ""
+                                                    ? "opacity-60"
+                                                    : ""
                                                     }`}
                                             >
                                                 <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-slate-50 sm:h-32 sm:w-32">
