@@ -37,7 +37,9 @@ app.use(cors({
     origin: [process.env.CLIENT_URL, process.env.ADMIN_URL],
     credentials: true
 }));
-
+app.use("/ping", (_, res) => {
+    return res.status(200).json({ message: "Ok" })
+})
 app.use("/user", userRoutes)
 app.use("/category", categoryRoutes)
 app.use("/subcategory", subcategoryRoutes)

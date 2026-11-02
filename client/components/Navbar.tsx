@@ -86,7 +86,7 @@ function Navbar() {
         "My Account";
 
     const profileImage =
-        user?.image ||
+        user?.profileImage?.url ||
         "";
 
     const avatarLetter = userName.trim().charAt(0).toUpperCase() || "U";
