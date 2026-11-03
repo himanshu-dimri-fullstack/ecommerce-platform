@@ -126,7 +126,8 @@ function ProductsPage() {
     const handleAddToCart = async (product: any) => {
         if (!user) {
             dispatch(addToCart({
-                product: product.product._id,
+                productId: product.product._id,
+                productName: product.product.name,
                 _id: product._id,
                 name: product.name,
                 unitValue: product.unitValue,

@@ -8,7 +8,8 @@ import { API } from "../axios/axios.js";
 
 export interface CartItem {
     _id: string;
-    product: string;
+    productId: string;
+    productName: string;
     name: string;
     unitValue?: string;
     unit?: string;
@@ -63,6 +64,8 @@ export const fetchCart = createAsyncThunk<
         try {
             const res = await API.get("/cart/get");
 
+            console.log("my cart at redux", res.data)
+
             const items: CartItem[] = (res.data.items || []).map((item: any) => {
                 const product =
                     typeof item.product === "object" ? item.product : undefined;
@@ -77,9 +80,9 @@ export const fetchCart = createAsyncThunk<
 
                 return {
                     _id: variant?._id ?? "",
-                    product:
-                        product?._id ??
-                        (typeof item.product === "string" ? item.product : ""),
+                    productId:
+                        product?._id,
+                    productName: item.product.name,
                     name: variant?.name || product?.name || "",
                     unitValue: String(variant?.unitValue ?? ""),
                     unit: variant?.unit ?? "",
@@ -120,7 +123,7 @@ const cartSlice = createSlice({
 
             const existingItem = state.items.find(
                 (item) =>
-                    item.product === newItem.product &&
+                    item.productId === newItem.productId &&
                     item._id === newItem._id
             );
 
@@ -138,7 +141,7 @@ const cartSlice = createSlice({
             state.items = state.items.filter(
                 (item) =>
                     !(
-                        item.product === action.payload.product &&
+                        item.productId === action.payload.product &&
                         item._id === action.payload._id
                     )
             );
@@ -150,7 +153,7 @@ const cartSlice = createSlice({
         ) => {
             const item = state.items.find(
                 (item) =>
-                    item.product === action.payload.product &&
+                    item.productId === action.payload.product &&
                     item._id === action.payload._id
             );
 
@@ -163,7 +166,7 @@ const cartSlice = createSlice({
         ) => {
             const item = state.items.find(
                 (item) =>
-                    item.product === action.payload.product &&
+                    item.productId === action.payload.product &&
                     item._id === action.payload._id
             );
 
@@ -174,7 +177,7 @@ const cartSlice = createSlice({
                     state.items = state.items.filter(
                         (cartItem) =>
                             !(
-                                cartItem.product === action.payload.product &&
+                                cartItem.productId === action.payload.product &&
                                 cartItem._id === action.payload._id
                             )
                     );

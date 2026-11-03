@@ -2,8 +2,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useSelector } from "react-redux";
-import type { RootState } from "@/redux/store";
+import type { ChangeEvent, FormEvent } from "react";
+import { useSelector, useDispatch } from "react-redux";
+import type { RootState, AppDispatch } from "@/redux/store";
 import { API } from "@/axios/axios";
 import toast from "react-hot-toast";
 import Image from "next/image";
@@ -25,6 +26,8 @@ import {
     FiArrowLeft,
     FiShield,
 } from "react-icons/fi";
+import { fetchCart } from "@/redux/cartSlice";
+import { useRouter } from "next/navigation";
 
 const ADDRESS_API = "/address";
 
@@ -42,7 +45,8 @@ export interface User {
 
 export interface CartItem {
     _id: string;
-    product: string;
+    productId: string;
+    productName: string;
     name: string;
     unitValue?: string;
     unit?: string;
@@ -114,6 +118,8 @@ const formatPrice = (price: number) =>
 export default function CheckoutPage() {
 
     // REDUX
+    const dispatch = useDispatch<AppDispatch>();
+
     const user = useSelector(
         (store: RootState) => store.auth.user
     ) as User | null;
@@ -121,6 +127,8 @@ export default function CheckoutPage() {
     const cartItems = useSelector(
         (store: RootState) => store.cart.items
     ) as CartItem[];
+
+    const router = useRouter()
 
     // CONTACT DETAILS
     const [contact, setContact] = useState<ContactForm>({
@@ -157,18 +165,6 @@ export default function CheckoutPage() {
             });
         }
     }, [user]);
-
-    // CONTACT INPUT HANDLER
-    const handleContactChange = (
-        e: React.ChangeEvent<HTMLInputElement>
-    ) => {
-        const { name, value } = e.target;
-
-        setContact((prev) => ({
-            ...prev,
-            [name]: value,
-        }));
-    };
 
     // CART SUMMARY
     const subtotal = useMemo(() => {
@@ -219,14 +215,36 @@ export default function CheckoutPage() {
                     ""
                 );
             }
-        } catch (error: any) {
-            toast.error(
-                error.response?.data?.message || "Unable to fetch addresses"
-            );
+        } catch (error: unknown) {
+            const message = (
+                error as {
+                    response?: {
+                        data?: {
+                            message?: string;
+                        };
+                    };
+                }
+            )?.response?.data?.message;
+
+            toast.error(message || "Unable to fetch addresses");
         }
     };
 
+    // UPDATE DEFAULT ADDRESS
     const handleDefaultAddress = async (addressId: string) => {
+
+        const clickedAddress = addresses.find(
+            (address) => address._id === addressId
+        );
+
+        // Already selected and already default: no API call
+        if (
+            selectedAddress === addressId &&
+            clickedAddress?.isDefault
+        ) {
+            return;
+        }
+
         try {
             const { data } = await API.patch(
                 `${ADDRESS_API}/update-default/${addressId}`,
@@ -236,6 +254,7 @@ export default function CheckoutPage() {
 
             if (data.success) {
                 await fetchAddresses(addressId);
+
                 toast.success(
                     data.message || "Default address updated successfully"
                 );
@@ -255,6 +274,7 @@ export default function CheckoutPage() {
         }
     };
 
+    // INITIAL ADDRESS FETCH
     useEffect(() => {
         const loadAddresses = async () => {
             try {
@@ -298,9 +318,7 @@ export default function CheckoutPage() {
     };
 
     // ADDRESS INPUT
-    const handleAddressChange = (
-        e: React.ChangeEvent<HTMLInputElement>
-    ) => {
+    const handleAddressChange = (e: ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;
 
         setAddressForm((prev) => ({
@@ -310,9 +328,7 @@ export default function CheckoutPage() {
     };
 
     // SAVE ADDRESS
-    const handleSaveAddress = async (
-        e: React.FormEvent<HTMLFormElement>
-    ) => {
+    const handleSaveAddress = async (e: FormEvent<HTMLFormElement>) => {
         e.preventDefault();
 
         if (saving) return;
@@ -340,7 +356,6 @@ export default function CheckoutPage() {
                 country: addressForm.country.trim(),
                 pincode: addressForm.pincode.trim(),
 
-                // Only newly created addresses are always default.
                 ...(!editingAddress && { isDefault: true }),
             };
 
@@ -376,10 +391,18 @@ export default function CheckoutPage() {
 
             await fetchAddresses(addressId);
 
-        } catch (error: any) {
-            toast.error(
-                error.response?.data?.message || "Unable to save address"
-            );
+        } catch (error: unknown) {
+            const message = (
+                error as {
+                    response?: {
+                        data?: {
+                            message?: string;
+                        };
+                    };
+                }
+            )?.response?.data?.message;
+
+            toast.error(message || "Unable to save address");
         } finally {
             setSaving(false);
         }
@@ -406,10 +429,18 @@ export default function CheckoutPage() {
                     selectedAddress === id ? undefined : selectedAddress
                 );
             }
-        } catch (error: any) {
-            toast.error(
-                error.response?.data?.message || "Unable to delete address"
-            );
+        } catch (error: unknown) {
+            const message = (
+                error as {
+                    response?: {
+                        data?: {
+                            message?: string;
+                        };
+                    };
+                }
+            )?.response?.data?.message;
+
+            toast.error(message || "Unable to delete address");
         } finally {
             setDeletingId(null);
         }
@@ -427,6 +458,7 @@ export default function CheckoutPage() {
 
     // PROCEED TO PAY
     const handleProceedToPay = async () => {
+
         if (!isAddressValid) {
             toast.error("Please select a delivery address");
             return;
@@ -436,6 +468,13 @@ export default function CheckoutPage() {
             toast.error("Your cart is empty");
             return;
         }
+
+        if (!paymentMethod) {
+            toast.error("Please select a payment method");
+            return;
+        }
+
+        if (processing) return;
 
         try {
             setProcessing(true);
@@ -451,16 +490,45 @@ export default function CheckoutPage() {
                 paymentMethod,
             };
 
-            console.log("Checkout details:", checkoutDetails);
-
-            toast.success("All checkout details are valid");
-
-        } catch (error: any) {
-            toast.error(
-                error.response?.data?.message || "Unable to proceed"
+            const { data } = await API.post(
+                "/order/place",
+                {
+                    addressId: checkoutDetails.addressId,
+                    paymentMethod: checkoutDetails.paymentMethod,
+                },
+                {
+                    withCredentials: true,
+                }
             );
+
+            if (data.success) {
+                toast.success(
+                    data.message || "Order placed successfully"
+                );
+
+                console.log("Order Details:", data.order);
+            } else {
+                toast.error(
+                    data.message || "Unable to place order"
+                );
+            }
+
+        } catch (error: unknown) {
+            const message = (
+                error as {
+                    response?: {
+                        data?: {
+                            message?: string;
+                        };
+                    };
+                }
+            )?.response?.data?.message;
+
+            toast.error(message || "Unable to proceed");
         } finally {
             setProcessing(false);
+            dispatch(fetchCart())
+            router.replace("/orders")
         }
     };
 
@@ -564,16 +632,16 @@ export default function CheckoutPage() {
                                                 key={address._id}
                                                 onClick={() => handleDefaultAddress(address._id)}
                                                 className={`relative cursor-pointer rounded-2xl border-2 p-5 transition-all ${isSelected
-                                                        ? "border-[#0c831f] bg-[#f3fbf3]"
-                                                        : "border-gray-200 hover:border-gray-300"
+                                                    ? "border-[#0c831f] bg-[#f3fbf3]"
+                                                    : "border-gray-200 hover:border-gray-300"
                                                     }`}
                                             >
 
                                                 <div className="flex items-start gap-3">
 
                                                     <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${isSelected
-                                                            ? "bg-[#0c831f] text-white"
-                                                            : "bg-gray-100 text-gray-600"
+                                                        ? "bg-[#0c831f] text-white"
+                                                        : "bg-gray-100 text-gray-600"
                                                         }`}>
                                                         <Icon size={21} />
                                                     </div>
@@ -644,8 +712,8 @@ export default function CheckoutPage() {
                                                     </div>
 
                                                     <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 ${isSelected
-                                                            ? "border-[#0c831f] bg-[#0c831f] text-white"
-                                                            : "border-gray-300"
+                                                        ? "border-[#0c831f] bg-[#0c831f] text-white"
+                                                        : "border-gray-300"
                                                         }`}>
                                                         {isSelected && <FiCheck size={14} />}
                                                     </div>
@@ -745,8 +813,8 @@ export default function CheckoutPage() {
                                             type="button"
                                             onClick={() => setPaymentMethod(option.value)}
                                             className={`flex items-center gap-3 rounded-xl border-2 p-4 text-left transition ${active
-                                                    ? "border-[#0c831f] bg-green-50"
-                                                    : "border-gray-200 hover:border-gray-300"
+                                                ? "border-[#0c831f] bg-green-50"
+                                                : "border-gray-200 hover:border-gray-300"
                                                 }`}
                                         >
 
@@ -763,8 +831,8 @@ export default function CheckoutPage() {
                                             </div>
 
                                             <div className={`flex h-5 w-5 items-center justify-center rounded-full border-2 ${active
-                                                    ? "border-[#0c831f] bg-[#0c831f]"
-                                                    : "border-gray-300"
+                                                ? "border-[#0c831f] bg-[#0c831f]"
+                                                : "border-gray-300"
                                                 }`}>
                                                 {active && (
                                                     <FiCheck size={12} className="text-white" />
@@ -800,7 +868,7 @@ export default function CheckoutPage() {
                                 cartItems.map((item, index) => (
 
                                     <div
-                                        key={item._id || item.product || index}
+                                        key={item._id || item.productId || index}
                                         className="flex gap-3"
                                     >
 
@@ -808,7 +876,7 @@ export default function CheckoutPage() {
                                             {item.image && (
                                                 <Image
                                                     src={item.image}
-                                                    alt={item.name}
+                                                    alt={item.productName || item.name}
                                                     fill
                                                     sizes="64px"
                                                     className="object-contain p-1"
@@ -819,8 +887,14 @@ export default function CheckoutPage() {
                                         <div className="min-w-0 flex-1">
 
                                             <h3 className="line-clamp-2 text-sm font-semibold text-gray-800">
-                                                {item.name}
+                                                {item.productName || item.name}
                                             </h3>
+
+                                            {(item.unitValue || item.unit) && (
+                                                <p className="mt-1 text-xs text-gray-500">
+                                                    {item.unitValue} {item.unit}
+                                                </p>
+                                            )}
 
                                             <p className="mt-1 text-xs text-gray-500">
                                                 Qty: {item.quantity}
@@ -1020,8 +1094,8 @@ export default function CheckoutPage() {
                                                     }))
                                                 }
                                                 className={`flex flex-col items-center gap-2 rounded-xl border-2 py-4 transition ${addressForm.type === option.value
-                                                        ? "border-[#0c831f] bg-green-50 text-[#0c831f]"
-                                                        : "border-gray-200 text-gray-600"
+                                                    ? "border-[#0c831f] bg-green-50 text-[#0c831f]"
+                                                    : "border-gray-200 text-gray-600"
                                                     }`}
                                             >
 

@@ -262,7 +262,7 @@ export default function CartPage() {
 
                                 <div className="divide-y divide-slate-100 px-4 sm:px-7">
                                     {cartItems.map((item) => {
-                                        const key = `${item.product}-${item._id}`;
+                                        const key = `${item.productId}-${item._id}`;
 
                                         const isUpdating =
                                             updatingItems.includes(item._id);
@@ -346,7 +346,7 @@ export default function CartPage() {
                                                                 }
                                                                 onClick={() =>
                                                                     updateQuantity(
-                                                                        item.product,
+                                                                        item.productId,
                                                                         item._id,
                                                                         -1
                                                                     )
@@ -373,7 +373,7 @@ export default function CartPage() {
                                                                 disabled={isBusy}
                                                                 onClick={() =>
                                                                     updateQuantity(
-                                                                        item.product,
+                                                                        item.productId,
                                                                         item._id,
                                                                         1
                                                                     )
@@ -404,7 +404,7 @@ export default function CartPage() {
                                                             disabled={isBusy}
                                                             onClick={() =>
                                                                 removeItem(
-                                                                    item.product,
+                                                                    item.productId,
                                                                     item._id
                                                                 )
                                                             }
