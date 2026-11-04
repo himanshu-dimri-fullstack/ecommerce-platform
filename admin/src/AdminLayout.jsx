@@ -43,6 +43,7 @@ const AdminLayout = () => {
 
     const menuItems = [
         { name: "Dashboard", path: "/admin/dashboard", icon: FiHome, permission: "dashboard" },
+        { name: "Orders", path: "/admin/orders", icon: FiLayers, permission: "order" },
         { name: "Banner", path: "/admin/banner", icon: FiImage, permission: "banner" },
         { name: "Roles & Permissions", path: "/admin/roles", icon: FiShield, permission: "role" },
         { name: "Users", path: "/admin/users", icon: FiUsers, permission: "user" },

@@ -27,6 +27,8 @@ import Inventory from "./pages/inventory/Inventory"
 import InventoryDetail from "./pages/inventory/InventoryDetail"
 import Banner from "./pages/banner/Banner"
 import BannerDetail from "./pages/banner/BannerDetail"
+import Order from "./pages/order/Order"
+import OrderDetail from "./pages/order/OrderDetail"
 
 const App = () => {
   return (
@@ -59,6 +61,8 @@ const App = () => {
           <Route path="/admin/inventory/:id" element={<InventoryDetail />} />
           <Route path="/admin/banner" element={<Banner />} />
           <Route path="/admin/banner/:id" element={<BannerDetail />} />
+          <Route path="/admin/orders" element={<Order />} />
+          <Route path="/admin/orders/:id" element={<OrderDetail />} />
         </Route>
       </Routes>
       <ToastContainer />

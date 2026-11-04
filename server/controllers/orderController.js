@@ -273,3 +273,142 @@ export const getMyOrders = async (req, res) => {
     }
 };
 
+export const getAllOrders = async (req, res) => {
+    try {
+        // Fetch all orders
+        const orders = await Order.find()
+            .populate({
+                path: "user",
+                select: "name email phone",
+            })
+            .populate({
+                path: "address",
+            })
+            .sort({ createdAt: -1 })
+            .lean();
+
+        if (!orders.length) {
+            return res.status(200).json({
+                success: true,
+                message: "No orders found",
+                orders: [],
+            });
+        }
+
+        // Get all order IDs
+        const orderIds = orders.map((order) => order._id);
+
+        // Fetch all order items
+        const orderItems = await OrderItem.find({
+            order: { $in: orderIds },
+        })
+            .populate({
+                path: "product",
+                select: "name image",
+            })
+            .populate({
+                path: "variant",
+                select: "name variantName sku",
+            })
+            .lean();
+
+        // Group order items
+        const itemsMap = {};
+
+        orderItems.forEach((item) => {
+            const orderId = item.order.toString();
+
+            if (!itemsMap[orderId]) {
+                itemsMap[orderId] = [];
+            }
+
+            itemsMap[orderId].push({
+                ...item,
+                productName:
+                    item.productName || item.product?.name || "Product",
+
+                variantName:
+                    item.variantName ||
+                    item.variant?.variantName ||
+                    item.variant?.name ||
+                    "",
+
+                sku: item.sku || item.variant?.sku || "",
+            });
+        });
+
+        // Attach items to orders
+        const formattedOrders = orders.map((order) => ({
+            ...order,
+            items: itemsMap[order._id.toString()] || [],
+        }));
+
+        return res.status(200).json({
+            success: true,
+            message: "Orders fetched successfully",
+            orders: formattedOrders,
+        });
+
+    } catch (error) {
+        console.error("Get All Orders Error:", error);
+
+        return res.status(500).json({
+            success: false,
+            message: "Something went wrong while fetching orders",
+        });
+    }
+};
+
+
+export const getSingleOrder = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        // Validate Order ID
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid order ID",
+            });
+        }
+
+        // Fetch Order
+        const order = await Order.findById(id)
+            .populate("user")
+            .populate("address")
+        // .populate("coupon")
+        // .populate("deliveryPartner");
+
+        if (!order) {
+            return res.status(404).json({
+                success: false,
+                message: "Order not found",
+            });
+        }
+
+        // Fetch Order Items
+        const orderItems = await OrderItem.find({
+            order: order._id,
+        })
+            .populate("product")
+            .populate("variant");
+
+        return res.status(200).json({
+            success: true,
+            message: "Order fetched successfully",
+            order: {
+                ...order.toObject(),
+                items: orderItems,
+            },
+        });
+
+    } catch (error) {
+        console.error("Get Single Order Error:", error);
+
+        return res.status(500).json({
+            success: false,
+            message: "Internal server error",
+            error: error.message,
+        });
+    }
+};
