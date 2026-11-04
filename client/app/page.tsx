@@ -163,7 +163,7 @@ export default function ShopPage() {
     const [productsLoading, setProductsLoading] = useState(true);
 
     const [banners, setBanners] = useState([])
-    console.log("banners", banners)
+    // console.log("banners", banners)
 
     const fetchCategories = async () => {
         try {

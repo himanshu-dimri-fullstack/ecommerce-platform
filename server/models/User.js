@@ -6,7 +6,6 @@ const userSchema = new mongoose.Schema(
             type: mongoose.Schema.Types.ObjectId,
             ref: "Role",
             required: true,
-            default: "customer"
         },
 
         firstName: {
@@ -40,7 +39,7 @@ const userSchema = new mongoose.Schema(
         },
 
         profileImage: {
-            secure_url: {
+            url: {
                 type: String,
             },
             public_id: {

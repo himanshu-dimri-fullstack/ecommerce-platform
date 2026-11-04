@@ -6,6 +6,7 @@ import { sendPasswordOnMail } from "../utils/sendPasswordOnMail.js";
 import moment from "moment"
 import { handleResponseError } from "../utils/errorUtils.js"
 import Role from "../models/Role.js";
+import { uploadFile, destroyFile } from "../config/cloudinary.js"
 
 export const signup = async (req, res) => {
     try {
@@ -173,7 +174,11 @@ export const login = async (req, res) => {
                 firstName: user.firstName,
                 lastName: user.lastName,
                 email: user.email,
-                phone: user.phone
+                phone: user.phone,
+                profileImage: {
+                    url: user.profileImage.url,
+                    public_id: user.profileImage.public_id
+                }
             }
         });
     } catch (error) {
@@ -245,6 +250,14 @@ export const updateProfile = async (req, res) => {
 
         const { firstName, lastName, phone } = req.body;
 
+        if (!firstName) {
+            return res.status(400).json({ message: "First name is required" })
+        }
+
+        if (!phone) {
+            return res.status(400).json({ message: "Phone number is required" })
+        }
+
         const user = await User.findById(userId);
 
         if (!user) {
@@ -260,23 +273,23 @@ export const updateProfile = async (req, res) => {
         user.phone = phone?.trim() ?? user.phone;
 
         // Profile image upload
-        if (req.file) {
+        if (req.files) {
 
             // Delete previous image from Cloudinary
             if (user.profileImage?.public_id) {
-                await cloudinary.uploader.destroy(
-                    user.profileImage.public_id
-                );
+                await destroyFile(user.profileImage.public_id)
             }
 
             // Upload new image
-            const result = await cloudinary.uploader.upload(
-                req.file.path,
-                {
-                    folder: "ecommerce_platform/users",
-                    resource_type: "image",
-                }
-            );
+            // const result = await cloudinary.uploader.upload(
+            //     req.file.path,
+            //     {
+            //         folder: "ecommerce_platform/users",
+            //         resource_type: "image",
+            //     }
+            // );
+
+            const result = await uploadFile(req.files.profileImage.tempFilePath, "ecommerce_platform/users")
 
             user.profileImage = {
                 url: result.secure_url,
@@ -293,7 +306,7 @@ export const updateProfile = async (req, res) => {
         });
 
     } catch (error) {
-        console.error("Update Profile Error:", error);
+        console.error("Update Profile Error:", error.message);
 
         return res.status(500).json({
             success: false,
@@ -302,3 +315,73 @@ export const updateProfile = async (req, res) => {
     }
 };
 
+export const changePassword = async (req, res) => {
+    try {
+        const { currentPassword, newPassword } = req.body;
+
+        // VALIDATION
+        if (!currentPassword || !newPassword) {
+            return res.status(400).json({
+                success: false,
+                message: "Current password and new password are required",
+            });
+        }
+
+        if (newPassword.length < 8) {
+            return res.status(400).json({
+                success: false,
+                message: "New password must be at least 8 characters",
+            });
+        }
+
+        if (currentPassword === newPassword) {
+            return res.status(400).json({
+                success: false,
+                message: "New password must be different from current password",
+            });
+        }
+
+        // FIND USER
+        const user = await User.findById(req.user.id);
+
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: "User not found",
+            });
+        }
+
+        // VERIFY CURRENT PASSWORD
+        const isMatch = await bcrypt.compare(
+            currentPassword,
+            user.password
+        );
+
+        if (!isMatch) {
+            return res.status(400).json({
+                success: false,
+                message: "Current password is incorrect",
+            });
+        }
+
+        // HASH NEW PASSWORD
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+        // UPDATE PASSWORD
+        user.password = hashedPassword;
+        await user.save();
+
+        return res.status(200).json({
+            success: true,
+            message: "Password changed successfully",
+        });
+
+    } catch (error) {
+        console.error("Change Password Error:", error);
+
+        return res.status(500).json({
+            success: false,
+            message: "Internal server error",
+        });
+    }
+};

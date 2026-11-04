@@ -33,6 +33,7 @@ export const fetchUser = createAsyncThunk<
     async (_, { rejectWithValue }) => {
         try {
             const res = await API.get<{ user: User }>("/user/check-user");
+            console.log("user at redux", res.data)
             return res.data.user;
         } catch (error: unknown) {
             const err = error as ApiError;

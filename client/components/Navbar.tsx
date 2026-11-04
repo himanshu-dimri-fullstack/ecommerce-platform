@@ -347,8 +347,8 @@ function Navbar() {
                                         key={item.href}
                                         href={item.href}
                                         className={`whitespace-nowrap text-sm font-bold transition ${active
-                                                ? "text-[#0c831f]"
-                                                : "text-gray-700 hover:text-[#0c831f]"
+                                            ? "text-[#0c831f]"
+                                            : "text-gray-700 hover:text-[#0c831f]"
                                             }`}
                                     >
                                         {item.label}
@@ -407,8 +407,8 @@ function Navbar() {
                                         href={item.href}
                                         onClick={() => setMobileMenuOpen(false)}
                                         className={`rounded-xl px-4 py-3 text-sm font-bold transition ${active
-                                                ? "bg-green-50 text-[#0c831f]"
-                                                : "text-gray-700 hover:bg-gray-50"
+                                            ? "bg-green-50 text-[#0c831f]"
+                                            : "text-gray-700 hover:bg-gray-50"
                                             }`}
                                     >
                                         {item.label}

@@ -374,8 +374,6 @@ export default function MyOrdersPage() {
                     {[
                         { value: "all", label: "All Orders" },
                         { value: "placed", label: "Placed" },
-                        { value: "processing", label: "Processing" },
-                        { value: "shipped", label: "Shipped" },
                         { value: "delivered", label: "Delivered" },
                         { value: "cancelled", label: "Cancelled" },
                     ].map((item) => (
@@ -385,8 +383,8 @@ export default function MyOrdersPage() {
                             type="button"
                             onClick={() => setFilter(item.value)}
                             className={`shrink-0 rounded-full px-5 py-2.5 text-sm font-bold transition ${filter === item.value
-                                    ? "bg-[#0c831f] text-white"
-                                    : "border border-gray-200 bg-white text-gray-600 hover:border-[#0c831f] hover:text-[#0c831f]"
+                                ? "bg-[#0c831f] text-white"
+                                : "border border-gray-200 bg-white text-gray-600 hover:border-[#0c831f] hover:text-[#0c831f]"
                                 }`}
                         >
                             {item.label}
@@ -520,10 +518,10 @@ export default function MyOrdersPage() {
                                                 Payment Status
                                             </p>
                                             <p className={`mt-2 font-bold capitalize ${order.paymentStatus === "paid"
-                                                    ? "text-green-600"
-                                                    : order.paymentStatus === "failed"
-                                                        ? "text-red-600"
-                                                        : "text-yellow-600"
+                                                ? "text-green-600"
+                                                : order.paymentStatus === "failed"
+                                                    ? "text-red-600"
+                                                    : "text-yellow-600"
                                                 }`}>
                                                 {order.paymentStatus}
                                             </p>
@@ -627,15 +625,15 @@ export default function MyOrdersPage() {
                                                                     className="relative"
                                                                 >
                                                                     <div className={`flex h-10 w-10 items-center justify-center rounded-full ${completed
-                                                                            ? "bg-[#0c831f] text-white"
-                                                                            : "bg-gray-200 text-gray-400"
+                                                                        ? "bg-[#0c831f] text-white"
+                                                                        : "bg-gray-200 text-gray-400"
                                                                         }`}>
                                                                         <StepIcon size={18} />
                                                                     </div>
 
                                                                     <p className={`mt-2 text-xs font-bold capitalize ${completed
-                                                                            ? "text-[#0c831f]"
-                                                                            : "text-gray-400"
+                                                                        ? "text-[#0c831f]"
+                                                                        : "text-gray-400"
                                                                         }`}>
                                                                         {step.replaceAll("_", " ")}
                                                                     </p>

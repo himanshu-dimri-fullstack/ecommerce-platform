@@ -5,8 +5,12 @@ import { useEffect, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import { API } from "@/axios/axios";
 import toast from "react-hot-toast";
+import { fetchUser } from "@/redux/authSlice";
+import Link from "next/link";
 
 import {
+    FiEye,
+    FiEyeOff,
     FiUpload,
     FiUser,
     FiEdit2,
@@ -24,8 +28,8 @@ import {
     FiSave,
 } from "react-icons/fi";
 
-import { useSelector } from "react-redux";
-import type { RootState } from "@/redux/store";
+import { useDispatch, useSelector } from "react-redux";
+import type { RootState, AppDispatch } from "@/redux/store";
 import { useRouter } from "next/navigation";
 
 export interface User {
@@ -89,8 +93,12 @@ const initialAddressForm: AddressForm = {
 
 export default function ProfilePage() {
     const router = useRouter();
+    const dispatch = useDispatch<AppDispatch>();
 
-    const user = useSelector((store: RootState) => store.auth.user);
+    // const user = useSelector((store: RootState) => store.auth.user);
+    const { user, loading: authLoading } = useSelector(
+        (store: RootState) => store.auth
+    );
 
     const [formData, setFormData] = useState<User | null>(null);
 
@@ -113,16 +121,71 @@ export default function ProfilePage() {
     const [deletingAddress, setDeletingAddress] = useState(false);
     const [savingProfile, setSavingProfile] = useState(false);
 
+    const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+
+    const [currentPassword, setCurrentPassword] = useState("");
+    const [newPassword, setNewPassword] = useState("");
+
+    const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+    const [showNewPassword, setShowNewPassword] = useState(false);
+
+    const [changingPassword, setChangingPassword] = useState(false);
+
+    // CHANGE PASSWORD
+    const handleChangePassword = async (e: FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+
+        if (!currentPassword.trim() || !newPassword.trim()) {
+            toast.error("Please fill all fields");
+            return;
+        }
+
+        if (newPassword.length < 8) {
+            toast.error("New password must be at least 8 characters");
+            return;
+        }
+
+        if (currentPassword === newPassword) {
+            toast.error("New password must be different from current password");
+            return;
+        }
+
+        try {
+            setChangingPassword(true);
+
+            const { data } = await API.post("/user/change-password", {
+                currentPassword,
+                newPassword,
+            });
+
+            toast.success(data.message || "Password changed successfully");
+
+            closePasswordModal();
+        } catch (error: any) {
+            toast.error(
+                error.response?.data?.message || "Failed to change password"
+            );
+        } finally {
+            setChangingPassword(false);
+        }
+    };
+
     // FETCH PROFILE AND ADDRESSES
     useEffect(() => {
         fetchAddresses().finally(() => setLoading(false));
     }, []);
 
+    // useEffect(() => {
+    //     if (!loading && user === null) {
+    //         router.replace("/");
+    //     }
+    // }, [user, loading, router]);
+
     useEffect(() => {
-        if (!loading && user === null) {
+        if (!authLoading && user === null) {
             router.replace("/");
         }
-    }, [user, loading, router]);
+    }, [authLoading, user, router]);
 
     // GET ADDRESSES
     const fetchAddresses = async () => {
@@ -217,6 +280,7 @@ export default function ProfilePage() {
                 error.response?.data?.message || "Failed to update profile"
             );
         } finally {
+            dispatch(fetchUser());
             setSavingProfile(false);
         }
     };
@@ -359,6 +423,17 @@ export default function ProfilePage() {
         setEditingAddressId(null);
     };
 
+    // CLOSE PASSWORD MODAL
+    const closePasswordModal = () => {
+        if (changingPassword) return;
+
+        setIsPasswordModalOpen(false);
+        setCurrentPassword("");
+        setNewPassword("");
+        setShowCurrentPassword(false);
+        setShowNewPassword(false);
+    };
+
     // ADDRESS ICON
     const getAddressIcon = (type: string) => {
         if (type === "home") return <FiHome size={18} />;
@@ -367,7 +442,7 @@ export default function ProfilePage() {
     };
 
     // LOADING SKELETON
-    if (loading) {
+    if (authLoading || loading) {
         return (
             <div className="min-h-screen bg-linear-to-br from-[#e9f7ef] via-white to-[#f7fcf8] py-10 animate-pulse">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -797,7 +872,7 @@ export default function ProfilePage() {
                             </h3>
 
                             <div className="space-y-2">
-                                <a
+                                <Link
                                     href="/orders"
                                     className="flex items-center gap-3 p-3 rounded-xl hover:bg-green-50 text-gray-700 hover:text-[#1c9d36] transition-colors"
                                 >
@@ -805,27 +880,18 @@ export default function ProfilePage() {
                                     <span className="font-medium text-sm">
                                         My Orders
                                     </span>
-                                </a>
+                                </Link>
 
-                                <a
-                                    href="/profile/addresses"
-                                    className="flex items-center gap-3 p-3 rounded-xl hover:bg-green-50 text-gray-700 hover:text-[#1c9d36] transition-colors"
-                                >
-                                    <FiMapPin size={19} />
-                                    <span className="font-medium text-sm">
-                                        Manage Addresses
-                                    </span>
-                                </a>
-
-                                <a
-                                    href="/profile/security"
-                                    className="flex items-center gap-3 p-3 rounded-xl hover:bg-green-50 text-gray-700 hover:text-[#1c9d36] transition-colors"
+                                <button
+                                    type="button"
+                                    onClick={() => setIsPasswordModalOpen(true)}
+                                    className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-green-50 text-gray-700 hover:text-[#1c9d36] transition-colors text-left"
                                 >
                                     <FiShield size={19} />
                                     <span className="font-medium text-sm">
-                                        Security Settings
+                                        Change Password
                                     </span>
-                                </a>
+                                </button>
                             </div>
                         </div>
 
@@ -976,7 +1042,7 @@ export default function ProfilePage() {
                             {/* PHONE */}
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Phone Number
+                                    Phone Number*
                                 </label>
 
                                 <input
@@ -1058,8 +1124,8 @@ export default function ProfilePage() {
                                                 }))
                                             }
                                             className={`flex items-center justify-center gap-2 border rounded-xl py-3 capitalize font-medium transition-colors ${addressForm.type === type
-                                                    ? "border-[#1c9d36] bg-green-50 text-[#1c9d36]"
-                                                    : "border-gray-200 text-gray-600 hover:border-green-300"
+                                                ? "border-[#1c9d36] bg-green-50 text-[#1c9d36]"
+                                                : "border-gray-200 text-gray-600 hover:border-green-300"
                                                 }`}
                                         >
                                             {getAddressIcon(type)}
@@ -1270,9 +1336,133 @@ export default function ProfilePage() {
                 </div>
             )}
 
+            {/* CHANGE PASSWORD MODAL */}
+            {isPasswordModalOpen && (
+                <div className="fixed inset-0 z-70 bg-black/50 flex items-center justify-center p-4">
+                    <div className="bg-white w-full max-w-md rounded-2xl shadow-xl overflow-hidden">
+
+                        {/* HEADER */}
+                        <div className="flex items-center justify-between p-6 border-b border-gray-100">
+                            <div>
+                                <h3 className="text-xl font-bold text-gray-900">
+                                    Change Password
+                                </h3>
+
+                                <p className="text-sm text-gray-500 mt-1">
+                                    Update your account password.
+                                </p>
+                            </div>
+
+                            <button
+                                type="button"
+                                onClick={closePasswordModal}
+                                disabled={changingPassword}
+                                className="w-9 h-9 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-600 disabled:opacity-60"
+                            >
+                                <FiX size={19} />
+                            </button>
+                        </div>
+
+                        {/* FORM */}
+                        <form
+                            onSubmit={handleChangePassword}
+                            className="p-6 space-y-5"
+                        >
+                            {/* CURRENT PASSWORD */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Current Password
+                                </label>
+
+                                <div className="relative">
+                                    <input
+                                        type={showCurrentPassword ? "text" : "password"}
+                                        value={currentPassword}
+                                        onChange={(e) => setCurrentPassword(e.target.value)}
+                                        placeholder="Enter current password"
+                                        disabled={changingPassword}
+                                        className="w-full border border-gray-200 rounded-xl px-4 py-3 pr-12 outline-none focus:border-[#1c9d36] focus:ring-2 focus:ring-green-100"
+                                    />
+
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowCurrentPassword(prev => !prev)}
+                                        disabled={changingPassword}
+                                        className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700"
+                                    >
+                                        {showCurrentPassword ? (
+                                            <FiEyeOff size={19} />
+                                        ) : (
+                                            <FiEye size={19} />
+                                        )}
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* NEW PASSWORD */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    New Password
+                                </label>
+
+                                <div className="relative">
+                                    <input
+                                        type={showNewPassword ? "text" : "password"}
+                                        value={newPassword}
+                                        onChange={(e) => setNewPassword(e.target.value)}
+                                        placeholder="Enter new password"
+                                        minLength={8}
+                                        disabled={changingPassword}
+                                        className="w-full border border-gray-200 rounded-xl px-4 py-3 pr-12 outline-none focus:border-[#1c9d36] focus:ring-2 focus:ring-green-100"
+                                    />
+
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowNewPassword(prev => !prev)}
+                                        disabled={changingPassword}
+                                        className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700"
+                                    >
+                                        {showNewPassword ? (
+                                            <FiEyeOff size={19} />
+                                        ) : (
+                                            <FiEye size={19} />
+                                        )}
+                                    </button>
+                                </div>
+
+                                <p className="text-xs text-gray-400 mt-2">
+                                    Password must be at least 8 characters.
+                                </p>
+                            </div>
+
+                            {/* ACTION BUTTONS */}
+                            <div className="flex justify-end gap-3 pt-3">
+                                <button
+                                    type="button"
+                                    onClick={closePasswordModal}
+                                    disabled={changingPassword}
+                                    className="px-5 py-3 rounded-xl border border-gray-200 text-gray-700 font-semibold hover:bg-gray-50 transition-colors disabled:opacity-60"
+                                >
+                                    Cancel
+                                </button>
+
+                                <button
+                                    type="submit"
+                                    disabled={changingPassword}
+                                    className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-[#1c9d36] hover:bg-[#16832c] text-white font-semibold transition-colors disabled:opacity-60"
+                                >
+                                    <FiSave size={16} />
+                                    {changingPassword ? "Updating..." : "Update Password"}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
             {/* DELETE CONFIRMATION MODAL */}
             {deleteAddressId && (
-                <div className="fixed inset-0 z-[60] bg-black/50 flex items-center justify-center p-4">
+                <div className="fixed inset-0 z-60 bg-black/50 flex items-center justify-center p-4">
                     <div className="bg-white w-full max-w-md rounded-2xl shadow-xl p-6">
 
                         <div className="w-14 h-14 rounded-full bg-red-50 text-red-500 flex items-center justify-center mb-5">
