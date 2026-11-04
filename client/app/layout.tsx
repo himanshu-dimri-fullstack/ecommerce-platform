@@ -29,15 +29,15 @@ export default function RootLayout({
         <html lang="en" className={urbanist.className}>
             <body className="flex min-h-full flex-col antialiased">
                 <Suspense fallback={<div />}>
-                    {/* <LocationGate> */}
                     <ReduxProvider>
                         <AuthProvider>
+                            {/* <LocationGate> */}
                             <Navbar />
                             {children}
                             <Footer />
+                            {/* </LocationGate> */}
                         </AuthProvider>
                     </ReduxProvider>
-                    {/* </LocationGate> */}
 
                     <Toaster
                         position="top-center"
