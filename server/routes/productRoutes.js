@@ -6,7 +6,8 @@ import {
     updateProduct,
     deleteProduct,
     changeStatus,
-    getAvailableCategoryProducts
+    getAvailableCategoryProducts,
+    getSearchSuggestions
 } from "../controllers/productController.js";
 import { Auth } from "../middlewares/Auth.js";
 import { Permission } from "../middlewares/Permission.js";
@@ -37,5 +38,7 @@ router.get(
     "/available/category/:categorySlug",
     getAvailableCategoryProducts
 );
+
+router.get("/search-suggestions", getSearchSuggestions);
 
 export default router;

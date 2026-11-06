@@ -3,10 +3,9 @@
 
 import { useState, useEffect, useRef, Suspense } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import {
     FiZap,
-    FiSearch,
     FiUser,
     FiShoppingCart,
     FiMenu,
@@ -19,6 +18,7 @@ import type { RootState, AppDispatch } from "@/redux/store";
 import LoginModal from "@/components/auth/LoginModal";
 import SignupModal from "./auth/SignupModal";
 import DeliveryLocation from "@/components/navbar/DeliveryLocation";
+import ProductSearch from "@/components/navbar/ProductSearch";
 import { API } from "@/axios/axios";
 import { setUser } from "@/redux/authSlice";
 import { fetchCart, setCart } from "@/redux/cartSlice";
@@ -30,7 +30,9 @@ function NavbarSkeleton() {
         <header className="sticky top-0 z-50 border-b border-gray-100 bg-white">
             <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
                 <div className="h-10 w-32 animate-pulse rounded-lg bg-gray-200" />
+
                 <div className="hidden h-11 w-96 animate-pulse rounded-xl bg-gray-100 md:block" />
+
                 <div className="flex items-center gap-4">
                     <div className="h-10 w-20 animate-pulse rounded-lg bg-gray-100" />
                     <div className="h-10 w-10 animate-pulse rounded-full bg-gray-100" />
@@ -42,7 +44,6 @@ function NavbarSkeleton() {
 
 function Navbar() {
     const pathname = usePathname();
-    const router = useRouter();
     const dispatch = useDispatch<AppDispatch>();
 
     const user = useSelector((store: RootState) => store.auth.user);
@@ -59,7 +60,6 @@ function Navbar() {
     const [accountOpen, setAccountOpen] = useState(false);
     const [loggingOut, setLoggingOut] = useState(false);
 
-    const searchRef = useRef<HTMLInputElement>(null);
     const accountRef = useRef<HTMLDivElement>(null);
 
     const navLinks = [
@@ -70,22 +70,6 @@ function Navbar() {
     const userName = user?.firstName || "My Account";
     const profileImage = user?.profileImage?.url || "";
     const avatarLetter = userName.trim().charAt(0).toUpperCase() || "U";
-
-    const handleSearch = (e: React.FormEvent<HTMLFormElement>) => {
-        e.preventDefault();
-
-        const query = search.trim();
-
-        if (query) {
-            router.push(`/?search=${encodeURIComponent(query)}`);
-        }
-    };
-
-    const handleSearchBar = () => {
-        if (pathname !== "/search") {
-            router.push("/search");
-        }
-    };
 
     const handleAccountClick = (
         e: React.MouseEvent<HTMLAnchorElement>,
@@ -122,12 +106,7 @@ function Navbar() {
         }
     };
 
-    useEffect(() => {
-        if (pathname === "/search") {
-            searchRef.current?.focus();
-        }
-    }, [pathname]);
-
+    // Close Account Dropdown On Outside Click
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             if (
@@ -145,13 +124,14 @@ function Navbar() {
         };
     }, []);
 
+    // Fetch Cart
     useEffect(() => {
         if (!user) return;
 
         dispatch(fetchCart());
     }, [user, dispatch]);
 
-    // Reusable profile avatar
+    // Reusable Profile Avatar
     const ProfileAvatar = ({ size = "h-9 w-9" }: { size?: string }) => (
         <>
             {profileImage ? (
@@ -190,42 +170,17 @@ function Navbar() {
                             </span>
                         </Link>
 
-                        {/* Delivery Location Component */}
+                        {/* Delivery Location */}
                         <DeliveryLocation />
 
-                        {/* Search */}
-                        <form
-                            onSubmit={handleSearch}
-                            className="hidden min-w-0 flex-1 md:block"
-                        >
-                            <div className="flex h-12 items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 transition focus-within:border-[#0c831f] focus-within:bg-white focus-within:ring-4 focus-within:ring-green-50">
-                                <FiSearch
-                                    size={21}
-                                    className="shrink-0 text-gray-500"
-                                />
-
-                                <input
-                                    ref={searchRef}
-                                    type="text"
-                                    value={search}
-                                    onChange={(e) => setSearch(e.target.value)}
-                                    onFocus={handleSearchBar}
-                                    placeholder="Search for products, brands and more..."
-                                    className="h-full w-full bg-transparent text-sm text-gray-800 outline-none placeholder:text-gray-400"
-                                />
-
-                                {search && (
-                                    <button
-                                        type="button"
-                                        onClick={() => setSearch("")}
-                                        className="shrink-0 text-gray-400 transition hover:text-gray-700"
-                                        aria-label="Clear search"
-                                    >
-                                        <FiX size={18} />
-                                    </button>
-                                )}
-                            </div>
-                        </form>
+                        {/* Desktop Search */}
+                        <div className="hidden min-w-0 flex-1 md:block">
+                            <ProductSearch
+                                value={search}
+                                onChange={setSearch}
+                                placeholder="Search for products, brands and more..."
+                            />
+                        </div>
 
                         {/* Desktop Account Actions */}
                         <div className="hidden shrink-0 items-center gap-3 md:flex">
@@ -347,8 +302,8 @@ function Navbar() {
                                         key={item.href}
                                         href={item.href}
                                         className={`whitespace-nowrap text-sm font-bold transition ${active
-                                            ? "text-[#0c831f]"
-                                            : "text-gray-700 hover:text-[#0c831f]"
+                                                ? "text-[#0c831f]"
+                                                : "text-gray-700 hover:text-[#0c831f]"
                                             }`}
                                     >
                                         {item.label}
@@ -359,36 +314,13 @@ function Navbar() {
                     </div>
 
                     {/* Mobile Search */}
-                    <form
-                        onSubmit={handleSearch}
-                        className="pb-3 md:hidden"
-                    >
-                        <div className="flex h-11 items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 px-3 focus-within:border-[#0c831f]">
-                            <FiSearch
-                                size={19}
-                                className="shrink-0 text-gray-500"
-                            />
-
-                            <input
-                                type="text"
-                                value={search}
-                                onChange={(e) => setSearch(e.target.value)}
-                                placeholder="Search products and brands..."
-                                className="h-full w-full bg-transparent text-sm outline-none placeholder:text-gray-400"
-                            />
-
-                            {search && (
-                                <button
-                                    type="button"
-                                    onClick={() => setSearch("")}
-                                    aria-label="Clear search"
-                                    className="text-gray-400 hover:text-gray-700"
-                                >
-                                    <FiX size={17} />
-                                </button>
-                            )}
-                        </div>
-                    </form>
+                    <div className="pb-3 md:hidden">
+                        <ProductSearch
+                            value={search}
+                            onChange={setSearch}
+                            placeholder="Search products and brands..."
+                        />
+                    </div>
                 </div>
 
                 {/* Mobile Menu */}
@@ -407,8 +339,8 @@ function Navbar() {
                                         href={item.href}
                                         onClick={() => setMobileMenuOpen(false)}
                                         className={`rounded-xl px-4 py-3 text-sm font-bold transition ${active
-                                            ? "bg-green-50 text-[#0c831f]"
-                                            : "text-gray-700 hover:bg-gray-50"
+                                                ? "bg-green-50 text-[#0c831f]"
+                                                : "text-gray-700 hover:bg-gray-50"
                                             }`}
                                     >
                                         {item.label}

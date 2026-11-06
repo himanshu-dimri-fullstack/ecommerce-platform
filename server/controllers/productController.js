@@ -1,12 +1,13 @@
-import Product from "../models/Product.js";
 import { uploadFile } from "../config/cloudinary.js"
 import { destroyFile } from "../config/cloudinary.js"
 import Subcategory from "../models/Subcategory.js";
 import mongoose from "mongoose";
 import Category from "../models/Category.js";
+import { handleResponseError } from "../utils/errorUtils.js";
 import Inventory from "../models/Inventory.js";
 import Store from "../models/Store.js";
-import { handleResponseError } from "../utils/errorUtils.js";
+import Product from "../models/Product.js";
+import ProductVariant from "../models/ProductVariant.js";
 
 export const getAllProducts = async (req, res) => {
     try {
@@ -367,6 +368,217 @@ export const changeStatus = async (req, res) => {
         return res.status(500).json({ message: error.message })
     }
 }
+
+
+
+// SEARCH CATEGORIES AND PRODUCTS
+export const getSearchSuggestions = async (req, res) => {
+    try {
+        const { storeId, q } = req.query;
+
+        // Validate store ID
+        if (!storeId || !mongoose.Types.ObjectId.isValid(storeId)) {
+            return res.status(400).json({
+                success: false,
+                message: "Valid store ID is required"
+            });
+        }
+
+        // Validate search query
+        const searchQuery = String(q || "").trim();
+
+        if (!searchQuery) {
+            return res.status(400).json({
+                success: false,
+                message: "Search query is required"
+            });
+        }
+
+        if (searchQuery.length > 80) {
+            return res.status(400).json({
+                success: false,
+                message: "Search query is too long"
+            });
+        }
+
+        if (searchQuery.length < 2) {
+            return res.status(200).json({
+                success: true,
+                categories: [],
+                products: []
+            });
+        }
+
+        // Check active store
+        const store = await Store.findOne({
+            _id: storeId,
+            status: "active"
+        }).select("_id");
+
+        if (!store) {
+            return res.status(404).json({
+                success: false,
+                message: "Active store not found"
+            });
+        }
+
+        // Escape regex special characters
+        const escapeRegex = (value) =>
+            value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+        const searchRegex = new RegExp(
+            escapeRegex(searchQuery),
+            "i"
+        );
+
+        const storeObjectId = new mongoose.Types.ObjectId(storeId);
+
+        // Get only products available in selected store
+        const availableProducts = await Inventory.aggregate([
+            {
+                $match: {
+                    store: storeObjectId,
+                    status: "active",
+                    availableQuantity: { $gt: 0 }
+                }
+            },
+            {
+                $lookup: {
+                    from: Product.collection.name,
+                    localField: "product",
+                    foreignField: "_id",
+                    as: "product"
+                }
+            },
+            { $unwind: "$product" },
+            {
+                $match: {
+                    "product.isActive": true,
+                    "product.name": searchRegex
+                }
+            },
+            {
+                $lookup: {
+                    from: ProductVariant.collection.name,
+                    localField: "variant",
+                    foreignField: "_id",
+                    as: "variant"
+                }
+            },
+            { $unwind: "$variant" },
+            {
+                $match: {
+                    "variant.status": "active",
+                    $expr: {
+                        $eq: ["$variant.product", "$product._id"]
+                    }
+                }
+            },
+            {
+                $group: {
+                    _id: "$product._id",
+                    product: { $first: "$product" }
+                }
+            },
+            {
+                $lookup: {
+                    from: Category.collection.name,
+                    localField: "product.category",
+                    foreignField: "_id",
+                    as: "category"
+                }
+            },
+            { $unwind: "$category" },
+            {
+                $project: {
+                    _id: "$product._id",
+                    name: "$product.name",
+                    slug: "$product.slug",
+                    images: "$product.images",
+                    category: {
+                        _id: "$category._id",
+                        name: "$category.name",
+                        slug: "$category.slug"
+                    }
+                }
+            },
+            { $sort: { name: 1 } },
+            { $limit: 10 }
+        ]);
+
+        // Get category IDs having available products in this store
+        const availableCategoryIds = await Inventory.aggregate([
+            {
+                $match: {
+                    store: storeObjectId,
+                    status: "active",
+                    availableQuantity: { $gt: 0 }
+                }
+            },
+            {
+                $lookup: {
+                    from: Product.collection.name,
+                    localField: "product",
+                    foreignField: "_id",
+                    as: "product"
+                }
+            },
+            { $unwind: "$product" },
+            {
+                $match: {
+                    "product.isActive": true
+                }
+            },
+            {
+                $lookup: {
+                    from: ProductVariant.collection.name,
+                    localField: "variant",
+                    foreignField: "_id",
+                    as: "variant"
+                }
+            },
+            { $unwind: "$variant" },
+            {
+                $match: {
+                    "variant.status": "active",
+                    $expr: {
+                        $eq: ["$variant.product", "$product._id"]
+                    }
+                }
+            },
+            {
+                $group: {
+                    _id: "$product.category"
+                }
+            }
+        ]);
+
+        const categoryIds = availableCategoryIds.map(
+            (item) => item._id
+        );
+
+        // Search only categories that have available products
+        const categories = await Category.find({
+            _id: { $in: categoryIds },
+            name: searchRegex
+        })
+            .select("_id name slug image")
+            .limit(10)
+            .lean();
+
+        return res.status(200).json({
+            success: true,
+            message: "Search suggestions fetched successfully",
+            categories,
+            products: availableProducts
+        });
+
+    } catch (error) {
+        return handleResponseError(error, res);
+    }
+};
+
+
 
 
 

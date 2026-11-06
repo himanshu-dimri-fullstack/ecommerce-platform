@@ -413,23 +413,26 @@ export default function ShopPage() {
             </section> */}
 
             {/* VALUE PROPOSITION STRIP */}
-            <section className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                     {[
                         {
                             icon: FiTruck,
                             title: "10-Min Express Delivery",
-                            text: "Guaranteed fast doorstep delivery",
+                            text: "Your daily essentials, delivered fast.",
+                            tag: "QUICK DELIVERY",
                         },
                         {
                             icon: FiShield,
-                            title: "Best Quality Assured",
-                            text: "Directly sourced from trusted farms",
+                            title: "Quality You Can Trust",
+                            text: "Carefully selected products, every time.",
+                            tag: "QUALITY ASSURED",
                         },
                         {
                             icon: FiHeadphones,
-                            title: "Instant Support",
-                            text: "24/7 dedicated customer care",
+                            title: "We're Here to Help",
+                            text: "We're just a message away whenever you need us.",
+                            tag: "CUSTOMER SUPPORT",
                         },
                     ].map((item, i) => {
                         const Icon = item.icon;
@@ -437,16 +440,32 @@ export default function ShopPage() {
                         return (
                             <div
                                 key={i}
-                                className="flex items-center gap-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm transition hover:shadow-md"
+                                className="group relative overflow-hidden rounded-2xl border border-green-100/80 bg-linear-to-br from-[#f0fdf4] via-white to-white p-5 transition-all duration-300 hover:-translate-y-1 hover:border-green-200 hover:shadow-[0_12px_35px_rgba(12,131,31,0.09)] sm:p-6"
                             >
-                                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-[#0c831f]">
-                                    <Icon size={22} />
-                                </div>
-                                <div>
-                                    <h3 className="text-xs font-black uppercase tracking-wide text-gray-900">
-                                        {item.title}
-                                    </h3>
-                                    <p className="mt-0.5 text-xs text-gray-500">{item.text}</p>
+                                {/* Background Decoration */}
+                                <div className="absolute -right-8 -top-8 h-28 w-28 rounded-full bg-green-100/40 blur-2xl transition-all duration-500 group-hover:scale-150" />
+
+                                <div className="relative flex items-center gap-4">
+
+                                    {/* Icon */}
+                                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#0c831f] text-white shadow-lg shadow-green-900/15 transition-all duration-300 group-hover:rotate-3 group-hover:scale-105">
+                                        <Icon size={25} strokeWidth={1.8} />
+                                    </div>
+
+                                    {/* Content */}
+                                    <div className="min-w-0">
+                                        <span className="inline-flex rounded-md bg-green-100 px-2 py-1 text-[9px] font-extrabold tracking-[0.12em] text-[#0c831f]">
+                                            {item.tag}
+                                        </span>
+
+                                        <h3 className="mt-2 text-sm font-extrabold tracking-tight text-gray-900 sm:text-base">
+                                            {item.title}
+                                        </h3>
+
+                                        <p className="mt-1 text-xs leading-5 text-gray-500 sm:text-sm">
+                                            {item.text}
+                                        </p>
+                                    </div>
                                 </div>
                             </div>
                         );
