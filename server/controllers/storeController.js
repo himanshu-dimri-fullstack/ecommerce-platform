@@ -175,3 +175,90 @@ export const updateStoreStatus = async (req, res) => {
         return handleResponseError(error, res)
     }
 };
+
+// GET NEAREST STORE
+export const getNearestStore = async (req, res) => {
+    try {
+        const { latitude, longitude } = req.query;
+
+        // VALIDATE COORDINATES
+        if (latitude === undefined || longitude === undefined) {
+            return res.status(400).json({
+                success: false,
+                message: "Latitude and longitude are required"
+            });
+        }
+
+        const lat = Number(latitude);
+        const lng = Number(longitude);
+
+        if (
+            !Number.isFinite(lat) ||
+            !Number.isFinite(lng) ||
+            lat < -90 ||
+            lat > 90 ||
+            lng < -180 ||
+            lng > 180
+        ) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid latitude or longitude"
+            });
+        }
+
+        // FIND NEAREST ACTIVE STORE
+        const stores = await Store.aggregate([
+            {
+                $geoNear: {
+                    near: {
+                        type: "Point",
+                        coordinates: [lng, lat]
+                    },
+                    distanceField: "distance",
+                    spherical: true,
+                    key: "location",
+                    query: {
+                        status: "active"
+                    }
+                }
+            },
+            {
+                // CHECK STORE SERVICE RADIUS
+                $match: {
+                    $expr: {
+                        $lte: [
+                            "$distance",
+                            { $multiply: ["$serviceRadius", 1000] }
+                        ]
+                    }
+                }
+            },
+            {
+                $limit: 1
+            }
+        ]);
+
+        if (!stores.length) {
+            return res.status(404).json({
+                success: false,
+                message: "No store available in your service area"
+            });
+        }
+
+        const nearestStore = stores[0];
+
+        return res.status(200).json({
+            success: true,
+            message: "Nearest store found successfully",
+            store: {
+                ...nearestStore,
+                distanceInKm: Number(
+                    (nearestStore.distance / 1000).toFixed(2)
+                )
+            }
+        });
+
+    } catch (error) {
+        return handleResponseError(error, res);
+    }
+};

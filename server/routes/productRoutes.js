@@ -5,7 +5,8 @@ import {
     getProductById,
     updateProduct,
     deleteProduct,
-    changeStatus
+    changeStatus,
+    getAvailableCategoryProducts
 } from "../controllers/productController.js";
 import { Auth } from "../middlewares/Auth.js";
 import { Permission } from "../middlewares/Permission.js";
@@ -31,5 +32,10 @@ router.put(
 
 router.delete("/delete/:id", Auth, Permission("product:delete"), deleteProduct);
 router.patch("/update/status", changeStatus);
+
+router.get(
+    "/available/category/:categorySlug",
+    getAvailableCategoryProducts
+);
 
 export default router;

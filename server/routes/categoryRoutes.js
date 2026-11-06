@@ -1,5 +1,5 @@
 import express from "express"
-import { createCategory, updateCategory, getCategory, getCategoryBySlug, getCategoryByID, changeCategoryStatus, getCategoryById, deleteCategoryById } from "../controllers/categoryController.js";
+import { createCategory, updateCategory, getCategory, getAvailableStoreCategories, getCategoryByID, changeCategoryStatus, getCategoryById, deleteCategoryById } from "../controllers/categoryController.js";
 import { Auth } from "../middlewares/Auth.js";
 import { Permission } from "../middlewares/Permission.js";
 
@@ -12,5 +12,6 @@ router.get("/get/:id", Auth, Permission("category:read"), getCategoryByID);
 router.patch("/update/status", Auth, changeCategoryStatus);
 router.put("/update/:id", Auth, Permission("category:update"), updateCategory)
 router.delete("/delete/:id", Auth, Permission("category:delete"), deleteCategoryById)
+router.get("/store/:storeId/available", getAvailableStoreCategories);
 
 export default router

@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react";
 import {
     FiSearch,
@@ -9,19 +8,15 @@ import {
     FiCheckCircle,
     FiXCircle,
     FiMapPin,
-    FiPhone,
     FiUsers,
-    FiMap,
-    FiNavigation,
 } from "react-icons/fi";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Navigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { API } from "../../api/axios";
 import DataLoader from "../../components/DataLoader";
 import FormModal from "../../components/store/FormModal";
 import DeleteModal from "../../components/store/DeleteModal";
-import { useDispatch, useSelector } from "react-redux";
-import { Navigate } from "react-router-dom";
+import { useSelector } from "react-redux";
 
 const initialFormData = {
     name: "",
@@ -39,40 +34,34 @@ const inputClass =
 
 const Store = () => {
     const navigate = useNavigate();
+    const user = useSelector((state) => state.auth.user);
 
-    const user = useSelector((store) => store.auth.user)
+    const permissions = user?.role?.permissions || [];
 
     const [dataLoading, setDataLoading] = useState(true);
     const [search, setSearch] = useState("");
+
     const [stores, setStores] = useState([]);
     const [managers, setManagers] = useState([]);
 
     const [showModal, setShowModal] = useState(false);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
-    const [isEdit, setIsEdit] = useState(false);
 
+    const [isEdit, setIsEdit] = useState(false);
     const [editId, setEditId] = useState(null);
     const [deleteId, setDeleteId] = useState(null);
-    const [formData, setFormData] = useState({ ...initialFormData });
 
-    // STATISTICS
-    const totalStores = stores.length;
+    const [formData, setFormData] = useState({
+        ...initialFormData,
+    });
 
-    const activeStores = stores.filter(
-        (store) => store.status === "active"
-    ).length;
-
-    const inactiveStores = stores.filter(
-        (store) => store.status === "inactive"
-    ).length;
-
-    // FETCH ALL STORES
+    // FETCH STORES
     const getAllStores = async () => {
         try {
             const res = await API.get("/store/get");
             setStores(res.data.stores || []);
         } catch (error) {
-            console.error(error);
+            console.error("Get stores error:", error);
             toast.error(
                 error?.response?.data?.message ||
                 "Failed to fetch stores"
@@ -86,9 +75,9 @@ const Store = () => {
     const getAllManagers = async () => {
         try {
             const res = await API.get("/store/user/get/managers");
-            setManagers(
-                res.data.managers)
+            setManagers(res.data.managers || []);
         } catch (error) {
+            console.error("Get managers error:", error);
             toast.error(
                 error?.response?.data?.message ||
                 "Failed to fetch managers"
@@ -103,7 +92,7 @@ const Store = () => {
         setIsEdit(false);
     };
 
-    // FORM CHANGE
+    // HANDLE INPUT CHANGE
     const handleChange = (e) => {
         const { name, value } = e.target;
 
@@ -129,13 +118,20 @@ const Store = () => {
         setFormData({
             name: store.name || "",
             code: store.code || "",
-            manager: store.manager?._id || store.manager || "",
+            manager:
+                store.manager?._id ||
+                store.manager ||
+                "",
             phone: store.phone || "",
             address: store.address || "",
             longitude:
-                coordinates.length === 2 ? String(coordinates[0]) : "",
+                coordinates.length === 2
+                    ? String(coordinates[0])
+                    : "",
             latitude:
-                coordinates.length === 2 ? String(coordinates[1]) : "",
+                coordinates.length === 2
+                    ? String(coordinates[1])
+                    : "",
             serviceRadius: String(store.serviceRadius ?? 10),
         });
 
@@ -169,69 +165,63 @@ const Store = () => {
             return false;
         }
 
+        const radius = Number(formData.serviceRadius);
+
         if (
             formData.serviceRadius === "" ||
-            !Number.isFinite(Number(formData.serviceRadius)) ||
-            Number(formData.serviceRadius) < 0
+            !Number.isFinite(radius) ||
+            radius <= 0
         ) {
             toast.error("Enter a valid service radius");
             return false;
         }
 
-        const hasLongitude = formData.longitude !== "";
-        const hasLatitude = formData.latitude !== "";
-
-        if (hasLongitude !== hasLatitude) {
-            toast.error("Enter both longitude and latitude");
+        // Coordinates are required for nearby-store calculations.
+        if (
+            formData.longitude === "" ||
+            formData.latitude === ""
+        ) {
+            toast.error(
+                "Please select the store location using GPS or map"
+            );
             return false;
         }
 
-        if (hasLongitude && hasLatitude) {
-            const longitude = Number(formData.longitude);
-            const latitude = Number(formData.latitude);
+        const longitude = Number(formData.longitude);
+        const latitude = Number(formData.latitude);
 
-            if (
-                !Number.isFinite(longitude) ||
-                !Number.isFinite(latitude) ||
-                longitude < -180 ||
-                longitude > 180 ||
-                latitude < -90 ||
-                latitude > 90
-            ) {
-                toast.error("Enter valid longitude and latitude");
-                return false;
-            }
+        if (
+            !Number.isFinite(longitude) ||
+            !Number.isFinite(latitude) ||
+            longitude < -180 ||
+            longitude > 180 ||
+            latitude < -90 ||
+            latitude > 90
+        ) {
+            toast.error("Invalid store coordinates");
+            return false;
         }
 
         return true;
     };
 
-    // BUILD STORE PAYLOAD
-    const buildStorePayload = () => {
-        const payload = {
-            name: formData.name.trim(),
-            code: formData.code.trim().toUpperCase(),
-            manager: formData.manager,
-            phone: formData.phone.trim(),
-            address: formData.address.trim(),
-            serviceRadius: Number(formData.serviceRadius),
-        };
+    // BUILD PAYLOAD
+    const buildStorePayload = () => ({
+        name: formData.name.trim(),
+        code: formData.code.trim().toUpperCase(),
+        manager: formData.manager,
+        phone: formData.phone.trim(),
+        address: formData.address.trim(),
+        serviceRadius: Number(formData.serviceRadius),
 
-        if (
-            formData.longitude !== "" &&
-            formData.latitude !== ""
-        ) {
-            payload.location = {
-                type: "Point",
-                coordinates: [
-                    Number(formData.longitude),
-                    Number(formData.latitude),
-                ],
-            };
-        }
-
-        return payload;
-    };
+        location: {
+            type: "Point",
+            coordinates: [
+                Number(formData.longitude),
+                Number(formData.latitude),
+            ],
+        },
+    });
 
     // ADD STORE
     const handleAddStore = async (e) => {
@@ -241,13 +231,14 @@ const Store = () => {
 
         try {
             setDataLoading(true);
+
             const res = await API.post(
                 "/store/add",
                 buildStorePayload()
             );
 
             toast.success(
-                res.data.message
+                res.data.message || "Store added successfully"
             );
 
             setShowModal(false);
@@ -255,12 +246,13 @@ const Store = () => {
 
             await getAllStores();
         } catch (error) {
-            console.error(error);
+            console.error("Add store error:", error);
 
             toast.error(
-                error?.response?.data?.message
+                error?.response?.data?.message ||
+                "Failed to add store"
             );
-        } finally {
+
             setDataLoading(false);
         }
     };
@@ -280,7 +272,7 @@ const Store = () => {
             );
 
             toast.success(
-                res.data.message
+                res.data.message || "Store updated successfully"
             );
 
             setShowModal(false);
@@ -288,12 +280,13 @@ const Store = () => {
 
             await getAllStores();
         } catch (error) {
-            console.error(error);
+            console.error("Update store error:", error);
 
             toast.error(
-                error?.response?.data?.message
+                error?.response?.data?.message ||
+                "Failed to update store"
             );
-        } finally {
+
             setDataLoading(false);
         }
     };
@@ -314,7 +307,7 @@ const Store = () => {
             );
 
             toast.success(
-                res.data.message
+                res.data.message || "Store deleted successfully"
             );
 
             setShowDeleteModal(false);
@@ -322,17 +315,18 @@ const Store = () => {
 
             await getAllStores();
         } catch (error) {
-            console.error(error);
+            console.error("Delete store error:", error);
 
             toast.error(
-                error?.response?.data?.message
+                error?.response?.data?.message ||
+                "Failed to delete store"
             );
-        } finally {
+
             setDataLoading(false);
         }
     };
 
-    // CHANGE STATUS
+    // UPDATE STATUS
     const changeStatus = async (id) => {
         try {
             setDataLoading(true);
@@ -348,59 +342,82 @@ const Store = () => {
 
             await getAllStores();
         } catch (error) {
-            console.error(error);
+            console.error("Update status error:", error);
 
             toast.error(
                 error?.response?.data?.message ||
-                "Failed to change store status"
+                "Failed to update store status"
             );
-        } finally {
+
             setDataLoading(false);
         }
     };
 
-    // SEARCH
+    // SEARCH FILTER
     const filteredStores = stores.filter((store) => {
-        const searchValue = search.toLowerCase();
+        const value = search.toLowerCase();
+
+        const managerName =
+            typeof store.manager === "object"
+                ? `${store.manager?.firstName || ""} ${store.manager?.lastName || ""}`
+                : "";
 
         return (
-            store.name?.toLowerCase().includes(searchValue) ||
-            store.code?.toLowerCase().includes(searchValue) ||
-            store.phone?.toLowerCase().includes(searchValue) ||
-            store.address?.toLowerCase().includes(searchValue)
+            store.name?.toLowerCase().includes(value) ||
+            store.code?.toLowerCase().includes(value) ||
+            store.phone?.toLowerCase().includes(value) ||
+            store.address?.toLowerCase().includes(value) ||
+            managerName.toLowerCase().includes(value)
         );
     });
 
-    // INITIAL FETCH
+    // INITIAL API CALLS
     useEffect(() => {
         getAllStores();
         getAllManagers();
     }, []);
 
-    if (!user?.role.permissions.some((permission) => permission.includes("store"))) {
-        return <Navigate to="/admin/dashboard" replace />
+    // PERMISSION CHECK
+    if (
+        !permissions.some((permission) =>
+            permission.includes("store")
+        )
+    ) {
+        return <Navigate to="/admin/dashboard" replace />;
     }
 
     if (dataLoading) {
         return <DataLoader />;
     }
 
+    // STATISTICS
+    const totalStores = stores.length;
+
+    const activeStores = stores.filter(
+        (store) => store.status === "active"
+    ).length;
+
+    const inactiveStores = stores.filter(
+        (store) => store.status === "inactive"
+    ).length;
+
     return (
         <div className="space-y-6">
-            {/* PAGE HEADER */}
+
+            {/* HEADER */}
             <div>
                 <h1 className="text-2xl font-bold text-slate-800">
                     Store Management
                 </h1>
 
                 <p className="mt-1 text-sm text-slate-500">
-                    Manage stores, managers, locations, service radius and status.
+                    Manage your stores, managers and store locations.
                 </p>
             </div>
 
             {/* STATISTICS */}
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                {/* TOTAL */}
+
                 <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                     <div className="flex items-center justify-between">
                         <div>
@@ -418,7 +435,6 @@ const Store = () => {
                     </div>
                 </div>
 
-                {/* ACTIVE */}
                 <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                     <div className="flex items-center justify-between">
                         <div>
@@ -436,7 +452,6 @@ const Store = () => {
                     </div>
                 </div>
 
-                {/* INACTIVE */}
                 <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                     <div className="flex items-center justify-between">
                         <div>
@@ -453,11 +468,13 @@ const Store = () => {
                         </div>
                     </div>
                 </div>
+
             </div>
 
-            {/* SEARCH + ADD */}
+            {/* SEARCH AND ADD */}
             <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+
                     <div className="relative w-full sm:max-w-md">
                         <FiSearch
                             className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
@@ -473,27 +490,25 @@ const Store = () => {
                         />
                     </div>
 
-                    {
-                        user?.role?.permissions.includes("store:add") &&
-
+                    {permissions.includes("store:add") && (
                         <button
                             type="button"
                             onClick={handleAddModal}
-                            className="flex items-center justify-center gap-2 rounded-xl bg-linear-to-br from-[#064e3b] via-[#047857] to-[#022c22] px-5 py-2.5 text-sm font-semibold text-white transition active:scale-95"
+                            className="flex items-center justify-center gap-2 rounded-xl bg-linear-to-br from-[#064e3b] via-[#047857] to-[#022c22] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#002b4b] active:scale-95"
                         >
                             <FiPlus size={19} />
                             Add Store
                         </button>
-                    }
-
+                    )}
 
                 </div>
             </div>
 
-            {/* STORES TABLE */}
+            {/* STORE TABLE */}
             <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
                 <div className="overflow-x-auto">
-                    <table className="w-full min-w-250">
+                    <table className="w-full min-w-225">
+
                         <thead className="border-b border-slate-200 bg-slate-50">
                             <tr>
                                 {[
@@ -514,8 +529,8 @@ const Store = () => {
                         </thead>
 
                         <tbody className="divide-y divide-slate-100">
-                            {stores.length > 0 ? (
-                                stores.map((store) => (
+                            {filteredStores.length > 0 ? (
+                                filteredStores.map((store) => (
                                     <tr
                                         key={store._id}
                                         className="transition hover:bg-slate-50"
@@ -531,8 +546,9 @@ const Store = () => {
                                                     <p className="font-semibold text-slate-800">
                                                         {store.name}
                                                     </p>
-                                                    <p className="mt-1 text-xs text-slate-400">
-                                                        ID: #{store._id}
+
+                                                    <p className="mt-1 max-w-xs truncate text-xs text-slate-400">
+                                                        {store.address}
                                                     </p>
                                                 </div>
                                             </div>
@@ -552,18 +568,24 @@ const Store = () => {
                                                     className="shrink-0 text-slate-400"
                                                     size={16}
                                                 />
-                                                {/* <span className="text-sm font-medium text-slate-700">
-                                                    {`${store.manager.firstName}` + " " + `${store.manager.lastName}`}
-                                                </span> */}
+
+                                                <span className="text-sm font-medium text-slate-700">
+                                                    {typeof store.manager === "object"
+                                                        ? `${store.manager?.firstName || ""} ${store.manager?.lastName || ""}`.trim() ||
+                                                        store.manager?.email ||
+                                                        "Manager"
+                                                        : "Manager"}
+                                                </span>
                                             </div>
                                         </td>
 
                                         {/* STATUS */}
                                         <td className="px-6 py-4">
                                             <button
-                                                disabled={!(user?.role.permissions.includes("store:status"))}
                                                 type="button"
-                                                onClick={() => changeStatus(store._id)}
+                                                onClick={() =>
+                                                    changeStatus(store._id)
+                                                }
                                                 className={`rounded-lg px-3 py-2 text-xs font-semibold transition ${store.status === "active"
                                                     ? "bg-green-100 text-green-700 hover:bg-green-200"
                                                     : "bg-red-100 text-red-700 hover:bg-red-200"
@@ -575,11 +597,9 @@ const Store = () => {
 
                                         {/* ACTIONS */}
                                         <td className="px-6 py-4">
-
-
                                             <div className="flex items-center gap-2">
-                                                {
-                                                    user?.role?.permissions.includes("store:read") &&
+
+                                                {permissions.includes("store:read") && (
                                                     <button
                                                         type="button"
                                                         title="View Store"
@@ -592,11 +612,9 @@ const Store = () => {
                                                     >
                                                         <FiEye size={18} />
                                                     </button>
+                                                )}
 
-                                                }
-                                                {
-
-                                                    user?.role?.permissions.includes("store:update") &&
+                                                {permissions.includes("store:update") && (
                                                     <button
                                                         type="button"
                                                         title="Edit Store"
@@ -607,12 +625,9 @@ const Store = () => {
                                                     >
                                                         <FiEdit2 size={18} />
                                                     </button>
+                                                )}
 
-                                                }
-
-                                                {
-
-                                                    user?.role?.permissions.includes("store:delete") &&
+                                                {permissions.includes("store:delete") && (
                                                     <button
                                                         type="button"
                                                         title="Delete Store"
@@ -623,9 +638,7 @@ const Store = () => {
                                                     >
                                                         <FiTrash2 size={18} />
                                                     </button>
-
-                                                }
-
+                                                )}
 
                                             </div>
                                         </td>
@@ -634,10 +647,10 @@ const Store = () => {
                             ) : (
                                 <tr>
                                     <td
-                                        colSpan={8}
+                                        colSpan={5}
                                         className="px-6 py-12 text-center"
                                     >
-                                        <FiMap
+                                        <FiMapPin
                                             size={40}
                                             className="mx-auto text-slate-300"
                                         />
@@ -653,11 +666,12 @@ const Store = () => {
                                 </tr>
                             )}
                         </tbody>
+
                     </table>
                 </div>
             </div>
 
-            {/* ADD / EDIT STORE MODAL */}
+            {/* STORE FORM MODAL */}
             {showModal && (
                 <FormModal
                     isEdit={isEdit}
@@ -672,11 +686,14 @@ const Store = () => {
                 />
             )}
 
-            {/* DELETE CONFIRMATION MODAL */}
+            {/* DELETE MODAL */}
             {showDeleteModal && (
-                <DeleteModal setShowDeleteModal={setShowDeleteModal}
-                    handleDeleteStore={handleDeleteStore} />
+                <DeleteModal
+                    setShowDeleteModal={setShowDeleteModal}
+                    handleDeleteStore={handleDeleteStore}
+                />
             )}
+
         </div>
     );
 };

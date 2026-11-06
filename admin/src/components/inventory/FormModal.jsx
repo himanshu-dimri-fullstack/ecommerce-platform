@@ -277,7 +277,6 @@ const FormModal = ({
                                 <input
                                     type="number"
                                     name="quantity"
-                                    min="0"
                                     step="1"
                                     value={formData.quantity}
                                     onChange={handleChange}
@@ -287,13 +286,12 @@ const FormModal = ({
 
                             <div>
                                 <label className="mb-2 block text-sm font-semibold text-slate-700">
-                                    Reserved Quantity
+                                    Reserved Quantity*
                                 </label>
 
                                 <input
                                     type="number"
                                     name="reservedQuantity"
-                                    min="0"
                                     step="1"
                                     value={formData.reservedQuantity}
                                     onChange={handleChange}
@@ -303,13 +301,12 @@ const FormModal = ({
 
                             <div>
                                 <label className="mb-2 block text-sm font-semibold text-slate-700">
-                                    Reorder Level
+                                    Reorder Level*
                                 </label>
 
                                 <input
                                     type="number"
                                     name="reorderLevel"
-                                    min="0"
                                     step="1"
                                     value={formData.reorderLevel}
                                     onChange={handleChange}
@@ -325,7 +322,6 @@ const FormModal = ({
                                 <input
                                     type="number"
                                     name="maxStockLevel"
-                                    min="0"
                                     step="1"
                                     value={formData.maxStockLevel}
                                     onChange={handleChange}

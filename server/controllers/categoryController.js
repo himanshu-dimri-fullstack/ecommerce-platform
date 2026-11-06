@@ -3,6 +3,10 @@ import Category from "../models/Category.js";
 import { destroyFile } from "../config/cloudinary.js"
 import Subcategory from "../models/Subcategory.js";
 import Product from "../models/Product.js"
+import { handleResponseError } from "../utils/errorUtils.js";
+import Store from "../models/Store.js"
+import mongoose from "mongoose";
+import Inventory from "../models/Inventory.js"
 
 
 export const createCategory = async (req, res) => {
@@ -183,3 +187,79 @@ export const changeCategoryStatus = async (req, res) => {
         console.log(error)
     }
 }
+
+export const getAvailableStoreCategories = async (req, res) => {
+    try {
+        const { storeId } = req.params;
+
+        // Validate store ID
+        if (!mongoose.Types.ObjectId.isValid(storeId)) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid store ID"
+            });
+        }
+
+        // Check store
+        const store = await Store.findById(storeId);
+
+        if (!store || store.status !== "active") {
+            return res.status(404).json({
+                success: false,
+                message: "Store not found or inactive"
+            });
+        }
+
+        // Get available inventory
+        const inventories = await Inventory.find({
+            store: storeId,
+            status: "active",
+            availableQuantity: { $gt: 0 }
+        }).select("product");
+
+        // Extract unique product IDs
+        const productIds = [
+            ...new Set(
+                inventories.map(item => item.product.toString())
+            )
+        ];
+
+        if (!productIds.length) {
+            return res.status(200).json({
+                success: true,
+                count: 0,
+                categories: []
+            });
+        }
+
+        // Get active products
+        const products = await Product.find({
+            _id: { $in: productIds },
+            isActive: true
+        }).select("category");
+
+        // Extract unique category IDs
+        const categoryIds = [
+            ...new Set(
+                products.map(item => item.category.toString())
+            )
+        ];
+
+        // Get active and non-deleted categories
+        const categories = await Category.find({
+            _id: { $in: categoryIds },
+            status: "active",
+            isDeleted: { $ne: true }
+        }).sort({ createdAt: -1 });
+
+        return res.status(200).json({
+            success: true,
+            message: "Available store categories fetched successfully",
+            count: categories.length,
+            categories
+        });
+
+    } catch (error) {
+        return handleResponseError(error, res);
+    }
+};

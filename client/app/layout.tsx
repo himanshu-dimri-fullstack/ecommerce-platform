@@ -10,6 +10,7 @@ import { Suspense } from "react";
 import { Toaster } from "react-hot-toast";
 import AuthProvider from "@/components/AuthProvider";
 import LocationGate from "@/components/LocationGate";
+import NearestStoreProvider from "@/components/NearestStoreProvider";
 
 const urbanist = Urbanist({
     subsets: ["latin"],
@@ -31,11 +32,11 @@ export default function RootLayout({
                 <Suspense fallback={<div />}>
                     <ReduxProvider>
                         <AuthProvider>
-                            {/* <LocationGate> */}
-                            <Navbar />
-                            {children}
-                            <Footer />
-                            {/* </LocationGate> */}
+                            <NearestStoreProvider>
+                                <Navbar />
+                                {children}
+                                <Footer />
+                            </NearestStoreProvider>
                         </AuthProvider>
                     </ReduxProvider>
 

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState } from "react";
@@ -8,7 +9,10 @@ import {
     FiSearch,
     FiShoppingBag,
 } from "react-icons/fi";
-import { API } from "@/axios/axios.js"
+
+import { API } from "@/axios/axios.js";
+import { useSelector } from "react-redux";
+import type { RootState } from "@/redux/store";
 
 interface Category {
     _id: string;
@@ -25,15 +29,44 @@ export default function CategoriesPage() {
     const [categories, setCategories] = useState<Category[]>([]);
     const [loading, setLoading] = useState(true);
 
-    const fetchCategories = async () => {
-        const res = await API.get("/category/get")
-        setCategories(res.data.categories)
-        setLoading(false)
-    }
+    const {
+        store: nearestStore,
+        loading: storeLoading,
+    } = useSelector((state: RootState) => state.store);
+
+    const fetchCategories = async (storeId: string) => {
+        try {
+            setLoading(true);
+            setCategories([]);
+
+            const res = await API.get(
+                `/category/store/${storeId}/available`
+            );
+
+            setCategories(res.data.categories || []);
+        } catch (error) {
+            console.error("Failed to fetch available categories:", error);
+            setCategories([]);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     useEffect(() => {
-        fetchCategories()
-    }, [])
+        if (storeLoading) {
+            setCategories([]);
+            setLoading(true);
+            return;
+        }
+
+        if (!nearestStore?._id) {
+            setCategories([]);
+            setLoading(false);
+            return;
+        }
+
+        fetchCategories(nearestStore._id);
+    }, [nearestStore?._id, storeLoading]);
 
     return (
         <main className="min-h-screen bg-[#f8faf8]">
@@ -66,6 +99,7 @@ export default function CategoriesPage() {
                                 className="overflow-hidden rounded-2xl border border-gray-100 bg-white"
                             >
                                 <div className="aspect-16/10 animate-pulse bg-gray-100" />
+
                                 <div className="space-y-3 p-5">
                                     <div className="h-5 w-2/3 animate-pulse rounded bg-gray-100" />
                                     <div className="h-4 w-full animate-pulse rounded bg-gray-100" />
@@ -149,6 +183,10 @@ export default function CategoriesPage() {
                         <h3 className="mt-4 text-lg font-bold text-gray-900">
                             No categories found
                         </h3>
+
+                        <p className="mt-2 text-sm text-gray-500">
+                            No products are currently available in your selected location.
+                        </p>
                     </div>
                 )}
             </section>

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, Suspense, useRef } from "react";
@@ -6,124 +7,179 @@ import Link from "next/link";
 import { API } from "@/axios/axios.js";
 import {
     FiSearch,
-    FiShoppingCart,
-    FiMapPin,
     FiPlus,
-    FiMinus,
-    FiClock,
     FiArrowRight,
-    FiX,
     FiLoader
 } from "react-icons/fi";
 import { useRouter, useSearchParams } from "next/navigation";
-import { addToCart } from "@/redux/cartSlice";
-import { fetchCart, setCart } from "@/redux/cartSlice";
+import { addToCart, fetchCart } from "@/redux/cartSlice";
 import { useDispatch, useSelector } from "react-redux";
 import type { RootState, AppDispatch } from "@/redux/store";
 
-interface Variant {
-    _id: string
-    product: string;
-    name: string;
-    slug: string;
-    unitValue: string;
-    unit: string;
-    sellingPrice: number;
-    mrp: number;
-    images: [
-        {
-            url: string;
-            public_url: string;
-        }
-    ];
-    rating: number;
-}
-
 interface Category {
+    _id: string;
     name: string;
-    image: {
+    image?: {
         url: string;
         public_id: string;
     };
     slug: string;
 }
 
-const theme = "#0c831f";
+interface ProductDetails {
+    _id: string;
+    name: string;
+    slug: string;
+    category: string | {
+        _id: string;
+        name?: string;
+        slug?: string;
+    };
+}
+
+interface Variant {
+    _id: string;
+    product: ProductDetails;
+    name: string;
+    slug: string;
+    unitValue: string;
+    unit: string;
+    sellingPrice: number;
+    mrp: number;
+    images: {
+        url: string;
+        public_url?: string;
+    }[];
+    rating: number;
+    availableQuantity: number;
+    inventoryId: string;
+}
 
 function ProductsPage() {
-    const user = useSelector((store: RootState) => store.auth.user);
+    const user = useSelector((state: RootState) => state.auth.user);
+
+    const {
+        store: nearestStore,
+        loading: storeLoading
+    } = useSelector((state: RootState) => state.store);
+
     const dispatch = useDispatch<AppDispatch>();
 
     const [addingItems, setAddingItems] = useState<string[]>([]);
     const addingItemsRef = useRef(new Set<string>());
 
     const searchParams = useSearchParams();
+    const router = useRouter();
+
     const productSlug = searchParams.get("product");
     const categorySlug = searchParams.get("category");
 
-    const router = useRouter();
-
     const [categories, setCategories] = useState<Category[]>([]);
-    const [selectedCategory, setSelectedCategory] = useState<string>("All");
+    const [selectedCategory, setSelectedCategory] = useState("All");
     const [products, setProducts] = useState<Variant[]>([]);
     const [loading, setLoading] = useState(true);
     const [categoriesLoading, setCategoriesLoading] = useState(true);
 
-    const fetchCategories = async () => {
-        try {
-            const res = await API.get("/category/get");
-            setCategories(res.data.categories);
-        } catch (error) {
-            console.error(error);
-        } finally {
-            setCategoriesLoading(false);
+    // Fetch categories and available inventory of selected store
+    useEffect(() => {
+        if (storeLoading) {
+            setLoading(true);
+            setCategoriesLoading(true);
+            return;
         }
-    };
 
-    const fetchProducts = async (slug: string) => {
-        setLoading(true);
-
-        try {
-            if (productSlug) {
-                const res = await API.get(
-                    `/variant/get?product=${slug}`
-                );
-
-                setProducts(res.data.variants);
-                setSelectedCategory(categorySlug ?? "All");
-            } else if (categorySlug) {
-                const res = await API.get(
-                    `/variant/get?category=${slug}`
-                );
-                setProducts(res.data.variants);
-                setSelectedCategory(categorySlug ?? "All");
-            } else {
-                console.log("my slug", slug);
-                const res = await API.get(
-                    `/variant/get?category=${slug}`
-                );
-                console.log("res", res.data)
-                setProducts(res.data.variants);
-                setSelectedCategory("All");
-            }
-        } catch (error) {
-            console.error(error);
-        } finally {
+        if (!nearestStore?._id) {
+            setCategories([]);
+            setProducts([]);
             setLoading(false);
+            setCategoriesLoading(false);
+            return;
         }
-    };
+
+        let isActive = true;
+
+        const fetchStoreData = async () => {
+            setLoading(true);
+            setCategoriesLoading(true);
+
+            try {
+                const [categoryRes, inventoryRes] = await Promise.all([
+                    API.get(
+                        `/category/store/${nearestStore._id}/available`
+                    ),
+                    API.get(
+                        `/inventory/store/${nearestStore._id}/available`
+                    )
+                ]);
+
+                if (!isActive) return;
+
+                setCategories(categoryRes.data.categories || []);
+                setProducts(inventoryRes.data.variants || []);
+
+            } catch (error) {
+                console.error("Store products fetch error:", error);
+
+                if (isActive) {
+                    setCategories([]);
+                    setProducts([]);
+                }
+            } finally {
+                if (isActive) {
+                    setLoading(false);
+                    setCategoriesLoading(false);
+                }
+            }
+        };
+
+        fetchStoreData();
+
+        return () => {
+            isActive = false;
+        };
+
+    }, [nearestStore?._id, storeLoading]);
+
+    // Keep selected category in sync with URL
+    useEffect(() => {
+        setSelectedCategory(categorySlug || "All");
+    }, [categorySlug]);
+
+    // Filter available variants by product or category
+    const filteredProducts = products.filter((variant) => {
+        if (productSlug) {
+            return variant.product?.slug === productSlug;
+        }
+
+        if (categorySlug) {
+            const selectedCategoryData = categories.find(
+                (category) => category.slug === categorySlug
+            );
+
+            if (!selectedCategoryData) return false;
+
+            const productCategory = variant.product?.category;
+
+            const productCategoryId =
+                typeof productCategory === "object"
+                    ? productCategory?._id
+                    : productCategory;
+
+            return String(productCategoryId) === selectedCategoryData._id;
+        }
+
+        return true;
+    });
 
     const handleCategoryClick = (slug: string) => {
-        // fetchProducts(slug)
-        router.push(`/products?category=${slug}`);
+        if (slug === "All") {
+            router.push("/products");
+        } else {
+            router.push(`/products?category=${slug}`);
+        }
     };
 
-    useEffect(() => {
-        fetchCategories();
-        fetchProducts((productSlug || categorySlug) ?? "All");
-    }, [productSlug, categorySlug]);
-
-    const handleAddToCart = async (product: any) => {
+    const handleAddToCart = async (product: Variant) => {
         if (!user) {
             dispatch(addToCart({
                 productId: product.product._id,
@@ -132,7 +188,7 @@ function ProductsPage() {
                 name: product.name,
                 unitValue: product.unitValue,
                 unit: product.unit,
-                image: product.images[0].url,
+                image: product.images?.[0]?.url || "",
                 sellingPrice: product.sellingPrice,
                 mrp: product.mrp,
                 quantity: 1,
@@ -140,13 +196,12 @@ function ProductsPage() {
             return;
         }
 
-        const productId = product._id;
+        const variantId = product._id;
 
-        // Prevent repeated clicks while the API request is running
-        if (addingItemsRef.current.has(productId)) return;
+        if (addingItemsRef.current.has(variantId)) return;
 
-        addingItemsRef.current.add(productId);
-        setAddingItems((prev) => [...prev, productId]);
+        addingItemsRef.current.add(variantId);
+        setAddingItems((prev) => [...prev, variantId]);
 
         try {
             await API.post("/cart/add", {
@@ -156,20 +211,27 @@ function ProductsPage() {
             });
 
             await dispatch(fetchCart());
-        } catch (error: any) {
+
+        } catch (error) {
             console.error("Failed to add product to cart:", error);
+
         } finally {
-            addingItemsRef.current.delete(productId);
+            addingItemsRef.current.delete(variantId);
 
             setAddingItems((prev) =>
-                prev.filter((id) => id !== productId)
+                prev.filter((id) => id !== variantId)
             );
         }
     };
 
+    const selectedCategoryName =
+        categories.find((category) => category.slug === selectedCategory)?.name
+        || selectedCategory;
+
     return (
         <main className="min-h-screen bg-[#f7f8f7] text-gray-900">
             <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+
                 {/* Categories */}
                 <section className="mb-10">
                     <div className="mb-5">
@@ -183,7 +245,6 @@ function ProductsPage() {
                     </div>
 
                     <div className="flex flex-wrap gap-3">
-                        {/* All Categories */}
                         {categoriesLoading ? (
                             Array.from({ length: 6 }).map((_, index) => (
                                 <div
@@ -196,20 +257,19 @@ function ProductsPage() {
                                 <button
                                     onClick={() => handleCategoryClick("All")}
                                     className={`group rounded-xl border px-5 py-3.5 text-sm font-bold transition-all duration-200 sm:px-6 sm:py-4 sm:text-base ${selectedCategory === "All"
-                                        ? "border-[#0c831f] bg-[#0c831f] text-white shadow-md shadow-green-900/15"
-                                        : "border-gray-200 bg-white text-gray-700 hover:border-[#0c831f]/40 hover:bg-green-50/70 hover:text-[#0c831f]"
+                                            ? "border-[#0c831f] bg-[#0c831f] text-white shadow-md shadow-green-900/15"
+                                            : "border-gray-200 bg-white text-gray-700 hover:border-[#0c831f]/40 hover:bg-green-50/70 hover:text-[#0c831f]"
                                         }`}
                                 >
                                     All
                                     <span
                                         className={`ml-2 inline-block h-1.5 w-1.5 rounded-full ${selectedCategory === "All"
-                                            ? "bg-white"
-                                            : "bg-gray-300 group-hover:bg-[#0c831f]"
+                                                ? "bg-white"
+                                                : "bg-gray-300 group-hover:bg-[#0c831f]"
                                             }`}
                                     />
                                 </button>
 
-                                {/* API Categories */}
                                 {categories.map((category) => {
                                     const isActive =
                                         selectedCategory === category.slug;
@@ -221,16 +281,16 @@ function ProductsPage() {
                                                 handleCategoryClick(category.slug)
                                             }
                                             className={`group rounded-xl border px-5 py-3.5 text-sm font-bold transition-all duration-200 sm:px-6 sm:py-4 sm:text-base ${isActive
-                                                ? "border-[#0c831f] bg-[#0c831f] text-white shadow-md shadow-green-900/15"
-                                                : "border-gray-200 bg-white text-gray-700 hover:border-[#0c831f]/40 hover:bg-green-50/70 hover:text-[#0c831f]"
+                                                    ? "border-[#0c831f] bg-[#0c831f] text-white shadow-md shadow-green-900/15"
+                                                    : "border-gray-200 bg-white text-gray-700 hover:border-[#0c831f]/40 hover:bg-green-50/70 hover:text-[#0c831f]"
                                                 }`}
                                         >
                                             {category.name}
 
                                             <span
                                                 className={`ml-2 inline-block h-1.5 w-1.5 rounded-full ${isActive
-                                                    ? "bg-white"
-                                                    : "bg-gray-300 group-hover:bg-[#0c831f]"
+                                                        ? "bg-white"
+                                                        : "bg-gray-300 group-hover:bg-[#0c831f]"
                                                     }`}
                                             />
                                         </button>
@@ -252,13 +312,13 @@ function ProductsPage() {
                             <h2 className="mt-1 text-2xl font-extrabold sm:text-3xl">
                                 {selectedCategory === "All"
                                     ? "Popular products"
-                                    : selectedCategory}
+                                    : selectedCategoryName}
                             </h2>
 
                             <p className="mt-1 text-sm text-gray-500">
                                 {loading
                                     ? "Loading products..."
-                                    : `${products?.length} products available`}
+                                    : `${filteredProducts.length} products available`}
                             </p>
                         </div>
                     </div>
@@ -289,31 +349,39 @@ function ProductsPage() {
                                 </div>
                             ))}
                         </div>
-                    ) : products?.length > 0 ? (
+                    ) : filteredProducts.length > 0 ? (
                         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-5 lg:grid-cols-4 xl:grid-cols-5">
-                            {products.map((product: any) => {
+                            {filteredProducts.map((product) => {
                                 const isAdding = addingItems.includes(product._id);
-                                const discount = Math.round(
-                                    ((product.mrp - product.sellingPrice) /
-                                        product.mrp) *
-                                    100
-                                );
+
+                                const discount = product.mrp > 0
+                                    ? Math.round(
+                                        ((product.mrp - product.sellingPrice) /
+                                            product.mrp) * 100
+                                    )
+                                    : 0;
 
                                 return (
                                     <Link
                                         href={`/products/${product.slug}`}
-                                        key={product.slug}
+                                        key={product._id}
                                         className="group overflow-hidden rounded-2xl border border-gray-100 bg-white transition duration-200 hover:-translate-y-1 hover:border-green-100 hover:shadow-lg"
                                     >
                                         <div className="relative m-2 overflow-hidden rounded-xl bg-gray-50">
                                             <div className="relative aspect-square">
-                                                <Image
-                                                    src={product.images[0].url}
-                                                    alt={product.name}
-                                                    fill
-                                                    sizes="(max-width: 640px) 45vw, (max-width: 1024px) 30vw, 220px"
-                                                    className="object-cover transition duration-300 group-hover:scale-105"
-                                                />
+                                                {product.images?.[0]?.url ? (
+                                                    <Image
+                                                        src={product.images[0].url}
+                                                        alt={product.name}
+                                                        fill
+                                                        sizes="(max-width: 640px) 45vw, (max-width: 1024px) 30vw, 220px"
+                                                        className="object-cover transition duration-300 group-hover:scale-105"
+                                                    />
+                                                ) : (
+                                                    <div className="flex h-full items-center justify-center">
+                                                        <span className="text-3xl">🛍️</span>
+                                                    </div>
+                                                )}
                                             </div>
 
                                             {discount > 0 && (
@@ -377,6 +445,10 @@ function ProductsPage() {
                             <h3 className="mt-4 text-lg font-bold">
                                 No products found
                             </h3>
+
+                            <p className="mt-2 text-sm text-gray-500">
+                                No products are currently available at your selected store.
+                            </p>
                         </div>
                     )}
                 </section>
@@ -386,18 +458,15 @@ function ProductsPage() {
                     {[
                         {
                             title: "Fresh & quality",
-                            description:
-                                "Carefully selected everyday essentials",
+                            description: "Carefully selected everyday essentials",
                         },
                         {
                             title: "Quick delivery",
-                            description:
-                                "Get your groceries without the wait",
+                            description: "Get your groceries without the wait",
                         },
                         {
                             title: "Great prices",
-                            description:
-                                "Everyday savings on daily essentials",
+                            description: "Everyday savings on daily essentials",
                         },
                     ].map((item) => (
                         <div

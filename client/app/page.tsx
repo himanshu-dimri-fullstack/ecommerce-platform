@@ -151,6 +151,9 @@ function ProductSkeleton() {
 
 export default function ShopPage() {
     const user = useSelector((store: RootState) => store.auth.user);
+    const { store: nearestStore, loading: storeLoading } = useSelector(
+        (state: RootState) => state.store
+    );
     const dispatch = useDispatch<AppDispatch>();
     const [categories, setCategories] = useState<Category[]>([]);
     const [products, setProducts] = useState<Product[]>([]);
@@ -165,20 +168,42 @@ export default function ShopPage() {
     const [banners, setBanners] = useState([])
     // console.log("banners", banners)
 
-    const fetchCategories = async () => {
+    const fetchCategories = async (storeId: string) => {
         try {
-            const res = await API.get("/category/get");
-            setCategories(res.data.categories);
+            setCategoriesLoading(true);
+
+            const res = await API.get(
+                `/category/store/${storeId}/available`
+            );
+
+            setCategories(res.data.categories || []);
+        } catch (error) {
+            console.error("Categories fetch error:", error);
+            setCategories([]);
         } finally {
             setCategoriesLoading(false);
         }
     };
+    // const fetchProducts = async () => {
+    //     try {
+    //         const res = await API.get("/variant/get");
+    //         console.log(res);
+    //         setProducts(res.data.variants);
+    //     } finally {
+    //         setProductsLoading(false);
+    //     }
+    // };
 
-    const fetchProducts = async () => {
+    const fetchProducts = async (storeId: string) => {
         try {
-            const res = await API.get("/variant/get");
-            console.log(res);
+            const res = await API.get(
+                `/inventory/store/${storeId}/available`
+            );
+
             setProducts(res.data.variants);
+        } catch (error) {
+            console.error("Failed to fetch store products:", error);
+            setProducts([]);
         } finally {
             setProductsLoading(false);
         }
@@ -252,10 +277,26 @@ export default function ShopPage() {
     };
 
     useEffect(() => {
-        fetchCategories();
-        fetchProducts();
-        getBanners()
+        getBanners();
     }, []);
+
+    useEffect(() => {
+        if (storeLoading) {
+            setCategoriesLoading(true);
+            setProductsLoading(true);
+            return;
+        }
+
+        if (nearestStore?._id) {
+            fetchCategories(nearestStore._id);
+            fetchProducts(nearestStore._id);
+        } else {
+            setCategories([]);
+            setProducts([]);
+            setCategoriesLoading(false);
+            setProductsLoading(false);
+        }
+    }, [nearestStore?._id, storeLoading]);
 
     return (
         <main className="min-h-screen bg-[#F8FAF9] pb-20 text-gray-900">

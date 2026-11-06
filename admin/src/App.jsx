@@ -29,6 +29,7 @@ import Banner from "./pages/banner/Banner"
 import BannerDetail from "./pages/banner/BannerDetail"
 import Order from "./pages/order/Order"
 import OrderDetail from "./pages/order/OrderDetail"
+import StoreInventory from "./pages/inventory/StoreInventory"
 
 const App = () => {
   return (
@@ -58,11 +59,15 @@ const App = () => {
           <Route path="/admin/stores" element={<Store />} />
           <Route path="/admin/stores/:id" element={<StoreDetail />} />
           <Route path="/admin/inventory" element={<Inventory />} />
-          <Route path="/admin/inventory/:id" element={<InventoryDetail />} />
+          <Route path="/admin/inventory/store/:storeId/details/:inventoryId" element={<InventoryDetail />} />
           <Route path="/admin/banner" element={<Banner />} />
           <Route path="/admin/banner/:id" element={<BannerDetail />} />
           <Route path="/admin/orders" element={<Order />} />
           <Route path="/admin/orders/:id" element={<OrderDetail />} />
+          <Route
+            path="/admin/inventory/store/:storeId"
+            element={<StoreInventory />}
+          />
         </Route>
       </Routes>
       <ToastContainer />

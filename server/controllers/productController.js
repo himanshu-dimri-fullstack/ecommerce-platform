@@ -2,6 +2,11 @@ import Product from "../models/Product.js";
 import { uploadFile } from "../config/cloudinary.js"
 import { destroyFile } from "../config/cloudinary.js"
 import Subcategory from "../models/Subcategory.js";
+import mongoose from "mongoose";
+import Category from "../models/Category.js";
+import Inventory from "../models/Inventory.js";
+import Store from "../models/Store.js";
+import { handleResponseError } from "../utils/errorUtils.js";
 
 export const getAllProducts = async (req, res) => {
     try {
@@ -362,3 +367,77 @@ export const changeStatus = async (req, res) => {
         return res.status(500).json({ message: error.message })
     }
 }
+
+
+
+
+export const getAvailableCategoryProducts = async (req, res) => {
+    try {
+        const { categorySlug } = req.params;
+        const { storeId } = req.query;
+
+        // Validate store ID
+        if (!mongoose.Types.ObjectId.isValid(storeId)) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid store ID"
+            });
+        }
+
+        // Find category
+        const category = await Category.findOne({
+            slug: categorySlug,
+            status: "active",
+            isDeleted: { $ne: true }
+        });
+
+        if (!category) {
+            return res.status(404).json({
+                success: false,
+                message: "Category not found"
+            });
+        }
+
+        // Check store
+        const store = await Store.findOne({
+            _id: storeId,
+            status: "active"
+        });
+
+        if (!store) {
+            return res.status(404).json({
+                success: false,
+                message: "Store not found or inactive"
+            });
+        }
+
+        // Get available inventory
+        const inventories = await Inventory.find({
+            store: storeId,
+            status: "active",
+            availableQuantity: { $gt: 0 }
+        }).distinct("product");
+
+        // Fetch products belonging to this category
+        const products = await Product.find({
+            _id: { $in: inventories },
+            category: category._id,
+            isActive: true
+        })
+            .populate("category", "name slug")
+            .populate("subcategory", "name slug")
+            .populate("brand", "name")
+            .sort({ createdAt: -1 });
+
+        return res.status(200).json({
+            success: true,
+            message: "Available category products fetched successfully",
+            category,
+            count: products.length,
+            products
+        });
+
+    } catch (error) {
+        return handleResponseError(error, res);
+    }
+};

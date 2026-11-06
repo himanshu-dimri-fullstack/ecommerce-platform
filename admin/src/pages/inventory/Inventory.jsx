@@ -1,367 +1,94 @@
 import React, { useEffect, useState } from "react";
 import {
     FiSearch,
-    FiPlus,
-    FiEye,
-    FiEdit2,
-    FiTrash2,
+    FiRefreshCw,
+    FiLayers,
+    FiPackage,
     FiCheckCircle,
     FiXCircle,
-    FiPackage,
     FiAlertTriangle,
-    FiX,
-    FiRefreshCw,
+    FiArrowRight,
     FiBox,
-    FiLayers,
 } from "react-icons/fi";
 import { toast } from "react-toastify";
 import { API } from "../../api/axios";
 import DataLoader from "../../components/DataLoader";
 import { useSelector } from "react-redux";
 import { Navigate, useNavigate } from "react-router-dom";
-import DeleteModal from "../../components/inventory/DeleteModal";
-import FormModal from "../../components/inventory/FormModal";
-
-const initialFormData = {
-    store: "",
-    product: "",
-    variant: "",
-    quantity: "",
-    reservedQuantity: "",
-    reorderLevel: "",
-    maxStockLevel: "",
-};
 
 const inputClass =
     "w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm outline-none transition focus:border-[#003963] focus:bg-white focus:ring-2 focus:ring-[#003963]/10";
 
 const Inventory = () => {
     const user = useSelector((store) => store.auth.user);
-    const navigate = useNavigate()
+    const navigate = useNavigate();
+
     const [dataLoading, setDataLoading] = useState(true);
+    const [stores, setStores] = useState([]);
     const [search, setSearch] = useState("");
-    const [inventories, setInventories] = useState([]);
 
-    const [showModal, setShowModal] = useState(false);
-    const [showDeleteModal, setShowDeleteModal] = useState(false);
-
-    const [isEdit, setIsEdit] = useState(false);
-    const [editId, setEditId] = useState(null);
-    const [deleteId, setDeleteId] = useState(null);
-    const [selectedInventory, setSelectedInventory] = useState(null);
-
-    const [formData, setFormData] = useState({ ...initialFormData });
-
-    // STATISTICS
-    const totalInventory = inventories.length;
-
-    const activeInventory = inventories.filter(
-        (item) => item.status === "active"
-    ).length;
-
-    const inactiveInventory = inventories.filter(
-        (item) => item.status === "inactive"
-    ).length;
-
-    const lowStockInventory = inventories.filter(
-        (item) =>
-            item.status === "active" &&
-            Number(item.availableQuantity) <= Number(item.reorderLevel)
-    ).length;
-
-    // FETCH ALL INVENTORY
-    const getAllInventory = async () => {
+    // FETCH STORES WITH INVENTORY SUMMARY
+    const getAllStores = async () => {
         try {
-            const res = await API.get("/inventory/get")
-
-            setInventories(
-                res.data.inventories || []
-            );
+            const res = await API.get("/inventory/get");
+            setStores(res.data.stores || []);
         } catch (error) {
             console.error(error);
-
             toast.error(
                 error?.response?.data?.message ||
-                "Failed to fetch inventory"
+                "Failed to fetch store inventory"
             );
         } finally {
             setDataLoading(false);
         }
     };
 
-    // RESET FORM
-    const resetForm = () => {
-        setFormData({ ...initialFormData });
-        setEditId(null);
-        setIsEdit(false);
-    };
-
-    // FORM CHANGE
-    const handleChange = (e) => {
-        const { name, value } = e.target;
-
-        setFormData((prev) => ({
-            ...prev,
-            [name]: value,
-        }));
-    };
-
-    // OPEN ADD MODAL
-    const handleAddModal = () => {
-        resetForm();
-        setShowModal(true);
-    };
-
-    // OPEN EDIT MODAL
-    const handleEditModal = (inventory) => {
-        setEditId(inventory._id);
-        setIsEdit(true);
-
-        setFormData({
-            store: inventory.store._id,
-            product: inventory.product._id,
-            variant: inventory.variant._id,
-            quantity: inventory.quantity,
-            reservedQuantity: inventory.reservedQuantity,
-            reorderLevel: inventory.reorderLevel,
-            maxStockLevel: inventory.maxStockLevel || inventory.quantity,
-        });
-
-        setShowModal(true);
-    };
-
-    // VALIDATE FORM
-    const validateForm = () => {
-
-        const quantity = Number(formData.quantity);
-        const reservedQuantity = Number(formData.reservedQuantity);
-        const reorderLevel = Number(formData.reorderLevel);
-        const maxStockLevel = Number(formData.maxStockLevel);
-
-        const values = [
-            quantity,
-            reservedQuantity,
-            reorderLevel,
-            maxStockLevel,
-        ];
-
-        if (
-            values.some(
-                (value) =>
-                    !Number.isFinite(value) ||
-                    value < 0 ||
-                    !Number.isInteger(value)
-            )
-        ) {
-            toast.error("Stock quantities must be valid non-negative integers");
-            return false;
-        }
-
-        if (reservedQuantity > quantity) {
-            toast.error(
-                "Reserved quantity cannot exceed total quantity"
-            );
-            return false;
-        }
-        if (reorderLevel > reservedQuantity) {
-            toast.error(
-                "Reorder level cannot exceed reserved quantity"
-            );
-            return false;
-        }
-        if (maxStockLevel < quantity) {
-            toast.error(
-                "Maximum stock level cannot be less than total quantity"
-            );
-            return false;
-        }
-
-        return true;
-    };
-
-    // BUILD INVENTORY PAYLOAD
-    const buildPayload = () => {
-        const quantity = Number(formData.quantity);
-        const reservedQuantity = Number(formData.reservedQuantity);
-
-        return {
-            store: formData.store,
-            product: formData.product,
-            variant: formData.variant,
-            quantity,
-            reservedQuantity,
-            reorderLevel: Number(formData.reorderLevel),
-            maxStockLevel: Number(formData.maxStockLevel),
-        };
-    };
-
-    // ADD INVENTORY
-    const handleAddInventory = async (e) => {
-        e.preventDefault();
-
-        if (!validateForm()) return;
-
-        try {
-            setDataLoading(true);
-
-            const res = await API.post(
-                "/inventory/add",
-                buildPayload()
-            );
-
-            toast.success(
-                res.data.message || "Inventory created successfully"
-            );
-
-            setShowModal(false);
-            resetForm();
-
-            await getAllInventory();
-        } catch (error) {
-            console.error(error);
-
-            toast.error(
-                error?.response?.data?.message ||
-                "Failed to create inventory"
-            );
-        } finally {
-            setDataLoading(false);
-        }
-    };
-
-    // UPDATE INVENTORY
-    const handleEditInventory = async (e) => {
-        e.preventDefault();
-
-        if (!validateForm()) return;
-
-        try {
-            setDataLoading(true);
-
-            const res = await API.put(
-                `/inventory/update/${editId}`,
-                buildPayload()
-            );
-
-            toast.success(
-                res.data.message || "Inventory updated successfully"
-            );
-
-            setShowModal(false);
-            resetForm();
-
-            await getAllInventory();
-        } catch (error) {
-            console.error(error);
-
-            toast.error(
-                error?.response?.data?.message ||
-                "Failed to update inventory"
-            );
-        } finally {
-            setDataLoading(false);
-        }
-    };
-
-    // OPEN DELETE MODAL
-    const handleDeleteModal = (id) => {
-        setDeleteId(id);
-        setShowDeleteModal(true);
-    };
-
-    // DELETE INVENTORY
-    const handleDeleteInventory = async () => {
-        try {
-            setDataLoading(true);
-
-            const res = await API.delete(
-                `/inventory/delete/${deleteId}`
-            );
-
-            toast.success(
-                res.data.message || "Inventory deleted successfully"
-            );
-
-            setShowDeleteModal(false);
-            setDeleteId(null);
-
-            await getAllInventory();
-        } catch (error) {
-            console.error(error);
-
-            toast.error(
-                error?.response?.data?.message ||
-                "Failed to delete inventory"
-            );
-        } finally {
-            setDataLoading(false);
-        }
-    };
-
-    // CHANGE STATUS
-    const changeStatus = async (inventory) => {
-        try {
-            setDataLoading(true);
-
-            const res = await API.patch(
-                `/inventory/update/status/${inventory._id}`)
-
-            toast.success(
-                res.data.message || "Inventory status updated"
-            );
-
-            await getAllInventory();
-        } catch (error) {
-            console.error(error);
-
-            toast.error(
-                error?.response?.data?.message ||
-                "Failed to change inventory status"
-            );
-        } finally {
-            setDataLoading(false);
-        }
+    // REFRESH
+    const handleRefresh = async () => {
+        setDataLoading(true);
+        await getAllStores();
     };
 
     // SEARCH
-    const filteredInventory = inventories.filter((item) => {
+    const filteredStores = stores.filter((store) => {
         const searchValue = search.toLowerCase();
 
-        const storeName =
-            typeof item.store === "object"
-                ? item.store?.name || ""
-                : "";
-
-        const productName =
-            typeof item.product === "object"
-                ? item.product?.name || ""
-                : "";
-
-        const variantName =
-            typeof item.variant === "object"
-                ? item.variant?.name || item.variant?.sku || ""
-                : "";
-
         return (
-            storeName.toLowerCase().includes(searchValue) ||
-            productName.toLowerCase().includes(searchValue) ||
-            variantName.toLowerCase().includes(searchValue) ||
-            String(item.store?._id || item.store || "")
-                .toLowerCase()
-                .includes(searchValue) ||
-            String(item.product?._id || item.product || "")
-                .toLowerCase()
-                .includes(searchValue) ||
-            String(item.variant?._id || item.variant || "")
-                .toLowerCase()
-                .includes(searchValue) ||
-            item.status?.toLowerCase().includes(searchValue)
+            store.name?.toLowerCase().includes(searchValue) ||
+            store.code?.toLowerCase().includes(searchValue) ||
+            store.address?.toLowerCase().includes(searchValue)
         );
     });
 
+    // STATISTICS
+    const totalStores = stores.length;
+
+    const totalProducts = stores.reduce(
+        (total, store) =>
+            total + Number(store.summary?.totalProducts || 0),
+        0
+    );
+
+    const activeProducts = stores.reduce(
+        (total, store) =>
+            total + Number(store.summary?.activeProducts || 0),
+        0
+    );
+
+    const lowStockItems = stores.reduce(
+        (total, store) =>
+            total + Number(store.summary?.lowStockItems || 0),
+        0
+    );
+
+    // OPEN STORE INVENTORY
+    const handleStoreClick = (storeId) => {
+        navigate(`/admin/inventory/store/${storeId}`);
+    };
+
     // INITIAL FETCH
     useEffect(() => {
-        getAllInventory();
+        getAllStores();
     }, []);
 
     // PERMISSION
@@ -388,68 +115,76 @@ const Inventory = () => {
                     </h1>
 
                     <p className="mt-1 text-sm text-slate-500">
-                        Manage store stock, reserved quantities and stock levels.
+                        Select a store to manage its products and stock.
                     </p>
                 </div>
 
+                <button
+                    type="button"
+                    onClick={handleRefresh}
+                    className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 shadow-sm transition hover:bg-slate-50"
+                >
+                    <FiRefreshCw size={17} />
+                    Refresh
+                </button>
             </div>
 
             {/* STATISTICS */}
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
 
-                {/* TOTAL */}
+                {/* TOTAL STORES */}
                 <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                     <div className="flex items-center justify-between">
                         <div>
                             <p className="text-sm font-medium text-slate-500">
-                                Total Inventory
+                                Total Stores
                             </p>
 
                             <h2 className="mt-2 text-3xl font-bold text-slate-800">
-                                {totalInventory}
+                                {totalStores}
                             </h2>
                         </div>
 
                         <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-[#003963]">
+                            <FiLayers size={24} />
+                        </div>
+                    </div>
+                </div>
+
+                {/* TOTAL PRODUCTS */}
+                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <p className="text-sm font-medium text-slate-500">
+                                Total Inventory Items
+                            </p>
+
+                            <h2 className="mt-2 text-3xl font-bold text-slate-800">
+                                {totalProducts}
+                            </h2>
+                        </div>
+
+                        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
                             <FiPackage size={24} />
                         </div>
                     </div>
                 </div>
 
-                {/* ACTIVE */}
+                {/* ACTIVE PRODUCTS */}
                 <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                     <div className="flex items-center justify-between">
                         <div>
                             <p className="text-sm font-medium text-slate-500">
-                                Active Inventory
+                                Active Items
                             </p>
 
                             <h2 className="mt-2 text-3xl font-bold text-green-600">
-                                {activeInventory}
+                                {activeProducts}
                             </h2>
                         </div>
 
                         <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-green-50 text-green-600">
                             <FiCheckCircle size={24} />
-                        </div>
-                    </div>
-                </div>
-
-                {/* INACTIVE */}
-                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-sm font-medium text-slate-500">
-                                Inactive Inventory
-                            </p>
-
-                            <h2 className="mt-2 text-3xl font-bold text-red-500">
-                                {inactiveInventory}
-                            </h2>
-                        </div>
-
-                        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-red-50 text-red-500">
-                            <FiXCircle size={24} />
                         </div>
                     </div>
                 </div>
@@ -463,7 +198,7 @@ const Inventory = () => {
                             </p>
 
                             <h2 className="mt-2 text-3xl font-bold text-amber-600">
-                                {lowStockInventory}
+                                {lowStockItems}
                             </h2>
                         </div>
 
@@ -474,241 +209,158 @@ const Inventory = () => {
                 </div>
             </div>
 
-            {/* SEARCH + ADD */}
+            {/* SEARCH */}
             <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="relative w-full sm:max-w-md">
+                    <FiSearch
+                        className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                        size={19}
+                    />
 
-                    <div className="relative w-full sm:max-w-md">
-                        <FiSearch
-                            className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-                            size={19}
-                        />
+                    <input
+                        type="text"
+                        placeholder="Search store by name, code or address..."
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        className={`${inputClass} pl-10`}
+                    />
+                </div>
+            </div>
 
-                        <input
-                            type="text"
-                            placeholder="Search store, product, variant or status..."
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                            className={`${inputClass} pl-10`}
-                        />
+            {/* STORE LIST */}
+            <div>
+                <div className="mb-4 flex items-center justify-between">
+                    <div>
+                        <h2 className="text-lg font-bold text-slate-800">
+                            Your Stores
+                        </h2>
+
+                        <p className="mt-1 text-sm text-slate-500">
+                            Choose a store to view its inventory.
+                        </p>
                     </div>
 
-                    {user?.role?.permissions?.includes("inventory:add") && (
-                        <button
-                            type="button"
-                            onClick={handleAddModal}
-                            className="flex items-center justify-center gap-2 rounded-xl bg-linear-to-br from-[#064e3b] via-[#047857] to-[#022c22] px-5 py-2.5 text-sm font-semibold text-white transition active:scale-95"
-                        >
-                            <FiPlus size={19} />
-                            Add Inventory
-                        </button>
-                    )}
+                    <span className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-600">
+                        {filteredStores.length} Stores
+                    </span>
                 </div>
-            </div>
 
-            {/* INVENTORY TABLE */}
-            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-                <div className="overflow-x-auto">
-                    <table className="w-full min-w-full">
-                        <thead className="border-b border-slate-200 bg-slate-50">
-                            <tr>
-                                {[
-                                    "Store",
-                                    "Variant",
-                                    "Status",
-                                    "Actions",
-                                ].map((heading) => (
-                                    <th
-                                        key={heading}
-                                        className="whitespace-nowrap px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500"
+                {filteredStores.length > 0 ? (
+                    <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+
+                        {filteredStores.map((store) => (
+                            <div
+                                key={store._id}
+                                onClick={() => handleStoreClick(store._id)}
+                                className="group cursor-pointer rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition duration-200 hover:-translate-y-1 hover:border-[#003963]/30 hover:shadow-lg"
+                            >
+                                {/* STORE HEADER */}
+                                <div className="flex items-start justify-between">
+                                    <div className="flex min-w-0 items-center gap-3">
+                                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-[#003963] transition group-hover:bg-linear-to-br from-[#064e3b] via-[#047857] to-[#022c22] group-hover:text-white">
+                                            <FiLayers size={23} />
+                                        </div>
+
+                                        <div className="min-w-0">
+                                            <h3 className="truncate text-base font-bold text-slate-800">
+                                                {store.name}
+                                            </h3>
+
+                                            <p className="mt-1 text-xs font-medium text-slate-400">
+                                                Code: {store.code || "—"}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <span
+                                        className={`rounded-full px-2.5 py-1 text-xs font-semibold ${store.status === "active"
+                                            ? "bg-green-50 text-green-700"
+                                            : "bg-red-50 text-red-600"
+                                            }`}
                                     >
-                                        {heading}
-                                    </th>
-                                ))}
-                            </tr>
-                        </thead>
+                                        {store.status || "inactive"}
+                                    </span>
+                                </div>
 
-                        <tbody className="divide-y divide-slate-100">
-                            {filteredInventory.length > 0 ? (
-                                filteredInventory.map((item) => {
-                                    const storeName =
-                                        typeof item.store === "object"
-                                            ? item.store?.name
-                                            : null;
+                                {/* ADDRESS */}
+                                <p className="mt-4 min-h-10 text-sm leading-5 text-slate-500">
+                                    {store.address || "No address available"}
+                                </p>
 
-                                    const productName =
-                                        typeof item.product === "object"
-                                            ? item.product?.name
-                                            : null;
-
-                                    const variantName =
-                                        typeof item.variant === "object"
-                                            ? item.variant?.name ||
-                                            item.variant?.sku
-                                            : null;
-
-                                    const isLowStock =
-                                        Number(item.availableQuantity) <=
-                                        Number(item.reorderLevel);
-
-                                    return (
-                                        <tr
-                                            key={item._id}
-                                            className="transition hover:bg-slate-50"
-                                        >
-                                            {/* STORE */}
-                                            <td className="px-3 py-3">
-                                                <div className="flex items-center gap-2">
-                                                    <FiLayers
-                                                        className="shrink-0 text-[#003963]"
-                                                        size={17}
-                                                    />
-
-                                                    <div className="min-w-0">
-                                                        <p className="font-semibold text-slate-800">
-                                                            {storeName || "Store"}
-                                                        </p>
-
-                                                        <p className="mt-1 truncate text-xs text-slate-400">
-                                                            {String(
-                                                                item.store?._id ||
-                                                                item.store ||
-                                                                "—"
-                                                            )}
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                            </td>
-
-                                            {/* VARIANT */}
-                                            <td className="px-3 py-3">
-                                                <p className="font-medium text-slate-700">
-                                                    {variantName || "Variant"}
-                                                </p>
-
-                                                <p className="mt-1 truncate text-xs text-slate-400">
-                                                    {String(
-                                                        item.variant?._id ||
-                                                        item.variant ||
-                                                        "—"
-                                                    )}
-                                                </p>
-                                            </td>
-
-                                            {/* STATUS */}
-                                            <td className="px-3 py-3">
-                                                <button
-                                                    disabled={!(user?.role.permissions.includes("inventory:status"))}
-                                                    type="button"
-                                                    onClick={() => changeStatus(item)}
-                                                    className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold transition ${item.status === "active"
-                                                        ? "bg-green-100 text-green-700 hover:bg-green-200"
-                                                        : "bg-red-100 text-red-700 hover:bg-red-200"
-                                                        }`}
-                                                >
-                                                    {item.status || "inactive"}
-                                                </button>
-                                            </td>
-
-                                            {/* ACTIONS */}
-                                            <td className="px-3 py-3">
-                                                <div className="flex items-center gap-1">
-                                                    {user?.role?.permissions?.includes(
-                                                        "inventory:read"
-                                                    ) && (
-
-                                                            <button
-                                                                type="button"
-                                                                title="View Inventory"
-                                                                onClick={() =>
-                                                                    navigate(
-                                                                        `/admin/inventory/${item._id}`
-                                                                    )
-                                                                }
-                                                                className="rounded-lg p-1.5 text-blue-600 transition hover:bg-blue-50"
-                                                            >
-                                                                <FiEye size={17} />
-                                                            </button>
-                                                        )}
-
-                                                    {user?.role?.permissions?.includes(
-                                                        "inventory:update"
-                                                    ) && (
-                                                            <button
-                                                                type="button"
-                                                                title="Edit Inventory"
-                                                                onClick={() => handleEditModal(item)}
-                                                                className="rounded-lg p-1.5 text-amber-600 transition hover:bg-amber-50"
-                                                            >
-                                                                <FiEdit2 size={17} />
-                                                            </button>
-                                                        )}
-
-                                                    {user?.role?.permissions?.includes(
-                                                        "inventory:delete"
-                                                    ) && (
-                                                            <button
-                                                                type="button"
-                                                                title="Delete Inventory"
-                                                                onClick={() =>
-                                                                    handleDeleteModal(item._id)
-                                                                }
-                                                                className="rounded-lg p-1.5 text-red-500 transition hover:bg-red-50"
-                                                            >
-                                                                <FiTrash2 size={17} />
-                                                            </button>
-                                                        )}
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    );
-                                })
-                            ) : (
-                                <tr>
-                                    <td
-                                        colSpan={4}
-                                        className="px-4 py-10 text-center"
-                                    >
-                                        <FiBox
-                                            size={40}
-                                            className="mx-auto text-slate-300"
-                                        />
-
-                                        <p className="mt-3 font-medium text-slate-600">
-                                            No inventory found
+                                {/* SUMMARY */}
+                                <div className="mt-5 grid grid-cols-2 gap-3">
+                                    <div className="rounded-xl bg-slate-50 p-3">
+                                        <p className="text-xs font-medium text-slate-500">
+                                            Total Items
                                         </p>
 
-                                        <p className="mt-1 text-sm text-slate-400">
-                                            Try changing your search or add new inventory.
+                                        <p className="mt-1 text-xl font-bold text-slate-800">
+                                            {store.summary?.totalProducts || 0}
                                         </p>
-                                    </td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
-                </div>
+                                    </div>
+
+                                    <div className="rounded-xl bg-green-50 p-3">
+                                        <p className="text-xs font-medium text-green-700">
+                                            Active Items
+                                        </p>
+
+                                        <p className="mt-1 text-xl font-bold text-green-700">
+                                            {store.summary?.activeProducts || 0}
+                                        </p>
+                                    </div>
+
+                                    <div className="rounded-xl bg-red-50 p-3">
+                                        <p className="text-xs font-medium text-red-600">
+                                            Inactive Items
+                                        </p>
+
+                                        <p className="mt-1 text-xl font-bold text-red-600">
+                                            {store.summary?.inactiveProducts || 0}
+                                        </p>
+                                    </div>
+
+                                    <div className="rounded-xl bg-amber-50 p-3">
+                                        <p className="text-xs font-medium text-amber-700">
+                                            Low Stock
+                                        </p>
+
+                                        <p className="mt-1 text-xl font-bold text-amber-700">
+                                            {store.summary?.lowStockItems || 0}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {/* FOOTER */}
+                                <div className="mt-5 flex items-center justify-between border-t border-slate-100 pt-4">
+                                    <span className="text-sm font-semibold text-[#003963]">
+                                        View Inventory
+                                    </span>
+
+                                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-[#003963] transition group-hover:bg-linear-to-br from-[#064e3b] via-[#047857] to-[#022c22] group-hover:text-white">
+                                        <FiArrowRight size={17} />
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+
+                    </div>
+                ) : (
+                    <div className="rounded-2xl border border-slate-200 bg-white px-4 py-12 text-center shadow-sm">
+                        <FiBox
+                            size={42}
+                            className="mx-auto text-slate-300"
+                        />
+
+                        <p className="mt-3 font-semibold text-slate-700">
+                            No stores found
+                        </p>
+
+                        <p className="mt-1 text-sm text-slate-400">
+                            Try changing your search.
+                        </p>
+                    </div>
+                )}
             </div>
-
-            {/* ADD / EDIT MODAL */}
-            {showModal && (
-                <FormModal
-                    isEdit={isEdit}
-                    setShowModal={setShowModal}
-                    resetForm={resetForm}
-                    handleEditInventory={handleEditInventory}
-                    handleAddInventory={handleAddInventory}
-                    formData={formData}
-                    handleChange={handleChange}
-                    inputClass={inputClass}
-                />
-            )}
-
-            {/* DELETE CONFIRMATION MODAL */}
-            {showDeleteModal && (
-                <DeleteModal setShowDeleteModal={setShowDeleteModal}
-                    handleDeleteInventory={handleDeleteInventory}
-                    setDeleteId={setDeleteId} />
-            )}
         </div>
     );
 };

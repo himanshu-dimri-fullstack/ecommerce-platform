@@ -9,6 +9,10 @@ import {
     FiLoader,
 } from "react-icons/fi";
 
+import { useDispatch } from "react-redux";
+import type { AppDispatch } from "@/redux/store";
+import { fetchNearestStore } from "@/redux/storeSlice";
+
 type LocationSuggestion = {
     id: string;
     label: string;
@@ -224,6 +228,8 @@ function LocationAddressForm({
 }
 
 export default function DeliveryLocation() {
+    const dispatch = useDispatch<AppDispatch>();
+
     const [location, setLocation] = useState("Select Location");
     const [locationReady, setLocationReady] = useState(false);
     const [locationLoading, setLocationLoading] = useState(true);
@@ -239,6 +245,7 @@ export default function DeliveryLocation() {
     const [selectedSuggestion, setSelectedSuggestion] =
         useState<LocationSuggestion | null>(null);
 
+    // SAVE LOCATION AND FETCH NEAREST STORE
     const saveLocation = (value: SavedLocation) => {
         sessionStorage.setItem(
             "quickkart_location",
@@ -255,6 +262,15 @@ export default function DeliveryLocation() {
         setSelectedSuggestion(null);
         setSuggestionError("");
 
+        // Fetch nearest store with new coordinates
+        dispatch(
+            fetchNearestStore({
+                latitude: value.latitude,
+                longitude: value.longitude,
+            })
+        );
+
+        // Notify other components about location change
         window.dispatchEvent(new Event("location-updated"));
     };
 
@@ -270,6 +286,7 @@ export default function DeliveryLocation() {
         address.state ||
         "Selected Location";
 
+    // GET CURRENT GPS LOCATION
     const requestCurrentLocation = () => {
         setLocationError("");
 
@@ -342,6 +359,7 @@ export default function DeliveryLocation() {
         );
     };
 
+    // SELECT MANUAL LOCATION
     const handleSelectSuggestion = (suggestion: LocationSuggestion) => {
         setSelectedSuggestion(suggestion);
         setManualAddress(suggestion.label);
@@ -350,6 +368,7 @@ export default function DeliveryLocation() {
         setLocationError("");
     };
 
+    // CONFIRM MANUAL LOCATION
     const submitManualAddress = (
         e: React.FormEvent<HTMLFormElement>
     ) => {
@@ -377,6 +396,7 @@ export default function DeliveryLocation() {
         }
     };
 
+    // PHOTON LOCATION SEARCH
     useEffect(() => {
         const query = manualAddress.trim();
 
@@ -444,6 +464,7 @@ export default function DeliveryLocation() {
         };
     }, [manualAddress, selectedSuggestion]);
 
+    // LOAD SAVED LOCATION ON INITIAL MOUNT
     useEffect(() => {
         const savedLocation = sessionStorage.getItem("quickkart_location");
 
@@ -461,6 +482,15 @@ export default function DeliveryLocation() {
                     setLocation(parsed.label);
                     setLocationReady(true);
                     setLocationLoading(false);
+
+                    // Also fetch nearest store on page refresh
+                    dispatch(
+                        fetchNearestStore({
+                            latitude: parsed.latitude,
+                            longitude: parsed.longitude,
+                        })
+                    );
+
                     return;
                 }
 
@@ -476,6 +506,7 @@ export default function DeliveryLocation() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
+    // OPEN LOCATION MODAL
     const openLocationModal = () => {
         setLocationError("");
         setSuggestionError("");
@@ -485,6 +516,7 @@ export default function DeliveryLocation() {
         setLocationModalOpen(true);
     };
 
+    // MANUAL ADDRESS INPUT
     const setAddress = (value: string) => {
         setManualAddress(value);
         setSelectedSuggestion(null);
