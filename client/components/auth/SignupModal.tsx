@@ -227,7 +227,7 @@ export default function SignupModal({
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/50 px-4 py-4 backdrop-blur-sm">
+        <div className="fixed inset-0 z-100 flex items-center justify-center overflow-y-auto bg-black/50 px-4 py-4 backdrop-blur-sm">
 
             <div className="relative my-auto max-h-[calc(100dvh-2rem)] w-full max-w-lg overflow-y-auto overscroll-contain rounded-2xl bg-white shadow-2xl">
 
