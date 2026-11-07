@@ -442,6 +442,7 @@ export default function ShopPage() {
                                 key={i}
                                 className="group relative overflow-hidden rounded-2xl border border-green-100/80 bg-linear-to-br from-[#f0fdf4] via-white to-white p-5 transition-all duration-300 hover:-translate-y-1 hover:border-green-200 hover:shadow-[0_12px_35px_rgba(12,131,31,0.09)] sm:p-6"
                             >
+
                                 {/* Background Decoration */}
                                 <div className="absolute -right-8 -top-8 h-28 w-28 rounded-full bg-green-100/40 blur-2xl transition-all duration-500 group-hover:scale-150" />
 
