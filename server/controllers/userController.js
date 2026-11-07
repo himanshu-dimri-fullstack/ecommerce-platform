@@ -2,115 +2,304 @@ import User from "../models/User.js";
 import bcrypt from "bcrypt"
 import jwt from "jsonwebtoken"
 import { sendMail } from "../utils/sendMail.js";
-import { sendPasswordOnMail } from "../utils/sendPasswordOnMail.js";
-import moment from "moment"
 import { handleResponseError } from "../utils/errorUtils.js"
 import Role from "../models/Role.js";
 import { uploadFile, destroyFile } from "../config/cloudinary.js"
+import OTP from "../models/otp.js";
+import moment from "moment";
+
 
 export const signup = async (req, res) => {
     try {
-        const { firstName, lastName, email, password } = req.body
-        if (!firstName) {
-            return res.status(400).json({ message: "First Name is required" })
-        }
-        // if (!lastName) {
-        //     return res.status(400).json({ message: "Last Name is required" })
-        // }
-        if (!email) {
-            return res.status(400).json({ message: "Email is required" })
-        }
-        if (!password) {
-            return res.status(400).json({ message: "Password is required" })
-        }
-        const hashedPassword = await bcrypt.hash(password, 10)
+        const { firstName, lastName, email, phone, password } = req.body;
 
+        if (!firstName) {
+            return res.status(400).json({
+                message: "First Name is required"
+            });
+        }
+
+        if (!email) {
+            return res.status(400).json({
+                message: "Email is required"
+            });
+        }
+
+        if (!phone) {
+            return res.status(400).json({
+                message: "Phone number is required"
+            });
+        }
+
+        if (!password) {
+            return res.status(400).json({
+                message: "Password is required"
+            });
+        }
+
+        const normalizedEmail = email.trim().toLowerCase();
+
+        // Check whether email OTP is verified
+        const otpData = await OTP.findOne({
+            email: normalizedEmail,
+            purpose: "signup",
+            isOtpVerified: true,
+        });
+
+        if (!otpData) {
+            return res.status(400).json({
+                message: "Please verify your email before signup."
+            });
+        }
+
+        // Check existing user
+        const existingUser = await User.findOne({
+            email: normalizedEmail
+        });
+
+        if (existingUser) {
+            return res.status(409).json({
+                message: "Email is already registered."
+            });
+        }
+
+        // Hash password
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        // Get customer role
+        const customerRole = await Role.findOne({
+            name: "customer"
+        });
+
+        if (!customerRole) {
+            return res.status(404).json({
+                message: "Customer role not found."
+            });
+        }
+
+        // Create user
         const savedUser = await User.create({
-            firstName, lastName, email, password: hashedPassword,
-            role: "6adcca18c6ae8cdfc38138de"
-        })
+            firstName,
+            lastName,
+            email: normalizedEmail,
+            phone,
+            password: hashedPassword,
+            role: customerRole._id,
+            isEmailVerified: true
+        });
+
+        // Delete verified OTP document after successful signup
+        await OTP.deleteOne({
+            _id: otpData._id
+        });
+
         return res.status(201).json({
             message: "Account has been created",
             user: {
                 id: savedUser._id,
                 firstName: savedUser.firstName,
                 lastName: savedUser.lastName,
-                email: savedUser.email
+                email: savedUser.email,
+                phone: savedUser.phone
             }
-        })
+        });
+
+    } catch (error) {
+        return handleResponseError(error, res);
     }
-    catch (error) {
-        return handleResponseError(error, res)
-    }
-}
+};
 
 export const verifyEmail = async (req, res) => {
     try {
-        const { email } = req.body
+        const { email, type } = req.body;
+
         if (!email) {
-            return res.status(400).json({ message: "Email is required" })
+            return res.status(400).json({
+                message: "Email is required",
+            });
         }
-        const user = await User.findOne({ email })
-        if (!user) {
-            return res.status(401).json({ message: "User not exist" })
-        }
-        const otp = Math.floor(1000 + Math.random() * 9000)
+        const normalizedEmail = email.trim().toLowerCase();
 
-        const otpExpiresAt = moment().add(2, "minutes").toDate()
+        // Generate 4-digit OTP
+        const otp = Math.floor(1000 + Math.random() * 9000).toString();
 
-        await User.updateOne(
-            { email },
-            {
-                otp,
-                otpExpiresAt
+        const otpExpiresAt = moment().add(1, "minutes").toDate();
+
+        // SIGNUP FLOW
+        if (type === "signup") {
+
+            const existingUser = await User.findOne({
+                email: normalizedEmail,
+            });
+
+            if (existingUser) {
+                return res.status(409).json({
+                    message: "Email is already registered.",
+                });
             }
-        )
 
-        await sendMail(email, otp)
-        return res.status(200).json({ message: "OTP is sent" })
-    }
-    catch (error) {
-        console.log(error)
-    }
+            await OTP.findOneAndUpdate(
+                {
+                    email: normalizedEmail,
+                    purpose: "signup",
+                },
+                {
+                    $set: {
+                        otp,
+                        otpExpiresAt,
+                        isOtpVerified: false,
+                    },
+                    $setOnInsert: {
+                        email: normalizedEmail,
+                        purpose: "signup",
+                    },
+                },
+                {
+                    upsert: true,
+                    new: true,
+                    runValidators: true,
+                    setDefaultsOnInsert: true,
+                }
+            );
 
-}
+            await sendMail(normalizedEmail, otp);
+
+            return res.status(200).json({
+                message: "Signup verification OTP sent successfully.",
+            });
+        }
+
+        // FORGOT PASSWORD FLOW
+        else {
+
+            const user = await User.findOne({
+                email: normalizedEmail,
+            });
+
+            if (!user) {
+                return res.status(404).json({
+                    message: "User does not exist.",
+                });
+            }
+
+            await User.updateOne(
+                { _id: user._id },
+                {
+                    otp,
+                    otpExpiresAt,
+                    isOtpVerified: false,
+                }
+            );
+
+            await sendMail(normalizedEmail, otp);
+
+            return res.status(200).json({
+                message: "Password reset OTP sent successfully.",
+            });
+        }
+
+    } catch (error) {
+        console.log("Verify Email Error:", error);
+
+        return res.status(500).json({
+            message: "Something went wrong.",
+        });
+    }
+};
 
 export const verifyOTP = async (req, res) => {
     try {
-        const { otp, email } = req.body
+        const { otp, email, type } = req.body;
+
         if (!email) {
-            return res.status(400).json({ message: "Email is not available" })
+            return res.status(400).json({
+                message: "Email is not available"
+            });
         }
+
         if (!otp) {
-            return res.status(400).json({ message: "OTP is not available" })
+            return res.status(400).json({
+                message: "OTP is not available"
+            });
         }
-        const user = await User.findOne({ email })
+
+        const normalizedEmail = email.toLowerCase().trim();
+
+        // Signup OTP verification
+        if (type === "signup") {
+            const otpData = await OTP.findOne({
+                email: normalizedEmail,
+                purpose: "signup"
+            });
+
+            if (!otpData) {
+                return res.status(401).json({
+                    message: "OTP not found"
+                });
+            }
+
+            if (otpData.otp !== otp.toString()) {
+                return res.status(401).json({
+                    message: "Invalid OTP"
+                });
+            }
+
+            if (moment().isAfter(otpData.otpExpiresAt)) {
+                return res.status(400).json({
+                    message: "OTP has expired"
+                });
+            }
+
+            await OTP.updateOne(
+                { _id: otpData._id },
+                { isOtpVerified: true }
+            );
+
+            return res.status(200).json({
+                message: "OTP is verified"
+            });
+        }
+
+        // Forgot password OTP verification
+        const user = await User.findOne({
+            email: normalizedEmail
+        });
 
         if (!user) {
-            return res.status(401).json({ message: "User not exist" })
+            return res.status(401).json({
+                message: "User not exist"
+            });
         }
 
-        if (user.otp !== otp) {
-            return res.status(401).json({ message: "Invalid OTP" })
+        if (user.otp !== otp.toString()) {
+            return res.status(401).json({
+                message: "Invalid OTP"
+            });
         }
 
         if (moment().isAfter(user.otpExpiresAt)) {
             return res.status(400).json({
                 message: "OTP has expired"
-            })
+            });
         }
-        await User.updateOne({
-            email
-        }, {
-            isOtpVerified: true
-        })
 
-        return res.status(200).json({ message: "OTP is verified" })
+        await User.updateOne(
+            { _id: user._id },
+            { isOtpVerified: true }
+        );
+
+        return res.status(200).json({
+            message: "OTP is verified"
+        });
+
+    } catch (error) {
+        console.log(error);
+
+        return res.status(500).json({
+            message: "Internal server error"
+        });
     }
-    catch (error) {
-        console.log(error)
-    }
-}
+};
 
 export const login = async (req, res) => {
     try {

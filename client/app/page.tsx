@@ -615,7 +615,7 @@ export default function ShopPage() {
                                             className="relative flex aspect-square h-50 w-full items-center justify-center bg-linear-to-b p-4"
                                         >
                                             {discount > 0 && (
-                                                <span className="absolute right-2.5 top-2.5 rounded-md bg-emerald-600 px-1.5 py-0.5 text-[9px] font-black text-white shadow-sm">
+                                                <span className="z-99 absolute right-2.5 top-2.5 rounded-md bg-emerald-600 px-1.5 py-0.5 text-[9px] font-black text-white shadow-sm">
                                                     {discount}% OFF
                                                 </span>
                                             )}

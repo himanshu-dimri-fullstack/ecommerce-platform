@@ -29,31 +29,6 @@ interface ApiError {
     message?: string;
 }
 
-// interface CartApiItem {
-//     _id?: string;
-//     product?: {
-//         _id?: string;
-//         name?: string;
-//         images?: { url?: string }[];
-//     } | string;
-//     variant?: {
-//         _id?: string;
-//         name?: string;
-//         unitValue?: string | number;
-//         unit?: string;
-//         mrp?: number;
-//         image?: string | { url?: string };
-//     } | string;
-//     price?: number;
-//     quantity?: number;
-// }
-
-// interface CartApiResponse {
-//     success: boolean;
-//     items: CartApiItem[];
-//     message?: string;
-// }
-
 export const fetchCart = createAsyncThunk<
     CartItem[],
     void,
@@ -63,8 +38,6 @@ export const fetchCart = createAsyncThunk<
     async (_, { rejectWithValue }) => {
         try {
             const res = await API.get("/cart/get");
-
-            console.log("my cart at redux", res.data)
 
             const items: CartItem[] = (res.data.items || []).map((item: any) => {
                 const product =

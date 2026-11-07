@@ -243,9 +243,6 @@ function ProductDetail() {
     const [productVariant, setProductVariant] = useState<ProductVariant | null>(null);
     const [product, setProduct] = useState<Product | null>(null);
 
-    console.log("my product", product)
-    console.log("my variant", productVariant)
-
     // Skeleton loading state
     const [loading, setLoading] = useState(true);
 
@@ -282,8 +279,6 @@ function ProductDetail() {
             }));
             return;
         }
-
-        console.log("my product at??????", product)
         // return
         const productId = product._id;
 
