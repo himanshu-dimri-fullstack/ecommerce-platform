@@ -222,7 +222,7 @@ export const addCompleteCart = async (req, res) => {
 
         // 4. Process each product from the frontend cart
         for (const item of cartData) {
-            const { product, _id: variantId, quantity } = item;
+            const { productId: product, _id: variantId, quantity } = item;
 
             // Validate IDs
             if (

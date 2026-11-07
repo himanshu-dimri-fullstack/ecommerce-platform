@@ -55,6 +55,7 @@ export default function LoginModal({
             toast.success(res.data.message)
         }
         catch (error: any) {
+            console.log(error?.response?.data?.message)
             toast.error(error?.response?.data?.message)
         }
     };
