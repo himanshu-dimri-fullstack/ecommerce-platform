@@ -87,15 +87,90 @@ export const updateBrand = async (req, res) => {
     }
 }
 
-export const getBrands = async (_, res) => {
+export const getBrands = async (req, res) => {
     try {
-        const brands = await Brand.find().sort({ createdAt: -1 })
-        return res.status(200).json({ brands })
+        const page = Math.max(Number(req.query.page) || 1, 1);
+
+        const limit = Math.min(
+            Math.max(Number(req.query.limit) || 10, 1),
+            100
+        );
+
+        const search = req.query.search?.trim() || "";
+
+        const filter = {};
+
+        if (search) {
+            const escapedSearch = search.replace(
+                /[.*+?^${}()|[\]\\]/g,
+                "\\$&"
+            );
+
+            filter.$or = [
+                {
+                    name: {
+                        $regex: escapedSearch,
+                        $options: "i",
+                    },
+                },
+                {
+                    slug: {
+                        $regex: escapedSearch,
+                        $options: "i",
+                    },
+                },
+            ];
+        }
+
+        const [
+            totalBrands,
+            activeBrands,
+            inactiveBrands,
+            filteredCount,
+        ] = await Promise.all([
+            Brand.countDocuments(),
+
+            Brand.countDocuments({
+                status: "active",
+            }),
+
+            Brand.countDocuments({
+                status: "inactive",
+            }),
+
+            Brand.countDocuments(filter),
+        ]);
+
+        const totalPages = Math.ceil(filteredCount / limit);
+
+        // Keep the requested page within the available range.
+        const currentPage = Math.min(
+            page,
+            Math.max(totalPages, 1)
+        );
+
+        const brands = await Brand.find(filter)
+            .sort({ createdAt: -1 })
+            .skip((currentPage - 1) * limit)
+            .limit(limit);
+
+        return res.status(200).json({
+            brands,
+            totalBrands,
+            activeBrands,
+            inactiveBrands,
+            filteredCount,
+            totalPages,
+            currentPage,
+            limit,
+        });
+
+    } catch (error) {
+        return res.status(500).json({
+            message: error.message,
+        });
     }
-    catch (error) {
-        return res.status(400).json({ message: error.message })
-    }
-}
+};
 
 export const getBrandById = async (req, res) => {
     try {

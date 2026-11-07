@@ -8,6 +8,10 @@ import {
     FiCheckCircle,
     FiXCircle,
     FiAward,
+    FiChevronLeft,
+    FiChevronRight,
+    FiChevronsLeft,
+    FiChevronsRight,
 } from "react-icons/fi";
 import { useNavigate, Navigate } from "react-router-dom";
 import { toast } from "react-toastify";
@@ -15,15 +19,27 @@ import { API } from "../../api/axios";
 import DeleteModal from "../../components/brand/DeleteModal";
 import FormModal from "../../components/brand/FormModal";
 import DataLoader from "../../components/DataLoader";
-import { useSelector } from "react-redux"
+import { useSelector } from "react-redux";
 
 const Brand = () => {
-    const user = useSelector((store) => store.auth.user)
+    const user = useSelector((store) => store.auth.user);
     const navigate = useNavigate();
-    const [dataLoading, setDataLoading] = useState(true)
 
+    const [dataLoading, setDataLoading] = useState(true);
+
+    // SEARCH & PAGINATION
     const [search, setSearch] = useState("");
+    const [debouncedSearch, setDebouncedSearch] = useState("");
+    const [currentPage, setCurrentPage] = useState(1);
+    const [entriesPerPage, setEntriesPerPage] = useState(10);
+
+    // BRAND DATA
     const [brands, setBrands] = useState([]);
+    const [totalBrands, setTotalBrands] = useState(0);
+    const [activeBrands, setActiveBrands] = useState(0);
+    const [inactiveBrands, setInactiveBrands] = useState(0);
+    const [filteredCount, setFilteredCount] = useState(0);
+    const [totalPages, setTotalPages] = useState(0);
 
     const [showModal, setShowModal] = useState(false);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -37,21 +53,8 @@ const Brand = () => {
         description: "",
         image: "",
     });
-    const [existingImage, setExistingImage] = useState(null)
 
-    // =========================
-    // STATISTICS
-    // =========================
-
-    const totalBrands = brands.length;
-
-    const activeBrands = brands.filter(
-        (brand) => brand.status === "active"
-    ).length;
-
-    const inactiveBrands = brands.filter(
-        (brand) => brand.status === "inactive"
-    ).length;
+    const [existingImage, setExistingImage] = useState(null);
 
     // =========================
     // FORM CHANGE
@@ -63,14 +66,13 @@ const Brand = () => {
         if (files) {
             setFormData((prev) => ({
                 ...prev,
-                [name]: files[0]
-            }))
-        }
-        else {
+                [name]: files[0],
+            }));
+        } else {
             setFormData((prev) => ({
                 ...prev,
-                [name]: value
-            }))
+                [name]: value,
+            }));
         }
     };
 
@@ -78,11 +80,31 @@ const Brand = () => {
     // GET ALL BRANDS
     // =========================
 
-    const getAllBrands = async () => {
+    const getAllBrands = async (
+        page = currentPage,
+        limit = entriesPerPage,
+        searchValue = debouncedSearch
+    ) => {
         try {
-            const res = await API.get("/brand/get");
+            const res = await API.get("/brand/get", {
+                params: {
+                    page,
+                    limit,
+                    search: searchValue,
+                },
+            });
 
             setBrands(res.data.brands || []);
+            setTotalBrands(res.data.totalBrands || 0);
+            setActiveBrands(res.data.activeBrands || 0);
+            setInactiveBrands(res.data.inactiveBrands || 0);
+            setFilteredCount(res.data.filteredCount || 0);
+            setTotalPages(res.data.totalPages || 0);
+
+            // Backend may adjust the page after deleting the last item.
+            if (res.data.currentPage && res.data.currentPage !== currentPage) {
+                setCurrentPage(res.data.currentPage);
+            }
         } catch (error) {
             console.error(error);
 
@@ -90,11 +112,31 @@ const Brand = () => {
                 error?.response?.data?.message ||
                 "Failed to fetch brands"
             );
-        }
-        finally {
-            setDataLoading(false)
+        } finally {
+            setDataLoading(false);
         }
     };
+
+    // =========================
+    // SEARCH DEBOUNCE
+    // =========================
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearch(search.trim());
+            setCurrentPage(1);
+        }, 400);
+
+        return () => clearTimeout(timer);
+    }, [search]);
+
+    // =========================
+    // FETCH ON FILTER CHANGE
+    // =========================
+
+    useEffect(() => {
+        getAllBrands(currentPage, entriesPerPage, debouncedSearch);
+    }, [currentPage, entriesPerPage, debouncedSearch]);
 
     // =========================
     // ADD MODAL
@@ -109,8 +151,8 @@ const Brand = () => {
             description: "",
             image: "",
         });
-        setExistingImage(null)
 
+        setExistingImage(null);
         setShowModal(true);
     };
 
@@ -126,7 +168,10 @@ const Brand = () => {
 
             finalFormData.append("name", formData.name);
             finalFormData.append("description", formData.description);
-            finalFormData.append("image", formData.image);
+
+            if (formData.image) {
+                finalFormData.append("image", formData.image);
+            }
 
             setDataLoading(true);
 
@@ -135,14 +180,20 @@ const Brand = () => {
                 finalFormData
             );
 
-            await getAllBrands();
-            toast.success(res.data.message)
+            setShowModal(false);
+            setCurrentPage(1);
+
+            // Refresh the first page because new brands are sorted first.
+            await getAllBrands(1, entriesPerPage, debouncedSearch);
+
+            toast.success(res.data.message);
         } catch (error) {
             toast.error(
-                error?.response?.data?.message)
+                error?.response?.data?.message ||
+                "Failed to add brand"
+            );
         } finally {
-            setDataLoading(false)
-            setShowModal(false)
+            setDataLoading(false);
         }
     };
 
@@ -157,11 +208,10 @@ const Brand = () => {
         setFormData({
             name: brand.name,
             description: brand.description,
+            image: "",
         });
-        if (brand.image) {
-            setExistingImage(brand.image?.url)
-        }
 
+        setExistingImage(brand.image?.url || null);
         setShowModal(true);
     };
 
@@ -170,37 +220,43 @@ const Brand = () => {
     // =========================
 
     const handleEditBrand = async (e) => {
-        e.preventDefault()
+        e.preventDefault();
 
         try {
-            const finalFormData = new FormData()
+            const finalFormData = new FormData();
 
-            finalFormData.append("name", formData.name)
-            finalFormData.append("description", formData.description)
+            finalFormData.append("name", formData.name);
+            finalFormData.append("description", formData.description);
+
             if (formData.image) {
-                finalFormData.append("image", formData.image)
-            }
-            else if (existingImage) {
-                finalFormData.append("existingImage", existingImage)
+                finalFormData.append("image", formData.image);
+            } else if (existingImage) {
+                finalFormData.append("existingImage", existingImage);
             }
 
-
-            setDataLoading(true)
+            setDataLoading(true);
 
             const res = await API.put(
                 `/brand/update/${editId}`,
                 finalFormData
             );
 
-            await getAllBrands()
+            setShowModal(false);
 
-            toast.success(res.data.message)
+            await getAllBrands(
+                currentPage,
+                entriesPerPage,
+                debouncedSearch
+            );
 
+            toast.success(res.data.message);
         } catch (error) {
-            toast.error(error?.response?.data?.message)
+            toast.error(
+                error?.response?.data?.message ||
+                "Failed to update brand"
+            );
         } finally {
-            setDataLoading(false)
-            setShowModal(false)
+            setDataLoading(false);
         }
     };
 
@@ -225,17 +281,23 @@ const Brand = () => {
                 `/brand/delete/${deleteId}`
             );
 
-            await getAllBrands();
-
-            toast.success(
-                res.data.message)
-        } catch (error) {
-            toast.error(
-                error?.response?.data?.message)
-        } finally {
-            setDataLoading(false);
             setShowDeleteModal(false);
             setDeleteId(null);
+
+            await getAllBrands(
+                currentPage,
+                entriesPerPage,
+                debouncedSearch
+            );
+
+            toast.success(res.data.message);
+        } catch (error) {
+            toast.error(
+                error?.response?.data?.message ||
+                "Failed to delete brand"
+            );
+        } finally {
+            setDataLoading(false);
         }
     };
 
@@ -245,20 +307,23 @@ const Brand = () => {
 
     const changeStatus = async (id) => {
         try {
-            setDataLoading(true)
+            setDataLoading(true);
 
             const res = await API.patch(
                 `/brand/update/status/${id}`
             );
 
-            await getAllBrands()
-
-            toast.success(
-                res.data.message
+            await getAllBrands(
+                currentPage,
+                entriesPerPage,
+                debouncedSearch
             );
+
+            toast.success(res.data.message);
         } catch (error) {
             toast.error(
-                error?.response?.data?.message
+                error?.response?.data?.message ||
+                "Failed to update brand status"
             );
         } finally {
             setDataLoading(false);
@@ -267,39 +332,68 @@ const Brand = () => {
 
     // =========================
     // VIEW BRAND
-    // =========================    
+    // =========================
 
     const handleBrandView = (id) => {
         navigate(`/admin/brands/${id}`);
     };
 
     // =========================
-    // SEARCH
+    // PAGINATION
     // =========================
 
-    const filteredBrands = brands.filter((brand) => {
-        const searchValue = search.toLowerCase();
+    const startIndex =
+        filteredCount === 0
+            ? 0
+            : (currentPage - 1) * entriesPerPage + 1;
 
-        return (
-            brand.name?.toLowerCase().includes(searchValue) ||
-            brand.slug?.toLowerCase().includes(searchValue)
+    const endIndex = Math.min(
+        currentPage * entriesPerPage,
+        filteredCount
+    );
+
+    const getPageNumbers = () => {
+        const pages = [];
+        const maxVisiblePages = 5;
+
+        let startPage = Math.max(
+            1,
+            currentPage - Math.floor(maxVisiblePages / 2)
         );
-    });
+
+        let endPage = Math.min(
+            totalPages,
+            startPage + maxVisiblePages - 1
+        );
+
+        if (endPage - startPage + 1 < maxVisiblePages) {
+            startPage = Math.max(
+                1,
+                endPage - maxVisiblePages + 1
+            );
+        }
+
+        for (let i = startPage; i <= endPage; i++) {
+            pages.push(i);
+        }
+
+        return pages;
+    };
 
     // =========================
-    // INITIAL FETCH
+    // PERMISSION CHECK
     // =========================
 
-    useEffect(() => {
-        getAllBrands();
-    }, []);
-
-    if (!user?.role.permissions.some((permission) => permission.includes("brand"))) {
-        return <Navigate to="/admin/dashboard" replace />
+    if (
+        !user?.role?.permissions?.some((permission) =>
+            permission.includes("brand")
+        )
+    ) {
+        return <Navigate to="/admin/dashboard" replace />;
     }
 
     if (dataLoading) {
-        return <DataLoader />
+        return <DataLoader />;
     }
 
     return (
@@ -307,24 +401,46 @@ const Brand = () => {
 
             {/* PAGE HEADER */}
 
-            <div>
-                <h1 className="text-2xl font-bold text-slate-800">
-                    Brands
-                </h1>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                    <h1 className="text-2xl font-bold text-slate-800">
+                        Brands
+                    </h1>
 
-                <p className="mt-1 text-sm text-slate-500">
-                    Manage your product brands and their status.
-                </p>
+                    <p className="mt-1 text-sm text-slate-500">
+                        Manage your product brands and their status.
+                    </p>
+                </div>
+
+                {user?.role?.permissions?.includes("brand:add") && (
+                    <button
+                        type="button"
+                        onClick={handleAddBrandModal}
+                        className="
+                            flex items-center justify-center gap-2
+                            rounded-xl bg-linear-to-br from-[#064e3b]
+                            via-[#047857] to-[#022c22]
+                            px-5 py-3 text-sm font-semibold text-white
+                            shadow-sm transition hover:shadow-md
+                            active:scale-95
+                        "
+                    >
+                        <FiPlus size={19} />
+                        Add Brand
+                    </button>
+                )}
             </div>
 
             {/* STAT CARDS */}
 
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
 
-                {/* TOTAL */}
+                {/* TOTAL BRANDS */}
 
-                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                    <div className="flex items-center justify-between">
+                <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                    <div className="absolute right-0 top-0 h-24 w-24 rounded-full bg-blue-50 blur-2xl" />
+
+                    <div className="relative flex items-center justify-between">
                         <div>
                             <p className="text-sm font-medium text-slate-500">
                                 Total Brands
@@ -341,10 +457,12 @@ const Brand = () => {
                     </div>
                 </div>
 
-                {/* ACTIVE */}
+                {/* ACTIVE BRANDS */}
 
-                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                    <div className="flex items-center justify-between">
+                <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                    <div className="absolute right-0 top-0 h-24 w-24 rounded-full bg-green-50 blur-2xl" />
+
+                    <div className="relative flex items-center justify-between">
                         <div>
                             <p className="text-sm font-medium text-slate-500">
                                 Active Brands
@@ -361,10 +479,12 @@ const Brand = () => {
                     </div>
                 </div>
 
-                {/* INACTIVE */}
+                {/* INACTIVE BRANDS */}
 
-                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                    <div className="flex items-center justify-between">
+                <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                    <div className="absolute right-0 top-0 h-24 w-24 rounded-full bg-red-50 blur-2xl" />
+
+                    <div className="relative flex items-center justify-between">
                         <div>
                             <p className="text-sm font-medium text-slate-500">
                                 Inactive Brands
@@ -383,52 +503,94 @@ const Brand = () => {
 
             </div>
 
-            {/* SEARCH + ADD */}
+            {/* SEARCH & ENTRIES */}
 
-            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
 
-                    <div className="relative w-full sm:max-w-md">
+                    {/* SEARCH */}
+
+                    <div className="relative w-full lg:max-w-md">
                         <FiSearch
-                            className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
                             size={19}
                         />
 
                         <input
                             type="text"
-                            placeholder="Search brands..."
+                            placeholder="Search brands by name or slug..."
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
                             className="
                                 w-full rounded-xl border border-slate-200
-                                bg-slate-50 py-2.5 pl-10 pr-4 text-sm
-                                outline-none transition
-                                focus:border-[#003963] focus:bg-white
-                                focus:ring-2 focus:ring-[#003963]/10
+                                bg-slate-50 py-3 pl-11 pr-4 text-sm
+                                text-slate-700 outline-none transition
+                                placeholder:text-slate-400
+                                focus:border-emerald-600 focus:bg-white
+                                focus:ring-2 focus:ring-emerald-600/10
                             "
                         />
                     </div>
 
-                    {
-                        user?.role?.permissions.includes("brand:add") &&
-                        <button
-                            type="button"
-                            onClick={handleAddBrandModal}
-                            className="
-                            flex items-center justify-center gap-2
-                            rounded-xl  bg-linear-to-br from-[#064e3b] via-[#047857] to-[#022c22] px-5 py-2.5
-                            text-sm font-semibold text-white
-                            transition active:scale-95
-                        "
+                    {/* ENTRIES PER PAGE */}
+
+                    <div className="flex items-center gap-3">
+                        <label
+                            htmlFor="brandEntries"
+                            className="whitespace-nowrap text-sm font-medium text-slate-500"
                         >
-                            <FiPlus size={19} />
-                            Add Brand
-                        </button>
+                            Show entries
+                        </label>
 
+                        <select
+                            id="brandEntries"
+                            value={entriesPerPage}
+                            onChange={(e) => {
+                                setEntriesPerPage(Number(e.target.value));
+                                setCurrentPage(1);
+                            }}
+                            className="
+                                rounded-xl border border-slate-200
+                                bg-slate-50 px-4 py-3 text-sm font-medium
+                                text-slate-700 outline-none transition
+                                focus:border-emerald-600 focus:ring-2
+                                focus:ring-emerald-600/10
+                            "
+                        >
+                            <option value={10}>10</option>
+                            <option value={20}>20</option>
+                            <option value={50}>50</option>
+                            <option value={100}>100</option>
+                        </select>
+                    </div>
 
-                    }
+                </div>
 
+                <div className="mt-4 flex flex-col gap-1 border-t border-slate-100 pt-4 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between">
+                    <p>
+                        Showing{" "}
+                        <span className="font-semibold text-slate-700">
+                            {startIndex}
+                        </span>{" "}
+                        to{" "}
+                        <span className="font-semibold text-slate-700">
+                            {endIndex}
+                        </span>{" "}
+                        of{" "}
+                        <span className="font-semibold text-slate-700">
+                            {filteredCount}
+                        </span>{" "}
+                        {search ? "filtered" : ""} brands
+                    </p>
 
+                    {search && (
+                        <p>
+                            Search results for:{" "}
+                            <span className="font-semibold text-emerald-700">
+                                "{search}"
+                            </span>
+                        </p>
+                    )}
                 </div>
             </div>
 
@@ -459,11 +621,11 @@ const Brand = () => {
                         </thead>
 
                         <tbody className="divide-y divide-slate-100">
-                            {filteredBrands.length > 0 ? (
-                                filteredBrands.map((brand) => (
+                            {brands.length > 0 ? (
+                                brands.map((brand) => (
                                     <tr
                                         key={brand._id}
-                                        className="transition hover:bg-slate-50"
+                                        className="transition hover:bg-emerald-50/30"
                                     >
                                         {/* BRAND */}
 
@@ -473,11 +635,11 @@ const Brand = () => {
                                                     <img
                                                         src={brand.image.url}
                                                         alt={brand.name}
-                                                        className="h-11 w-11 rounded-xl border border-slate-200 bg-white object-contain p-1"
+                                                        className="h-12 w-12 rounded-xl border border-slate-200 bg-white object-contain p-1"
                                                     />
                                                 ) : (
-                                                    <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#003963]/10 text-[#003963]">
-                                                        <FiAward size={20} />
+                                                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+                                                        <FiAward size={21} />
                                                     </div>
                                                 )}
 
@@ -505,29 +667,25 @@ const Brand = () => {
 
                                         <td className="px-6 py-4">
                                             <button
-                                                disabled={!(user?.role.permissions.includes("brand:status"))}
-                                                type="button"
-                                                onClick={() =>
-                                                    changeStatus(
-                                                        brand._id
-                                                    )
+                                                disabled={
+                                                    !user?.role?.permissions?.includes("brand:status")
                                                 }
+                                                type="button"
+                                                onClick={() => changeStatus(brand._id)}
                                                 className={`
-                                            rounded-lg
-                                            p-2
-                                            transition
-                                            ${brand?.status === "active"
-                                                        ? "text-green-500 text-sm bg-green-100"
-                                                        : "text-red-600 text-sm bg-red-100"
+                                                    rounded-lg px-3 py-2 text-xs
+                                                    font-semibold transition
+                                                    disabled:cursor-not-allowed
+                                                    disabled:opacity-70
+                                                    ${brand.status === "active"
+                                                        ? "bg-green-100 text-green-700 hover:bg-green-200"
+                                                        : "bg-red-100 text-red-600 hover:bg-red-200"
                                                     }
-                                        `}
+                                                `}
                                             >
-                                                {brand?.status === "active" ? (
-                                                    "active"
-                                                ) : (
-                                                    "inactive"
-                                                )}
-
+                                                {brand.status === "active"
+                                                    ? "Active"
+                                                    : "Inactive"}
                                             </button>
                                         </td>
 
@@ -538,9 +696,8 @@ const Brand = () => {
 
                                                 {/* VIEW */}
 
-                                                <div className="group relative">
-                                                    {
-                                                        user?.role?.permissions.includes("brand:read") &&
+                                                {user?.role?.permissions?.includes("brand:read") && (
+                                                    <div className="group relative">
                                                         <button
                                                             type="button"
                                                             onClick={() =>
@@ -551,19 +708,17 @@ const Brand = () => {
                                                         >
                                                             <FiEye size={18} />
                                                         </button>
-                                                    }
 
-
-                                                    <span className="pointer-events-none absolute bottom-full left-1/2 mb-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-800 px-2 py-1 text-xs text-white opacity-0 transition group-hover:opacity-100">
-                                                        View
-                                                    </span>
-                                                </div>
+                                                        <span className="pointer-events-none absolute bottom-full left-1/2 mb-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-800 px-2 py-1 text-xs text-white opacity-0 transition group-hover:opacity-100">
+                                                            View
+                                                        </span>
+                                                    </div>
+                                                )}
 
                                                 {/* EDIT */}
 
-                                                <div className="group relative">
-                                                    {
-                                                        user?.role?.permissions.includes("brand:update") &&
+                                                {user?.role?.permissions?.includes("brand:update") && (
+                                                    <div className="group relative">
                                                         <button
                                                             type="button"
                                                             onClick={() =>
@@ -574,19 +729,17 @@ const Brand = () => {
                                                         >
                                                             <FiEdit2 size={18} />
                                                         </button>
-                                                    }
 
-
-                                                    <span className="pointer-events-none absolute bottom-full left-1/2 mb-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-800 px-2 py-1 text-xs text-white opacity-0 transition group-hover:opacity-100">
-                                                        Edit
-                                                    </span>
-                                                </div>
+                                                        <span className="pointer-events-none absolute bottom-full left-1/2 mb-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-800 px-2 py-1 text-xs text-white opacity-0 transition group-hover:opacity-100">
+                                                            Edit
+                                                        </span>
+                                                    </div>
+                                                )}
 
                                                 {/* DELETE */}
 
-                                                <div className="group relative">
-                                                    {
-                                                        user?.role?.permissions.includes("brand:delete") &&
+                                                {user?.role?.permissions?.includes("brand:delete") && (
+                                                    <div className="group relative">
                                                         <button
                                                             type="button"
                                                             onClick={() =>
@@ -597,13 +750,12 @@ const Brand = () => {
                                                         >
                                                             <FiTrash2 size={18} />
                                                         </button>
-                                                    }
 
-
-                                                    <span className="pointer-events-none absolute bottom-full left-1/2 mb-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-800 px-2 py-1 text-xs text-white opacity-0 transition group-hover:opacity-100">
-                                                        Delete
-                                                    </span>
-                                                </div>
+                                                        <span className="pointer-events-none absolute bottom-full left-1/2 mb-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-800 px-2 py-1 text-xs text-white opacity-0 transition group-hover:opacity-100">
+                                                            Delete
+                                                        </span>
+                                                    </div>
+                                                )}
 
                                             </div>
                                         </td>
@@ -613,19 +765,20 @@ const Brand = () => {
                                 <tr>
                                     <td
                                         colSpan={4}
-                                        className="px-6 py-12 text-center"
+                                        className="px-6 py-16 text-center"
                                     >
-                                        <FiAward
-                                            size={40}
-                                            className="mx-auto text-slate-300"
-                                        />
+                                        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700">
+                                            <FiAward size={30} />
+                                        </div>
 
-                                        <p className="mt-3 font-medium text-slate-600">
+                                        <p className="mt-4 font-semibold text-slate-700">
                                             No brands found
                                         </p>
 
                                         <p className="mt-1 text-sm text-slate-400">
-                                            Try changing your search or add a new brand.
+                                            {search
+                                                ? "Try changing your search keyword."
+                                                : "Add your first brand to get started."}
                                         </p>
                                     </td>
                                 </tr>
@@ -633,6 +786,135 @@ const Brand = () => {
                         </tbody>
                     </table>
                 </div>
+
+                {/* PAGINATION */}
+
+                {filteredCount > 0 && (
+                    <div className="flex flex-col gap-4 border-t border-slate-200 bg-white px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+
+                        <p className="text-sm text-slate-500">
+                            Page{" "}
+                            <span className="font-semibold text-slate-800">
+                                {currentPage}
+                            </span>{" "}
+                            of{" "}
+                            <span className="font-semibold text-slate-800">
+                                {totalPages}
+                            </span>
+                        </p>
+
+                        <div className="flex flex-wrap items-center justify-center gap-1.5">
+
+                            {/* FIRST PAGE */}
+
+                            <button
+                                type="button"
+                                disabled={currentPage === 1}
+                                onClick={() => setCurrentPage(1)}
+                                className="
+                                    flex h-9 w-9 items-center justify-center
+                                    rounded-lg border border-slate-200
+                                    text-slate-600 transition
+                                    hover:border-emerald-600 hover:bg-emerald-50
+                                    hover:text-emerald-700
+                                    disabled:cursor-not-allowed
+                                    disabled:opacity-40
+                                "
+                                aria-label="First page"
+                            >
+                                <FiChevronsLeft size={17} />
+                            </button>
+
+                            {/* PREVIOUS */}
+
+                            <button
+                                type="button"
+                                disabled={currentPage === 1}
+                                onClick={() =>
+                                    setCurrentPage((prev) => Math.max(prev - 1, 1))
+                                }
+                                className="
+                                    flex h-9 w-9 items-center justify-center
+                                    rounded-lg border border-slate-200
+                                    text-slate-600 transition
+                                    hover:border-emerald-600 hover:bg-emerald-50
+                                    hover:text-emerald-700
+                                    disabled:cursor-not-allowed
+                                    disabled:opacity-40
+                                "
+                                aria-label="Previous page"
+                            >
+                                <FiChevronLeft size={17} />
+                            </button>
+
+                            {/* PAGE NUMBERS */}
+
+                            {getPageNumbers().map((page) => (
+                                <button
+                                    key={page}
+                                    type="button"
+                                    onClick={() => setCurrentPage(page)}
+                                    className={`
+                                        flex h-9 min-w-9 items-center
+                                        justify-center rounded-lg px-3
+                                        text-sm font-semibold transition
+                                        ${currentPage === page
+                                            ? "bg-linear-to-br from-[#064e3b] via-[#047857] to-[#022c22] text-white shadow-sm"
+                                            : "border border-slate-200 text-slate-600 hover:border-emerald-600 hover:bg-emerald-50 hover:text-emerald-700"
+                                        }
+                                    `}
+                                >
+                                    {page}
+                                </button>
+                            ))}
+
+                            {/* NEXT */}
+
+                            <button
+                                type="button"
+                                disabled={currentPage === totalPages}
+                                onClick={() =>
+                                    setCurrentPage((prev) =>
+                                        Math.min(prev + 1, totalPages)
+                                    )
+                                }
+                                className="
+                                    flex h-9 w-9 items-center justify-center
+                                    rounded-lg border border-slate-200
+                                    text-slate-600 transition
+                                    hover:border-emerald-600 hover:bg-emerald-50
+                                    hover:text-emerald-700
+                                    disabled:cursor-not-allowed
+                                    disabled:opacity-40
+                                "
+                                aria-label="Next page"
+                            >
+                                <FiChevronRight size={17} />
+                            </button>
+
+                            {/* LAST PAGE */}
+
+                            <button
+                                type="button"
+                                disabled={currentPage === totalPages}
+                                onClick={() => setCurrentPage(totalPages)}
+                                className="
+                                    flex h-9 w-9 items-center justify-center
+                                    rounded-lg border border-slate-200
+                                    text-slate-600 transition
+                                    hover:border-emerald-600 hover:bg-emerald-50
+                                    hover:text-emerald-700
+                                    disabled:cursor-not-allowed
+                                    disabled:opacity-40
+                                "
+                                aria-label="Last page"
+                            >
+                                <FiChevronsRight size={17} />
+                            </button>
+
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* FORM MODAL */}
@@ -658,6 +940,7 @@ const Brand = () => {
                     handleDeleteBrand={handleDeleteBrand}
                 />
             )}
+
         </div>
     );
 };

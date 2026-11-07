@@ -145,75 +145,144 @@ export const addProductVariant = async (req, res) => {
 // Get All Product Variants
 export const getAllProductVariants = async (req, res) => {
     try {
-        const { category, product } = req.query
+        const {
+            category,
+            product,
+            search = "",
+            page = 1,
+            limit = 10,
+        } = req.query;
 
+        const currentPage = Math.max(1, Number(page) || 1);
+        const pageLimit = Math.max(1, Number(limit) || 10);
+        const skip = (currentPage - 1) * pageLimit;
+
+        const filter = {};
+
+        // CATEGORY FILTER
         if (category) {
-            if (category === "All") {
-                const variants = await ProductVariant.find()
-                    .populate("product", "name")
-                    .sort({ createdAt: -1 });
-                return res.status(200).json({
-                    success: true,
-                    message: "Product variants fetched successfully",
-                    variants,
+            if (category !== "All") {
+                const getCategory = await Category.findOne({
+                    slug: category,
                 });
-            }
-            else {
-                const getCategory = await Category.findOne({ slug: category })
+
                 if (!getCategory) {
                     return res.status(200).json({
                         success: true,
-                        message: "No products available",
+                        message: "No variants available",
+                        variants: [],
+                        currentPage,
+                        limit: pageLimit,
+                        totalPages: 0,
+                        totalVariants: 0,
+                        activeVariants: 0,
+                        inactiveVariants: 0,
                     });
                 }
-                const getProducts = await Product.find({ category: getCategory._id })
-                const productIds = getProducts.map((product) => product._id);
-                const variants = await ProductVariant.find({ product: { $in: productIds } })
-                    .populate("product", "name")
-                    .sort({ createdAt: -1 });
-                return res.status(200).json({
-                    success: true,
-                    message: "Product variants fetched successfully",
-                    variants,
-                });
+
+                const getProducts = await Product.find({
+                    category: getCategory._id,
+                }).select("_id");
+
+                const productIds = getProducts.map(
+                    (item) => item._id
+                );
+
+                filter.product = { $in: productIds };
             }
         }
+
+        // PRODUCT FILTER
         else if (product) {
             let productId = product;
 
             if (!mongoose.Types.ObjectId.isValid(product)) {
-                const getProduct = await Product.findOne({ slug: product });
+                const getProduct = await Product.findOne({
+                    slug: product,
+                }).select("_id");
+
+                if (!getProduct) {
+                    return res.status(200).json({
+                        success: true,
+                        message: "No variants available",
+                        variants: [],
+                        currentPage,
+                        limit: pageLimit,
+                        totalPages: 0,
+                        totalVariants: 0,
+                        activeVariants: 0,
+                        inactiveVariants: 0,
+                    });
+                }
+
                 productId = getProduct._id;
             }
 
-            const variants = await ProductVariant.find({ product: productId })
-                .populate("product", "name")
-                .sort({ createdAt: -1 });
-
-            return res.status(200).json({
-                success: true,
-                message: "Product variants fetched successfully",
-                variants,
-            });
+            filter.product = productId;
         }
-        const variants = await ProductVariant.find()
-            .populate("product", "name")
-            .sort({ createdAt: -1 });
+
+        // SEARCH ONLY BY VARIANT NAME
+        const searchValue = String(search || "").trim();
+
+        if (searchValue) {
+            const escapedSearch = searchValue.replace(
+                /[.*+?^${}()|[\]\\]/g,
+                "\\$&"
+            );
+
+            filter.name = {
+                $regex: escapedSearch,
+                $options: "i",
+            };
+        }
+
+        // FETCH VARIANTS + COMPLETE COUNTS
+        const [
+            variants,
+            totalVariants,
+            activeVariants,
+            inactiveVariants,
+        ] = await Promise.all([
+            ProductVariant.find(filter)
+                .populate("product", "name")
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(pageLimit),
+
+            ProductVariant.countDocuments(filter),
+
+            ProductVariant.countDocuments({
+                ...filter,
+                status: "active",
+            }),
+
+            ProductVariant.countDocuments({
+                ...filter,
+                status: "inactive",
+            }),
+        ]);
 
         return res.status(200).json({
             success: true,
             message: "Product variants fetched successfully",
             variants,
-        })
+            currentPage,
+            limit: pageLimit,
+            totalPages: Math.ceil(totalVariants / pageLimit),
+            totalVariants,
+            activeVariants,
+            inactiveVariants,
+        });
+
     } catch (error) {
         console.error("Get Product Variants Error:", error);
 
         return res.status(500).json({
             success: false,
             message: "Failed to fetch product variants",
-        })
+        });
     }
-}
+};
 
 // Get Single Product Variant
 export const getProductVariantById = async (req, res) => {

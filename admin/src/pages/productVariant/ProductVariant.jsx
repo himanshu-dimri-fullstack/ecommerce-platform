@@ -8,19 +8,20 @@ import {
     FiCheckCircle,
     FiXCircle,
     FiPackage,
-    FiDollarSign,
-    FiTag,
     FiX,
     FiImage,
+    FiChevronLeft,
+    FiChevronRight,
+    FiChevronsLeft,
+    FiChevronsRight,
 } from "react-icons/fi";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Navigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { API } from "../../api/axios";
 import DeleteModal from "../../components/productVariant/DeleteModal";
 import FormModal from "../../components/productVariant/FormModal";
 import DataLoader from "../../components/DataLoader";
 import { useSelector } from "react-redux";
-import { Navigate } from "react-router-dom";
 
 const initialFormData = {
     product: "",
@@ -37,14 +38,31 @@ const initialFormData = {
     height: "",
     images: [],
 };
+
 const inputClass =
     "w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm outline-none transition focus:border-[#003963] focus:bg-white focus:ring-2 focus:ring-[#003963]/10";
 
 const ProductVariant = () => {
     const navigate = useNavigate();
-    const user = useSelector((store) => store.auth.user)
+    const user = useSelector((store) => store.auth.user);
+
+    const permissions = user?.role?.permissions || [];
+
     const [dataLoading, setDataLoading] = useState(true);
+
+    // SEARCH + PAGINATION
     const [search, setSearch] = useState("");
+    const [debouncedSearch, setDebouncedSearch] = useState("");
+    const [currentPage, setCurrentPage] = useState(1);
+    const [limit, setLimit] = useState(10);
+    const [totalPages, setTotalPages] = useState(0);
+
+    // DATABASE COUNTS
+    const [totalVariantCount, setTotalVariantCount] = useState(0);
+    const [activeVariantCount, setActiveVariantCount] = useState(0);
+    const [inactiveVariantCount, setInactiveVariantCount] = useState(0);
+
+    // MODALS
     const [showModal, setShowModal] = useState(false);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [isEdit, setIsEdit] = useState(false);
@@ -52,21 +70,11 @@ const ProductVariant = () => {
     const [editId, setEditId] = useState(null);
     const [deleteId, setDeleteId] = useState(null);
 
+    // DATA
     const [products, setProducts] = useState([]);
     const [variants, setVariants] = useState([]);
     const [existingImages, setExistingImages] = useState([]);
     const [formData, setFormData] = useState(initialFormData);
-
-    // STATISTICS
-    const totalVariants = variants.length;
-
-    const activeVariants = variants.filter(
-        (variant) => variant.status === "active"
-    ).length;
-
-    const inactiveVariants = variants.filter(
-        (variant) => variant.status === "inactive"
-    ).length;
 
     // DISCOUNT CALCULATION
     const calculateDiscount = (mrp, sellingPrice) => {
@@ -131,11 +139,24 @@ const ProductVariant = () => {
         }
     };
 
-    // FETCH ALL VARIANTS
-    const getAllVariants = async () => {
+    // FETCH VARIANTS WITH SERVER-SIDE SEARCH + PAGINATION
+    const getAllVariants = async (page = currentPage) => {
         try {
-            const res = await API.get("/variant/get");
+            const res = await API.get("/variant/get", {
+                params: {
+                    page,
+                    limit,
+                    search: debouncedSearch,
+                },
+            });
+
             setVariants(res.data.variants || []);
+
+            setTotalPages(res.data.totalPages || 0);
+
+            setTotalVariantCount(res.data.totalVariants || 0);
+            setActiveVariantCount(res.data.activeVariants || 0);
+            setInactiveVariantCount(res.data.inactiveVariants || 0);
         } catch (error) {
             console.error(error);
 
@@ -173,6 +194,7 @@ const ProductVariant = () => {
         finalFormData.append("unit", formData.unit);
         finalFormData.append("mrp", formData.mrp);
         finalFormData.append("sellingPrice", formData.sellingPrice);
+
         finalFormData.append(
             "discountPercentage",
             formData.discountPercentage
@@ -199,7 +221,6 @@ const ProductVariant = () => {
                 JSON.stringify(existingImages)
             );
         }
-
 
         return finalFormData;
     };
@@ -258,17 +279,21 @@ const ProductVariant = () => {
                 finalFormData
             );
 
-            toast.success(
-                res.data.message
-            );
+            toast.success(res.data.message);
 
             setShowModal(false);
             resetForm();
 
-            await getAllVariants();
+            // Newest variant appears on the first page
+            setCurrentPage(1);
+
+            if (currentPage === 1) {
+                await getAllVariants(1);
+            }
         } catch (error) {
             toast.error(
-                error?.response?.data?.message
+                error?.response?.data?.message ||
+                "Failed to add variant"
             );
         } finally {
             setDataLoading(false);
@@ -405,59 +430,120 @@ const ProductVariant = () => {
         }
     };
 
-    // SEARCH
-    const filteredVariants = variants.filter((variant) => {
-        const searchValue = search.toLowerCase();
+    // SEARCH DEBOUNCE
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearch(search.trim());
+            setCurrentPage(1);
+        }, 400);
 
-        return (
-            variant.name?.toLowerCase().includes(searchValue) ||
-            variant.sku?.toLowerCase().includes(searchValue) ||
-            variant.barcode?.toLowerCase().includes(searchValue) ||
-            variant.product?.name?.toLowerCase().includes(searchValue) ||
-            variant.unit?.toLowerCase().includes(searchValue)
-        );
-    });
+        return () => clearTimeout(timer);
+    }, [search]);
+
+    // FETCH VARIANTS WHEN PAGE / LIMIT / SEARCH CHANGES
+    useEffect(() => {
+        getAllVariants(currentPage);
+    }, [currentPage, limit, debouncedSearch]);
 
     // INITIAL FETCH
     useEffect(() => {
         getAllProducts();
-        getAllVariants();
     }, []);
 
-    if (!user?.role.permissions.some((permission) => permission.includes("productVariant"))) {
-        return <Navigate to="/admin/dashboard" replace />
+    // PERMISSION CHECK
+    if (
+        !permissions.some((permission) =>
+            permission.includes("productVariant")
+        )
+    ) {
+        return <Navigate to="/admin/dashboard" replace />;
     }
 
     if (dataLoading) {
         return <DataLoader />;
     }
 
+    // PAGINATION NUMBERS
+    const getPaginationNumbers = () => {
+        const pages = [];
+        const maxVisiblePages = 5;
+
+        let startPage = Math.max(
+            1,
+            currentPage - Math.floor(maxVisiblePages / 2)
+        );
+
+        let endPage = Math.min(
+            totalPages,
+            startPage + maxVisiblePages - 1
+        );
+
+        if (endPage - startPage + 1 < maxVisiblePages) {
+            startPage = Math.max(
+                1,
+                endPage - maxVisiblePages + 1
+            );
+        }
+
+        for (let i = startPage; i <= endPage; i++) {
+            pages.push(i);
+        }
+
+        return pages;
+    };
+
+    const paginationNumbers = getPaginationNumbers();
+
+    const startItem =
+        totalVariantCount === 0
+            ? 0
+            : (currentPage - 1) * limit + 1;
+
+    const endItem = Math.min(
+        currentPage * limit,
+        totalVariantCount
+    );
+
     return (
         <div className="space-y-6">
 
             {/* PAGE HEADER */}
-            <div>
-                <h1 className="text-2xl font-bold text-slate-800">
-                    Product Variants
-                </h1>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                    <h1 className="text-2xl font-bold text-slate-800">
+                        Product Variants
+                    </h1>
 
-                <p className="mt-1 text-sm text-slate-500">
-                    Manage product variants, SKUs, pricing, images and status.
-                </p>
+                    <p className="mt-1 text-sm text-slate-500">
+                        Manage product variants, SKUs, pricing, images and status.
+                    </p>
+                </div>
+
+                {permissions.includes("productVariant:add") && (
+                    <button
+                        type="button"
+                        onClick={handleAddModal}
+                        className="flex items-center justify-center gap-2 rounded-xl bg-linear-to-br from-[#064e3b] via-[#047857] to-[#022c22] px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:shadow-md active:scale-95"
+                    >
+                        <FiPlus size={19} />
+                        Add Variant
+                    </button>
+                )}
             </div>
 
             {/* STATISTICS */}
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
 
                 {/* TOTAL */}
-                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
                     <div className="flex items-center justify-between">
                         <div>
                             <p className="text-sm font-medium text-slate-500">
                                 Total Variants
                             </p>
+
                             <h2 className="mt-2 text-3xl font-bold text-slate-800">
-                                {totalVariants}
+                                {totalVariantCount.toLocaleString("en-IN")}
                             </h2>
                         </div>
 
@@ -468,14 +554,15 @@ const ProductVariant = () => {
                 </div>
 
                 {/* ACTIVE */}
-                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
                     <div className="flex items-center justify-between">
                         <div>
                             <p className="text-sm font-medium text-slate-500">
                                 Active Variants
                             </p>
+
                             <h2 className="mt-2 text-3xl font-bold text-green-600">
-                                {activeVariants}
+                                {activeVariantCount.toLocaleString("en-IN")}
                             </h2>
                         </div>
 
@@ -486,14 +573,15 @@ const ProductVariant = () => {
                 </div>
 
                 {/* INACTIVE */}
-                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
                     <div className="flex items-center justify-between">
                         <div>
                             <p className="text-sm font-medium text-slate-500">
                                 Inactive Variants
                             </p>
+
                             <h2 className="mt-2 text-3xl font-bold text-red-500">
-                                {inactiveVariants}
+                                {inactiveVariantCount.toLocaleString("en-IN")}
                             </h2>
                         </div>
 
@@ -504,9 +592,9 @@ const ProductVariant = () => {
                 </div>
             </div>
 
-            {/* SEARCH + ADD */}
+            {/* SEARCH + RESULTS */}
             <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
 
                     <div className="relative w-full sm:max-w-md">
                         <FiSearch
@@ -516,25 +604,70 @@ const ProductVariant = () => {
 
                         <input
                             type="text"
-                            placeholder="Search variants, SKU, barcode, product..."
+                            placeholder="Search by variant name..."
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
-                            className={`${inputClass} pl-10`}
+                            className={`${inputClass} pl-10 pr-10`}
                         />
+
+                        {search && (
+                            <button
+                                type="button"
+                                onClick={() => setSearch("")}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 transition hover:text-red-500"
+                                title="Clear search"
+                            >
+                                <FiX size={18} />
+                            </button>
+                        )}
                     </div>
 
-                    {
-                        user?.role?.permissions.includes("productVariant:add") &&
-                        <button
-                            type="button"
-                            onClick={handleAddModal}
-                            className="flex items-center justify-center gap-2 rounded-xl bg-linear-to-br from-[#064e3b] via-[#047857] to-[#022c22] px-5 py-2.5 text-sm font-semibold text-white transition active:scale-95"
-                        >
-                            <FiPlus size={19} />
-                            Add Variant
-                        </button>
-                    }
+                    <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-sm text-slate-500">
+                            Show
+                        </span>
 
+                        <select
+                            value={limit}
+                            onChange={(e) => {
+                                setLimit(Number(e.target.value));
+                                setCurrentPage(1);
+                            }}
+                            className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-700 outline-none transition focus:border-[#047857] focus:ring-2 focus:ring-[#047857]/10"
+                        >
+                            <option value={10}>10</option>
+                            <option value={20}>20</option>
+                            <option value={50}>50</option>
+                            <option value={100}>100</option>
+                        </select>
+
+                        <span className="text-sm text-slate-500">
+                            entries
+                        </span>
+                    </div>
+                </div>
+
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3">
+                    <p className="text-xs text-slate-500">
+                        Showing{" "}
+                        <span className="font-semibold text-slate-700">
+                            {startItem}–{endItem}
+                        </span>{" "}
+                        of{" "}
+                        <span className="font-semibold text-slate-700">
+                            {totalVariantCount}
+                        </span>{" "}
+                        variants
+                    </p>
+
+                    {debouncedSearch && (
+                        <p className="text-xs text-slate-500">
+                            Search results for{" "}
+                            <span className="font-semibold text-[#047857]">
+                                "{debouncedSearch}"
+                            </span>
+                        </p>
+                    )}
                 </div>
             </div>
 
@@ -563,8 +696,8 @@ const ProductVariant = () => {
                         </thead>
 
                         <tbody className="divide-y divide-slate-100">
-                            {filteredVariants.length > 0 ? (
-                                filteredVariants.map((variant) => (
+                            {variants.length > 0 ? (
+                                variants.map((variant) => (
                                     <tr
                                         key={variant._id}
                                         className="transition hover:bg-slate-50"
@@ -592,6 +725,7 @@ const ProductVariant = () => {
                                                     <p className="font-semibold text-slate-800">
                                                         {variant.name}
                                                     </p>
+
                                                     <p className="mt-1 text-xs text-slate-400">
                                                         ID: #{variant._id}
                                                     </p>
@@ -606,19 +740,28 @@ const ProductVariant = () => {
                                             </p>
                                         </td>
 
-
                                         {/* PRICING */}
                                         <td className="px-6 py-4">
                                             <p className="font-semibold text-slate-800">
-                                                ₹{Number(variant.sellingPrice || 0).toLocaleString("en-IN")}
+                                                ₹
+                                                {Number(
+                                                    variant.sellingPrice || 0
+                                                ).toLocaleString("en-IN")}
                                             </p>
+
                                             <div className="mt-1 flex items-center gap-2">
                                                 <span className="text-xs text-slate-400 line-through">
-                                                    ₹{Number(variant.mrp || 0).toLocaleString("en-IN")}
+                                                    ₹
+                                                    {Number(
+                                                        variant.mrp || 0
+                                                    ).toLocaleString("en-IN")}
                                                 </span>
 
                                                 <span className="text-xs font-medium text-green-600">
-                                                    {Number(variant.discountPercentage || 0)}% off
+                                                    {Number(
+                                                        variant.discountPercentage || 0
+                                                    )}
+                                                    % off
                                                 </span>
                                             </div>
                                         </td>
@@ -626,10 +769,10 @@ const ProductVariant = () => {
                                         {/* STATUS */}
                                         <td className="px-6 py-4">
                                             <button
-                                                disabled={!(user?.role.permissions.includes("productVariant:status"))}
+                                                disabled={!permissions.includes("productVariant:status")}
                                                 type="button"
                                                 onClick={() => changeStatus(variant._id)}
-                                                className={`rounded-lg px-3 py-2 text-xs font-semibold transition ${variant.status === "active"
+                                                className={`rounded-lg px-3 py-2 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${variant.status === "active"
                                                     ? "bg-green-100 text-green-700 hover:bg-green-200"
                                                     : "bg-red-100 text-red-700 hover:bg-red-200"
                                                     }`}
@@ -641,8 +784,8 @@ const ProductVariant = () => {
                                         {/* ACTIONS */}
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-2">
-                                                {
-                                                    user?.role?.permissions.includes("productVariant:read") &&
+
+                                                {permissions.includes("productVariant:read") && (
                                                     <button
                                                         type="button"
                                                         title="View Variant"
@@ -655,10 +798,9 @@ const ProductVariant = () => {
                                                     >
                                                         <FiEye size={18} />
                                                     </button>
-                                                }
+                                                )}
 
-                                                {
-                                                    user?.role?.permissions.includes("productVariant:update") &&
+                                                {permissions.includes("productVariant:update") && (
                                                     <button
                                                         type="button"
                                                         title="Edit Variant"
@@ -669,9 +811,9 @@ const ProductVariant = () => {
                                                     >
                                                         <FiEdit2 size={18} />
                                                     </button>
-                                                }
-                                                {
-                                                    user?.role?.permissions.includes("productVariant:delete") &&
+                                                )}
+
+                                                {permissions.includes("productVariant:delete") && (
                                                     <button
                                                         type="button"
                                                         title="Delete Variant"
@@ -682,35 +824,168 @@ const ProductVariant = () => {
                                                     >
                                                         <FiTrash2 size={18} />
                                                     </button>
-                                                }
-
-
-
+                                                )}
                                             </div>
                                         </td>
                                     </tr>
                                 ))
                             ) : (
                                 <tr>
-                                    <td colSpan="7" className="px-6 py-12 text-center">
-                                        <FiPackage
-                                            size={40}
-                                            className="mx-auto text-slate-300"
-                                        />
+                                    <td colSpan="5" className="px-6 py-16 text-center">
+                                        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100 text-slate-300">
+                                            <FiPackage size={32} />
+                                        </div>
 
-                                        <p className="mt-3 font-medium text-slate-600">
+                                        <p className="mt-4 font-semibold text-slate-700">
                                             No variants found
                                         </p>
 
                                         <p className="mt-1 text-sm text-slate-400">
-                                            Try changing your search or add a new variant.
+                                            {debouncedSearch
+                                                ? "Try searching with a different variant name."
+                                                : "Add a new variant to get started."}
                                         </p>
+
+                                        {search && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setSearch("")}
+                                                className="mt-3 text-sm font-semibold text-[#047857] hover:underline"
+                                            >
+                                                Clear search
+                                            </button>
+                                        )}
                                     </td>
                                 </tr>
                             )}
                         </tbody>
                     </table>
                 </div>
+
+                {/* PAGINATION */}
+                {totalPages > 0 && (
+                    <div className="flex flex-col gap-4 border-t border-slate-200 bg-white px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+
+                        <p className="text-sm text-slate-500">
+                            Page{" "}
+                            <span className="font-semibold text-slate-800">
+                                {currentPage}
+                            </span>{" "}
+                            of{" "}
+                            <span className="font-semibold text-slate-800">
+                                {totalPages}
+                            </span>
+                        </p>
+
+                        <div className="flex flex-wrap items-center justify-center gap-1.5">
+
+                            {/* FIRST PAGE */}
+                            <button
+                                type="button"
+                                disabled={currentPage === 1}
+                                onClick={() => setCurrentPage(1)}
+                                className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:border-[#047857] hover:bg-emerald-50 hover:text-[#047857] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-slate-200 disabled:hover:bg-white disabled:hover:text-slate-600"
+                                title="First page"
+                            >
+                                <FiChevronsLeft size={17} />
+                            </button>
+
+                            {/* PREVIOUS */}
+                            <button
+                                type="button"
+                                disabled={currentPage === 1}
+                                onClick={() =>
+                                    setCurrentPage((prev) => Math.max(1, prev - 1))
+                                }
+                                className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:border-[#047857] hover:bg-emerald-50 hover:text-[#047857] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-slate-200 disabled:hover:bg-white disabled:hover:text-slate-600"
+                                title="Previous page"
+                            >
+                                <FiChevronLeft size={17} />
+                            </button>
+
+                            {/* FIRST PAGE + ELLIPSIS */}
+                            {paginationNumbers.length > 0 &&
+                                paginationNumbers[0] > 1 && (
+                                    <>
+                                        <button
+                                            type="button"
+                                            onClick={() => setCurrentPage(1)}
+                                            className="h-9 min-w-9 rounded-lg border border-slate-200 px-3 text-sm font-medium text-slate-600 transition hover:border-[#047857] hover:bg-emerald-50 hover:text-[#047857]"
+                                        >
+                                            1
+                                        </button>
+
+                                        {paginationNumbers[0] > 2 && (
+                                            <span className="px-1 text-slate-400">
+                                                ...
+                                            </span>
+                                        )}
+                                    </>
+                                )}
+
+                            {/* PAGE NUMBERS */}
+                            {paginationNumbers.map((page) => (
+                                <button
+                                    key={page}
+                                    type="button"
+                                    onClick={() => setCurrentPage(page)}
+                                    className={`h-9 min-w-9 rounded-lg px-3 text-sm font-semibold transition ${currentPage === page
+                                        ? "bg-linear-to-br from-[#064e3b] via-[#047857] to-[#022c22] text-white shadow-sm"
+                                        : "border border-slate-200 text-slate-600 hover:border-[#047857] hover:bg-emerald-50 hover:text-[#047857]"
+                                        }`}
+                                >
+                                    {page}
+                                </button>
+                            ))}
+
+                            {/* LAST PAGE + ELLIPSIS */}
+                            {paginationNumbers.length > 0 &&
+                                paginationNumbers[paginationNumbers.length - 1] < totalPages && (
+                                    <>
+                                        {paginationNumbers[paginationNumbers.length - 1] < totalPages - 1 && (
+                                            <span className="px-1 text-slate-400">
+                                                ...
+                                            </span>
+                                        )}
+
+                                        <button
+                                            type="button"
+                                            onClick={() => setCurrentPage(totalPages)}
+                                            className="h-9 min-w-9 rounded-lg border border-slate-200 px-3 text-sm font-medium text-slate-600 transition hover:border-[#047857] hover:bg-emerald-50 hover:text-[#047857]"
+                                        >
+                                            {totalPages}
+                                        </button>
+                                    </>
+                                )}
+
+                            {/* NEXT */}
+                            <button
+                                type="button"
+                                disabled={currentPage === totalPages}
+                                onClick={() =>
+                                    setCurrentPage((prev) =>
+                                        Math.min(totalPages, prev + 1)
+                                    )
+                                }
+                                className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:border-[#047857] hover:bg-emerald-50 hover:text-[#047857] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-slate-200 disabled:hover:bg-white disabled:hover:text-slate-600"
+                                title="Next page"
+                            >
+                                <FiChevronRight size={17} />
+                            </button>
+
+                            {/* LAST */}
+                            <button
+                                type="button"
+                                disabled={currentPage === totalPages}
+                                onClick={() => setCurrentPage(totalPages)}
+                                className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:border-[#047857] hover:bg-emerald-50 hover:text-[#047857] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-slate-200 disabled:hover:bg-white disabled:hover:text-slate-600"
+                                title="Last page"
+                            >
+                                <FiChevronsRight size={17} />
+                            </button>
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* ADD / EDIT MODAL */}
@@ -729,6 +1004,7 @@ const ProductVariant = () => {
                     setFormData={setFormData}
                 />
             )}
+
             {/* DELETE MODAL */}
             {showDeleteModal && (
                 <DeleteModal

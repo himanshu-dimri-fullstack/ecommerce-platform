@@ -4,16 +4,123 @@ import { handleResponseError } from "../utils/errorUtils.js"
 // ===============================
 // GET ALL ROLES
 // ===============================
+
 export const getRoles = async (req, res) => {
     try {
-        const roles = await Role.find({ name: { $ne: "super_admin" } }).sort({ createdAt: -1 });
-        res.status(200).json({ roles })
+        const {
+            page,
+            limit,
+            search = "",
+        } = req.query;
+
+        // EXCLUDE SUPER ADMIN
+        const baseFilter = {
+            name: { $ne: "super_admin" },
+        };
+
+        // GLOBAL STATISTICS
+        const [
+            totalRoles,
+            activeRoles,
+            inactiveRoles,
+        ] = await Promise.all([
+            Role.countDocuments(baseFilter),
+
+            Role.countDocuments({
+                ...baseFilter,
+                status: "active",
+            }),
+
+            Role.countDocuments({
+                ...baseFilter,
+                status: "inactive",
+            }),
+        ]);
+
+        // BACKWARD COMPATIBILITY
+        const isPaginated =
+            page !== undefined ||
+            limit !== undefined ||
+            search.trim() !== "";
+
+        if (!isPaginated) {
+            const roles = await Role.find(baseFilter)
+                .sort({ createdAt: -1 });
+
+            return res.status(200).json({
+                roles,
+                totalRoles,
+                activeRoles,
+                inactiveRoles,
+            });
+        }
+
+        const currentPage = Math.max(
+            1,
+            Number(page) || 1
+        );
+
+        const pageLimit = Math.min(
+            100,
+            Math.max(1, Number(limit) || 10)
+        );
+
+        // SEARCH FILTER
+        const filter = { ...baseFilter };
+
+        if (search.trim()) {
+            const searchRegex = new RegExp(
+                search.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+                "i"
+            );
+
+            filter.name = {
+                $ne: "super_admin",
+                $regex: searchRegex,
+            };
+        }
+
+        // FILTERED COUNT
+        const filteredCount = await Role.countDocuments(filter);
+
+        const totalPages = Math.max(
+            1,
+            Math.ceil(filteredCount / pageLimit)
+        );
+
+        const safePage = Math.min(
+            currentPage,
+            totalPages
+        );
+
+        const skip = (safePage - 1) * pageLimit;
+
+        // FETCH PAGINATED ROLES
+        const roles = await Role.find(filter)
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(pageLimit);
+
+        return res.status(200).json({
+            roles,
+            totalRoles,
+            activeRoles,
+            inactiveRoles,
+            filteredCount,
+            totalPages,
+            currentPage: safePage,
+            limit: pageLimit,
+        });
+
     } catch (error) {
-        res.status(500).json({
+        console.error("Get roles error:", error);
+
+        return res.status(500).json({
             message: "Failed to fetch roles",
         });
     }
 };
+
 
 // ===============================
 // CREATE ROLE

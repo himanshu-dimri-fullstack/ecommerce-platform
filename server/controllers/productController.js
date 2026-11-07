@@ -9,27 +9,103 @@ import Store from "../models/Store.js";
 import Product from "../models/Product.js";
 import ProductVariant from "../models/ProductVariant.js";
 
+
+
 export const getAllProducts = async (req, res) => {
     try {
-        const { subcategory } = req.query
+        const {
+            subcategory,
+            search = "",
+            page = 1,
+            limit = 10,
+        } = req.query;
+
+        const currentPage = Math.max(1, Number(page) || 1);
+        const pageLimit = Math.max(1, Number(limit) || 10);
+        const skip = (currentPage - 1) * pageLimit;
+
+        const filter = {};
+
+        // Existing subcategory filter
         if (subcategory) {
-            const getSubcategory = await Subcategory.findOne({ slug: subcategory })
-            const products = await Product.find({ subcategory: getSubcategory._id })
-                .sort({ createdAt: -1 }).populate("category", "name")
-                .populate("subcategory", "name")
-                .populate("brand", "name")
-            return res.status(200).json({ products })
+            const getSubcategory = await Subcategory.findOne({
+                slug: subcategory,
+            });
+
+            if (!getSubcategory) {
+                return res.status(200).json({
+                    products: [],
+                    currentPage,
+                    limit: pageLimit,
+                    totalPages: 0,
+                    totalProducts: 0,
+                    activeProducts: 0,
+                    inactiveProducts: 0,
+                });
+            }
+
+            filter.subcategory = getSubcategory._id;
         }
 
-        const products = await Product.find().sort({ createdAt: -1 }).populate("category", "name")
-            .populate("subcategory", "name")
-            .populate("brand", "name")
-        return res.status(200).json({ products })
+        // Search only by product name
+        const searchValue = search.trim();
+
+        if (searchValue) {
+            const escapedSearch = searchValue.replace(
+                /[.*+?^${}()|[\]\\]/g,
+                "\\$&"
+            );
+
+            filter.name = {
+                $regex: escapedSearch,
+                $options: "i",
+            };
+        }
+
+        const [
+            products,
+            totalProducts,
+            activeProducts,
+            inactiveProducts,
+        ] = await Promise.all([
+            Product.find(filter)
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(pageLimit)
+                .populate("category", "name")
+                .populate("subcategory", "name")
+                .populate("brand", "name"),
+
+            Product.countDocuments(filter),
+
+            Product.countDocuments({
+                ...filter,
+                isActive: true,
+            }),
+
+            Product.countDocuments({
+                ...filter,
+                isActive: false,
+            }),
+        ]);
+
+        return res.status(200).json({
+            products,
+            currentPage,
+            limit: pageLimit,
+            totalPages: Math.ceil(totalProducts / pageLimit),
+            totalProducts,
+            activeProducts,
+            inactiveProducts,
+        });
+
+    } catch (error) {
+        return res.status(500).json({
+            message: error.message,
+        });
     }
-    catch (error) {
-        return res.status(500).json({ message: error.message })
-    }
-}
+};
+
 
 export const addProduct = async (req, res) => {
 

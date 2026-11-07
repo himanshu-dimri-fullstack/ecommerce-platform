@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react";
 import {
     FiSearch,
@@ -10,36 +9,60 @@ import {
     FiXCircle,
     FiPackage,
     FiStar,
+    FiChevronLeft,
+    FiChevronRight,
+    FiChevronsLeft,
+    FiChevronsRight,
+    FiX,
 } from "react-icons/fi";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Navigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { API } from "../../api/axios";
 import DeleteModal from "../../components/product/DeleteModal";
 import FormModal from "../../components/product/FormModal";
 import DataLoader from "../../components/DataLoader";
 import { useSelector } from "react-redux";
-import { Navigate } from "react-router-dom"
+
+const inputClass =
+    "w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition-all placeholder:text-slate-400 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10";
 
 const Product = () => {
     const navigate = useNavigate();
-    const user = useSelector((store) => store.auth.user)
+    const user = useSelector((store) => store.auth.user);
+    const permissions = user?.role?.permissions || [];
 
     const [dataLoading, setDataLoading] = useState(true);
 
-    // STATES
+    // SEARCH STATES
     const [search, setSearch] = useState("");
+    const [debouncedSearch, setDebouncedSearch] = useState("");
+
+    // MODAL STATES
     const [showModal, setShowModal] = useState(false);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [isEdit, setIsEdit] = useState(false);
     const [editId, setEditId] = useState(null);
     const [deleteId, setDeleteId] = useState(null);
 
-    const [categories, setCategories] = useState([])
-    const [subcategories, setSubcategories] = useState([])
-    const [brands, setBrands] = useState([])
+    // DROPDOWN DATA
+    const [categories, setCategories] = useState([]);
+    const [subcategories, setSubcategories] = useState([]);
+    const [brands, setBrands] = useState([]);
 
+    // PRODUCT DATA
     const [products, setProducts] = useState([]);
 
+    // PAGINATION STATES
+    const [currentPage, setCurrentPage] = useState(1);
+    const [limit, setLimit] = useState(10);
+    const [totalPages, setTotalPages] = useState(0);
+
+    // DATABASE COUNTS
+    const [totalProductCount, setTotalProductCount] = useState(0);
+    const [activeProductCount, setActiveProductCount] = useState(0);
+    const [inactiveProductCount, setInactiveProductCount] = useState(0);
+
+    // FORM STATES
     const [formData, setFormData] = useState({
         category: "",
         subcategory: "",
@@ -51,20 +74,9 @@ const Product = () => {
         tags: [],
         isFeatured: false,
     });
-    const [existingImages, setExistingImages] = useState([])
 
+    const [existingImages, setExistingImages] = useState([]);
     const [tagInput, setTagInput] = useState("");
-
-    // STATISTICS
-    const totalProducts = products.length;
-
-    const activeProducts = products.filter(
-        (product) => product.isActive === true
-    ).length;
-
-    const inactiveProducts = products.filter(
-        (product) => product.isActive === false
-    ).length;
 
     // FORM CHANGE
     const handleChange = (e) => {
@@ -78,18 +90,28 @@ const Product = () => {
         } else {
             setFormData((prev) => ({
                 ...prev,
-                [name]:
-                    type === "checkbox" ? checked : value,
+                [name]: type === "checkbox" ? checked : value,
             }));
         }
     };
 
     // GET ALL PRODUCTS
-    const getAllProducts = async () => {
+    const getAllProducts = async (page = currentPage) => {
         try {
-            const res = await API.get("/product/get");
+            const res = await API.get("/product/get", {
+                params: {
+                    page,
+                    limit,
+                    search: debouncedSearch,
+                },
+            });
 
             setProducts(res.data.products || []);
+            setTotalPages(res.data.totalPages || 0);
+
+            setTotalProductCount(res.data.totalProducts || 0);
+            setActiveProductCount(res.data.activeProducts || 0);
+            setInactiveProductCount(res.data.inactiveProducts || 0);
         } catch (error) {
             console.error(error);
 
@@ -115,6 +137,9 @@ const Product = () => {
             tags: [],
             isFeatured: false,
         });
+
+        setExistingImages([]);
+        setTagInput("");
     };
 
     // OPEN ADD MODAL
@@ -137,19 +162,17 @@ const Product = () => {
         finalFormData.append("unit", formData.unit);
         finalFormData.append("tags", JSON.stringify(formData.tags));
         finalFormData.append("isFeatured", formData.isFeatured);
+
         formData.images.forEach((image) => {
             finalFormData.append("images", image);
         });
 
         if (existingImages.length > 0) {
-            finalFormData.append("existingImages", JSON.stringify(existingImages));
+            finalFormData.append(
+                "existingImages",
+                JSON.stringify(existingImages)
+            );
         }
-
-        // Array.from(formData.images || []).forEach((image) => {
-        //     if (image instanceof File) {
-        //         finalFormData.append("images", image);
-        //     }
-        // });
 
         return finalFormData;
     };
@@ -163,25 +186,25 @@ const Product = () => {
 
             const finalFormData = buildProductFormData();
 
-            console.log("formData", formData)
-            // return
-
             const res = await API.post(
                 "/product/add",
                 finalFormData
             );
 
-            toast.success(
-                res.data.message
-            );
+            toast.success(res.data.message);
 
             setShowModal(false);
             resetForm();
 
-            await getAllProducts();
+            setCurrentPage(1);
+
+            if (currentPage === 1) {
+                await getAllProducts(1);
+            }
         } catch (error) {
             toast.error(
-                error?.response?.data?.message
+                error?.response?.data?.message ||
+                "Failed to add product"
             );
         } finally {
             setDataLoading(false);
@@ -209,6 +232,7 @@ const Product = () => {
 
             setShowDeleteModal(false);
             setDeleteId(null);
+
             await getAllProducts();
         } catch (error) {
             console.error(error);
@@ -229,9 +253,7 @@ const Product = () => {
 
             const res = await API.patch(
                 "/product/update/status",
-                {
-                    id,
-                }
+                { id }
             );
 
             toast.success(
@@ -262,19 +284,18 @@ const Product = () => {
         setIsEdit(true);
 
         setFormData({
-            category:
-                product.category?._id,
-            subcategory:
-                product.subcategory?._id,
-            brand: product.brand._id,
+            category: product.category?._id || "",
+            subcategory: product.subcategory?._id || "",
+            brand: product.brand?._id || "",
             name: product.name,
             description: product.description,
             images: [],
             unit: product.unit,
-            tags: product.tags,
+            tags: product.tags || [],
             isFeatured: product.isFeatured,
         });
-        setExistingImages(product.images)
+
+        setExistingImages(product.images || []);
         setShowModal(true);
     };
 
@@ -313,68 +334,115 @@ const Product = () => {
         }
     };
 
-    // SEARCH
-    const filteredProducts = products.filter((product) => {
-        const searchValue = search.toLowerCase();
-
-        return (
-            product.name?.toLowerCase().includes(searchValue) ||
-            product.slug?.toLowerCase().includes(searchValue) ||
-            product.category?.name
-                ?.toLowerCase()
-                .includes(searchValue) ||
-            product.brand?.name
-                ?.toLowerCase()
-                .includes(searchValue)
-        );
-    });
-
+    // GET ALL CATEGORIES
     const getAllCategories = async () => {
         try {
-            const res = await API.get("/category/get")
-            setCategories(res.data.categories)
+            const res = await API.get("/category/get");
+            setCategories(res.data.categories || []);
+        } catch (error) {
+            console.log(error.message);
         }
-        catch (error) {
-            console.log(error.message)
-        }
-    }
+    };
+
+    // GET ALL SUBCATEGORIES
     const getAllSubcategories = async () => {
         try {
-            const res = await API.get("/subcategory/get")
-            setSubcategories(res.data.subcategories)
+            const res = await API.get("/subcategory/get");
+            setSubcategories(res.data.subcategories || []);
+        } catch (error) {
+            console.log(error.message);
         }
-        catch (error) {
-            console.log(error.message)
-        }
-    }
+    };
+
+    // GET ALL BRANDS
     const getAllBrands = async () => {
         try {
-            const res = await API.get("/brand/get")
-            setBrands(res.data.brands)
+            const res = await API.get("/brand/get");
+            setBrands(res.data.brands || []);
+        } catch (error) {
+            console.log(error.message);
         }
-        catch (error) {
-            console.log(error.message)
-        }
-    }
+    };
 
     // INITIAL FETCH
     useEffect(() => {
-        getAllProducts();
-        getAllCategories()
-        getAllSubcategories()
-        getAllBrands()
+        getAllCategories();
+        getAllSubcategories();
+        getAllBrands();
     }, []);
 
-    if (!user?.role.permissions.some((permission) => permission.includes("product"))) {
-        return <Navigate to="/admin/dashboard" replace />
+    // SEARCH DEBOUNCE
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearch(search.trim());
+            setCurrentPage(1);
+        }, 400);
+
+        return () => clearTimeout(timer);
+    }, [search]);
+
+    // FETCH PRODUCTS
+    useEffect(() => {
+        getAllProducts(currentPage);
+    }, [currentPage, limit, debouncedSearch]);
+
+    // PERMISSION CHECK
+    if (
+        !permissions.some((permission) =>
+            permission.includes("product")
+        )
+    ) {
+        return <Navigate to="/admin/dashboard" replace />;
     }
 
     if (dataLoading) {
         return <DataLoader />;
     }
 
+    // PAGINATION NUMBERS
+    const getPaginationNumbers = () => {
+        const pages = [];
+        const maxVisiblePages = 5;
+
+        let startPage = Math.max(
+            1,
+            currentPage - Math.floor(maxVisiblePages / 2)
+        );
+
+        let endPage = Math.min(
+            totalPages,
+            startPage + maxVisiblePages - 1
+        );
+
+        if (endPage - startPage + 1 < maxVisiblePages) {
+            startPage = Math.max(
+                1,
+                endPage - maxVisiblePages + 1
+            );
+        }
+
+        for (let i = startPage; i <= endPage; i++) {
+            pages.push(i);
+        }
+
+        return pages;
+    };
+
+    const paginationNumbers = getPaginationNumbers();
+
+    const startItem =
+        totalProductCount === 0
+            ? 0
+            : (currentPage - 1) * limit + 1;
+
+    const endItem = Math.min(
+        currentPage * limit,
+        totalProductCount
+    );
+
     return (
         <div className="space-y-6">
+
             {/* PAGE HEADER */}
             <div>
                 <h1 className="text-2xl font-bold text-slate-800">
@@ -382,12 +450,13 @@ const Product = () => {
                 </h1>
 
                 <p className="mt-1 text-sm text-slate-500">
-                    Manage your products, inventory listings and status.
+                    Manage your products, listings and product status.
                 </p>
             </div>
 
             {/* STATISTICS */}
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+
                 {/* TOTAL */}
                 <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                     <div className="flex items-center justify-between">
@@ -395,8 +464,9 @@ const Product = () => {
                             <p className="text-sm font-medium text-slate-500">
                                 Total Products
                             </p>
+
                             <h2 className="mt-2 text-3xl font-bold text-slate-800">
-                                {totalProducts}
+                                {totalProductCount.toLocaleString("en-IN")}
                             </h2>
                         </div>
 
@@ -413,8 +483,9 @@ const Product = () => {
                             <p className="text-sm font-medium text-slate-500">
                                 Active Products
                             </p>
+
                             <h2 className="mt-2 text-3xl font-bold text-green-600">
-                                {activeProducts}
+                                {activeProductCount.toLocaleString("en-IN")}
                             </h2>
                         </div>
 
@@ -431,8 +502,9 @@ const Product = () => {
                             <p className="text-sm font-medium text-slate-500">
                                 Inactive Products
                             </p>
+
                             <h2 className="mt-2 text-3xl font-bold text-red-500">
-                                {inactiveProducts}
+                                {inactiveProductCount.toLocaleString("en-IN")}
                             </h2>
                         </div>
 
@@ -445,7 +517,8 @@ const Product = () => {
 
             {/* SEARCH + ADD */}
             <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+
                     <div className="relative w-full sm:max-w-md">
                         <FiSearch
                             className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
@@ -454,71 +527,110 @@ const Product = () => {
 
                         <input
                             type="text"
-                            placeholder="Search products, brands, categories..."
+                            placeholder="Search by product name..."
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
-                            className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-4 text-sm outline-none transition focus:border-[#003963] focus:bg-white focus:ring-2 focus:ring-[#003963]/10"
+                            className={`${inputClass} pl-10 pr-10`}
                         />
+
+                        {search && (
+                            <button
+                                type="button"
+                                onClick={() => setSearch("")}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 transition hover:text-red-500"
+                                title="Clear search"
+                            >
+                                <FiX size={18} />
+                            </button>
+                        )}
                     </div>
-                    {
-                        user?.role?.permissions.includes("product:add") &&
-                        <button
-                            onClick={handleAddProductModal}
-                            className="flex items-center justify-center gap-2 rounded-xl bg-linear-to-br from-[#064e3b] via-[#047857] to-[#022c22] px-5 py-2.5 text-sm font-semibold text-white transition active:scale-95"
+
+                    <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-sm text-slate-500">
+                            Show
+                        </span>
+
+                        <select
+                            value={limit}
+                            onChange={(e) => {
+                                setLimit(Number(e.target.value));
+                                setCurrentPage(1);
+                            }}
+                            className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-700 outline-none transition focus:border-[#047857] focus:ring-2 focus:ring-[#047857]/10"
                         >
-                            <FiPlus size={19} />
-                            Add Product
-                        </button>
+                            <option value={10}>10</option>
+                            <option value={20}>20</option>
+                            <option value={50}>50</option>
+                            <option value={100}>100</option>
+                        </select>
 
-                    }
+                        <span className="text-sm text-slate-500">
+                            entries
+                        </span>
+                    </div>
+                </div>
 
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3">
+                    <p className="text-xs text-slate-500">
+                        Showing{" "}
+                        <span className="font-semibold text-slate-700">
+                            {startItem}–{endItem}
+                        </span>{" "}
+                        of{" "}
+                        <span className="font-semibold text-slate-700">
+                            {totalProductCount}
+                        </span>{" "}
+                        products
+                    </p>
 
+                    {debouncedSearch && (
+                        <p className="text-xs text-slate-500">
+                            Search results for{" "}
+                            <span className="font-semibold text-[#047857]">
+                                "{debouncedSearch}"
+                            </span>
+                        </p>
+                    )}
                 </div>
             </div>
 
             {/* PRODUCT TABLE */}
             <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
                 <div className="overflow-x-auto">
-                    <table className="w-full min-w-200">
+                    <table className="w-full min-w-250">
+
                         <thead className="border-b border-slate-200 bg-slate-50">
                             <tr>
-                                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                                    Product
-                                </th>
-
-                                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                                    Category
-                                </th>
-
-                                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                                    Brand
-                                </th>
-
-                                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                                    Rating
-                                </th>
-
-                                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                                    Status
-                                </th>
-
-                                <th className="px-6 py-4 text-center text-xs font-semibold uppercase tracking-wide text-slate-500">
-                                    Actions
-                                </th>
+                                {[
+                                    "Product",
+                                    "Category",
+                                    "Brand",
+                                    "Rating",
+                                    "Status",
+                                    "Actions",
+                                ].map((heading) => (
+                                    <th
+                                        key={heading}
+                                        className="whitespace-nowrap px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500"
+                                    >
+                                        {heading}
+                                    </th>
+                                ))}
                             </tr>
                         </thead>
 
                         <tbody className="divide-y divide-slate-100">
-                            {filteredProducts.length > 0 ? (
-                                filteredProducts.map((product) => (
+                            {products.length > 0 ? (
+                                products.map((product) => (
                                     <tr
                                         key={product._id}
                                         className="transition hover:bg-slate-50"
                                     >
+
                                         {/* PRODUCT */}
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-3">
-                                                <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-slate-100 text-[#003963]">
+                                                <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-slate-100 text-[#003963]">
                                                     {product.images?.[0]?.url ? (
                                                         <img
                                                             src={product.images[0].url}
@@ -535,7 +647,7 @@ const Product = () => {
                                                         {product.name}
                                                     </p>
 
-                                                    <p className="text-xs text-slate-400">
+                                                    <p className="mt-1 text-xs text-slate-400">
                                                         ID: #{product._id}
                                                     </p>
                                                 </div>
@@ -544,9 +656,10 @@ const Product = () => {
 
                                         {/* CATEGORY */}
                                         <td className="px-6 py-4">
-                                            <p className="text-sm text-slate-700">
+                                            <p className="text-sm font-medium text-slate-700">
                                                 {product.category?.name || "—"}
                                             </p>
+
                                             <p className="mt-1 text-xs text-slate-400">
                                                 {product.subcategory?.name || "—"}
                                             </p>
@@ -554,19 +667,21 @@ const Product = () => {
 
                                         {/* BRAND */}
                                         <td className="px-6 py-4">
-                                            <span className="text-sm text-slate-700">
+                                            <p className="text-sm font-medium text-slate-700">
                                                 {product.brand?.name || "—"}
-                                            </span>
+                                            </p>
                                         </td>
 
                                         {/* RATING */}
                                         <td className="px-6 py-4">
-                                            <div className="flex items-center gap-1 text-sm text-slate-700">
+                                            <div className="flex items-center gap-1 text-sm font-medium text-slate-700">
                                                 <FiStar
                                                     className="fill-amber-400 text-amber-400"
                                                     size={15}
                                                 />
+
                                                 {Number(product.rating || 0).toFixed(1)}
+
                                                 <span className="text-xs text-slate-400">
                                                     ({product.totalReviews || 0})
                                                 </span>
@@ -576,78 +691,61 @@ const Product = () => {
                                         {/* STATUS */}
                                         <td className="px-6 py-4">
                                             <button
-                                                disabled={!(user?.role.permissions.includes("product:status"))}
+                                                disabled={!permissions.includes("product:status")}
                                                 type="button"
-                                                onClick={() =>
-                                                    changeStatus(
-                                                        product._id,
-                                                    )
-                                                }
-                                                className={`rounded-lg p-2 text-sm transition ${product.isActive
-                                                    ? "bg-green-100 text-green-600"
-                                                    : "bg-red-100 text-red-600"
+                                                onClick={() => changeStatus(product._id)}
+                                                className={`rounded-lg px-3 py-2 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${product.isActive
+                                                    ? "bg-green-100 text-green-700 hover:bg-green-200"
+                                                    : "bg-red-100 text-red-700 hover:bg-red-200"
                                                     }`}
                                             >
-                                                {product.isActive
-                                                    ? "active"
-                                                    : "inactive"}
+                                                {product.isActive ? "active" : "inactive"}
                                             </button>
                                         </td>
 
                                         {/* ACTIONS */}
                                         <td className="px-6 py-4">
-                                            <div className="flex items-center justify-center gap-2">
-                                                {
-                                                    user?.role?.permissions.includes("product:read") &&
+                                            <div className="flex items-center gap-2">
+
+                                                {permissions.includes("product:read") && (
                                                     <button
+                                                        type="button"
                                                         title="View Product"
-                                                        onClick={() =>
-                                                            handleProductView(product._id)
-                                                        }
+                                                        onClick={() => handleProductView(product._id)}
                                                         className="rounded-lg p-2 text-blue-600 transition hover:bg-blue-50"
                                                     >
                                                         <FiEye size={18} />
                                                     </button>
-                                                }
+                                                )}
 
-
-                                                {
-                                                    user?.role?.permissions.includes("product:update") &&
+                                                {permissions.includes("product:update") && (
                                                     <button
+                                                        type="button"
                                                         title="Edit Product"
-                                                        onClick={() =>
-                                                            handleProductEdit(product)
-                                                        }
+                                                        onClick={() => handleProductEdit(product)}
                                                         className="rounded-lg p-2 text-amber-600 transition hover:bg-amber-50"
                                                     >
                                                         <FiEdit2 size={18} />
                                                     </button>
-                                                }
+                                                )}
 
-
-                                                {
-                                                    user?.role?.permissions.includes("product:delete") &&
+                                                {permissions.includes("product:delete") && (
                                                     <button
+                                                        type="button"
                                                         title="Delete Product"
-                                                        onClick={() =>
-                                                            handleDeleteModal(product._id)
-                                                        }
+                                                        onClick={() => handleDeleteModal(product._id)}
                                                         className="rounded-lg p-2 text-red-500 transition hover:bg-red-50"
                                                     >
                                                         <FiTrash2 size={18} />
                                                     </button>
-                                                }
-
+                                                )}
                                             </div>
                                         </td>
                                     </tr>
                                 ))
                             ) : (
                                 <tr>
-                                    <td
-                                        colSpan="6"
-                                        className="px-6 py-12 text-center"
-                                    >
+                                    <td colSpan="6" className="px-6 py-12 text-center">
                                         <FiPackage
                                             size={40}
                                             className="mx-auto text-slate-300"
@@ -666,6 +764,131 @@ const Product = () => {
                         </tbody>
                     </table>
                 </div>
+
+                {/* PAGINATION */}
+                {totalPages > 0 && (
+                    <div className="flex flex-col gap-4 border-t border-slate-200 bg-white px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+
+                        <p className="text-sm text-slate-500">
+                            Page{" "}
+                            <span className="font-semibold text-slate-800">
+                                {currentPage}
+                            </span>{" "}
+                            of{" "}
+                            <span className="font-semibold text-slate-800">
+                                {totalPages}
+                            </span>
+                        </p>
+
+                        <div className="flex flex-wrap items-center justify-center gap-1.5">
+
+                            {/* FIRST PAGE */}
+                            <button
+                                type="button"
+                                disabled={currentPage === 1}
+                                onClick={() => setCurrentPage(1)}
+                                className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:border-[#047857] hover:bg-emerald-50 hover:text-[#047857] disabled:cursor-not-allowed disabled:opacity-40"
+                                title="First page"
+                            >
+                                <FiChevronsLeft size={17} />
+                            </button>
+
+                            {/* PREVIOUS */}
+                            <button
+                                type="button"
+                                disabled={currentPage === 1}
+                                onClick={() =>
+                                    setCurrentPage((prev) => Math.max(1, prev - 1))
+                                }
+                                className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:border-[#047857] hover:bg-emerald-50 hover:text-[#047857] disabled:cursor-not-allowed disabled:opacity-40"
+                                title="Previous page"
+                            >
+                                <FiChevronLeft size={17} />
+                            </button>
+
+                            {/* FIRST PAGE + ELLIPSIS */}
+                            {paginationNumbers.length > 0 &&
+                                paginationNumbers[0] > 1 && (
+                                    <>
+                                        <button
+                                            type="button"
+                                            onClick={() => setCurrentPage(1)}
+                                            className="h-9 min-w-9 rounded-lg border border-slate-200 px-3 text-sm font-medium text-slate-600 transition hover:border-[#047857] hover:bg-emerald-50 hover:text-[#047857]"
+                                        >
+                                            1
+                                        </button>
+
+                                        {paginationNumbers[0] > 2 && (
+                                            <span className="px-1 text-slate-400">
+                                                ...
+                                            </span>
+                                        )}
+                                    </>
+                                )}
+
+                            {/* PAGE NUMBERS */}
+                            {paginationNumbers.map((page) => (
+                                <button
+                                    key={page}
+                                    type="button"
+                                    onClick={() => setCurrentPage(page)}
+                                    className={`h-9 min-w-9 rounded-lg px-3 text-sm font-semibold transition ${currentPage === page
+                                        ? "bg-linear-to-br from-[#064e3b] via-[#047857] to-[#022c22] text-white shadow-sm"
+                                        : "border border-slate-200 text-slate-600 hover:border-[#047857] hover:bg-emerald-50 hover:text-[#047857]"
+                                        }`}
+                                >
+                                    {page}
+                                </button>
+                            ))}
+
+                            {/* LAST PAGE + ELLIPSIS */}
+                            {paginationNumbers.length > 0 &&
+                                paginationNumbers[paginationNumbers.length - 1] < totalPages && (
+                                    <>
+                                        {paginationNumbers[paginationNumbers.length - 1] < totalPages - 1 && (
+                                            <span className="px-1 text-slate-400">
+                                                ...
+                                            </span>
+                                        )}
+
+                                        <button
+                                            type="button"
+                                            onClick={() => setCurrentPage(totalPages)}
+                                            className="h-9 min-w-9 rounded-lg border border-slate-200 px-3 text-sm font-medium text-slate-600 transition hover:border-[#047857] hover:bg-emerald-50 hover:text-[#047857]"
+                                        >
+                                            {totalPages}
+                                        </button>
+                                    </>
+                                )}
+
+                            {/* NEXT */}
+                            <button
+                                type="button"
+                                disabled={currentPage === totalPages}
+                                onClick={() =>
+                                    setCurrentPage((prev) =>
+                                        Math.min(totalPages, prev + 1)
+                                    )
+                                }
+                                className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:border-[#047857] hover:bg-emerald-50 hover:text-[#047857] disabled:cursor-not-allowed disabled:opacity-40"
+                                title="Next page"
+                            >
+                                <FiChevronRight size={17} />
+                            </button>
+
+                            {/* LAST */}
+                            <button
+                                type="button"
+                                disabled={currentPage === totalPages}
+                                onClick={() => setCurrentPage(totalPages)}
+                                className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:border-[#047857] hover:bg-emerald-50 hover:text-[#047857] disabled:cursor-not-allowed disabled:opacity-40"
+                                title="Last page"
+                            >
+                                <FiChevronsRight size={17} />
+                            </button>
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* PRODUCT MODAL */}

@@ -99,14 +99,129 @@ export const updateUser = async (req, res) => {
 
 export const getAllUsers = async (req, res) => {
     try {
-        const users = await User.find({ _id: { $ne: req.user.id } }).sort({ createdAt: -1 })
-            .populate("role", "name")
-        return res.status(200).json({ users })
+        const adminId = req.user.id;
+
+        const page = Math.max(Number(req.query.page) || 1, 1);
+
+        const limit = Math.min(
+            Math.max(Number(req.query.limit) || 10, 1),
+            100
+        );
+
+        const search = req.query.search?.trim() || "";
+
+        const filter = {
+            _id: { $ne: adminId },
+        };
+
+        if (search) {
+            const escapedSearch = search.replace(
+                /[.*+?^${}()|[\]\\]/g,
+                "\\$&"
+            );
+
+            filter.$or = [
+                {
+                    firstName: {
+                        $regex: escapedSearch,
+                        $options: "i",
+                    },
+                },
+                {
+                    lastName: {
+                        $regex: escapedSearch,
+                        $options: "i",
+                    },
+                },
+                {
+                    email: {
+                        $regex: escapedSearch,
+                        $options: "i",
+                    },
+                },
+                {
+                    phone: {
+                        $regex: escapedSearch,
+                        $options: "i",
+                    },
+                },
+            ];
+        }
+
+        const [
+            totalUsers,
+            activeUsers,
+            inactiveUsers,
+            filteredCount,
+        ] = await Promise.all([
+            User.countDocuments({
+                _id: { $ne: adminId },
+            }),
+
+            User.countDocuments({
+                _id: { $ne: adminId },
+                status: "active",
+            }),
+
+            User.countDocuments({
+                _id: { $ne: adminId },
+                status: "inactive",
+            }),
+
+            User.countDocuments(filter),
+        ]);
+
+        // Backward compatibility for existing API consumers.
+        const isPaginated =
+            req.query.page !== undefined ||
+            req.query.limit !== undefined ||
+            req.query.search !== undefined;
+
+        if (!isPaginated) {
+            const users = await User.find({
+                _id: { $ne: adminId },
+            })
+                .sort({ createdAt: -1 })
+                .populate("role", "name");
+
+            return res.status(200).json({
+                users,
+                totalUsers,
+                activeUsers,
+                inactiveUsers,
+            });
+        }
+
+        const totalPages = Math.ceil(filteredCount / limit);
+
+        const currentPage = Math.min(
+            page,
+            Math.max(totalPages, 1)
+        );
+
+        const users = await User.find(filter)
+            .sort({ createdAt: -1 })
+            .skip((currentPage - 1) * limit)
+            .limit(limit)
+            .populate("role", "name");
+
+        return res.status(200).json({
+            users,
+            totalUsers,
+            activeUsers,
+            inactiveUsers,
+            filteredCount,
+            totalPages,
+            currentPage,
+            limit,
+        });
+
+    } catch (error) {
+        return res.status(500).json({
+            message: "Failed to fetch users",
+        });
     }
-    catch (error) {
-        return res.status(500).json({ message: "Failed to fetch users" })
-    }
-}
+};
 
 export const changeUserStatus = async (req, res) => {
     try {

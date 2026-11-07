@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from "react";
 import {
     FiSearch,
@@ -9,6 +10,10 @@ import {
     FiXCircle,
     FiMapPin,
     FiUsers,
+    FiChevronLeft,
+    FiChevronRight,
+    FiChevronsLeft,
+    FiChevronsRight,
 } from "react-icons/fi";
 import { useNavigate, Navigate } from "react-router-dom";
 import { toast } from "react-toastify";
@@ -40,9 +45,19 @@ const Store = () => {
 
     const [dataLoading, setDataLoading] = useState(true);
     const [search, setSearch] = useState("");
+    const [debouncedSearch, setDebouncedSearch] = useState("");
 
     const [stores, setStores] = useState([]);
     const [managers, setManagers] = useState([]);
+
+    const [totalStores, setTotalStores] = useState(0);
+    const [activeStores, setActiveStores] = useState(0);
+    const [inactiveStores, setInactiveStores] = useState(0);
+
+    const [currentPage, setCurrentPage] = useState(1);
+    const [entriesPerPage, setEntriesPerPage] = useState(10);
+    const [totalPages, setTotalPages] = useState(1);
+    const [filteredCount, setFilteredCount] = useState(0);
 
     const [showModal, setShowModal] = useState(false);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -56,12 +71,32 @@ const Store = () => {
     });
 
     // FETCH STORES
-    const getAllStores = async () => {
+    const getAllStores = async (
+        page = currentPage,
+        limit = entriesPerPage,
+        searchValue = debouncedSearch
+    ) => {
         try {
-            const res = await API.get("/store/get");
-            setStores(res.data.stores || []);
+            const res = await API.get("/store/get", {
+                params: {
+                    page,
+                    limit,
+                    search: searchValue,
+                },
+            });
+
+            const data = res.data;
+
+            setStores(data.stores || []);
+            setTotalStores(data.totalStores ?? data.stores?.length ?? 0);
+            setActiveStores(data.activeStores ?? 0);
+            setInactiveStores(data.inactiveStores ?? 0);
+            setFilteredCount(data.filteredCount ?? data.stores?.length ?? 0);
+            setTotalPages(data.totalPages ?? 1);
+            setCurrentPage(data.currentPage ?? page);
         } catch (error) {
             console.error("Get stores error:", error);
+
             toast.error(
                 error?.response?.data?.message ||
                 "Failed to fetch stores"
@@ -78,6 +113,7 @@ const Store = () => {
             setManagers(res.data.managers || []);
         } catch (error) {
             console.error("Get managers error:", error);
+
             toast.error(
                 error?.response?.data?.message ||
                 "Failed to fetch managers"
@@ -176,7 +212,6 @@ const Store = () => {
             return false;
         }
 
-        // Coordinates are required for nearby-store calculations.
         if (
             formData.longitude === "" ||
             formData.latitude === ""
@@ -243,8 +278,9 @@ const Store = () => {
 
             setShowModal(false);
             resetForm();
+            setCurrentPage(1);
 
-            await getAllStores();
+            await getAllStores(1, entriesPerPage, debouncedSearch);
         } catch (error) {
             console.error("Add store error:", error);
 
@@ -353,29 +389,57 @@ const Store = () => {
         }
     };
 
-    // SEARCH FILTER
-    const filteredStores = stores.filter((store) => {
-        const value = search.toLowerCase();
-
-        const managerName =
-            typeof store.manager === "object"
-                ? `${store.manager?.firstName || ""} ${store.manager?.lastName || ""}`
-                : "";
-
-        return (
-            store.name?.toLowerCase().includes(value) ||
-            store.code?.toLowerCase().includes(value) ||
-            store.phone?.toLowerCase().includes(value) ||
-            store.address?.toLowerCase().includes(value) ||
-            managerName.toLowerCase().includes(value)
-        );
-    });
-
-    // INITIAL API CALLS
+    // DEBOUNCED SEARCH
     useEffect(() => {
-        getAllStores();
+        const timer = setTimeout(() => {
+            setDebouncedSearch(search);
+            setCurrentPage(1);
+        }, 400);
+
+        return () => clearTimeout(timer);
+    }, [search]);
+
+    // FETCH STORES WHEN PAGE, LIMIT OR SEARCH CHANGES
+    useEffect(() => {
+        getAllStores(currentPage, entriesPerPage, debouncedSearch);
+    }, [currentPage, entriesPerPage, debouncedSearch]);
+
+    // FETCH MANAGERS
+    useEffect(() => {
         getAllManagers();
     }, []);
+
+    // CHANGE ENTRIES PER PAGE
+    const handleEntriesChange = (e) => {
+        setEntriesPerPage(Number(e.target.value));
+        setCurrentPage(1);
+    };
+
+    // PAGINATION NUMBERS
+    const getPaginationNumbers = () => {
+        const pages = [];
+        const maxVisiblePages = 5;
+
+        let startPage = Math.max(
+            1,
+            currentPage - Math.floor(maxVisiblePages / 2)
+        );
+
+        let endPage = Math.min(
+            totalPages,
+            startPage + maxVisiblePages - 1
+        );
+
+        if (endPage - startPage + 1 < maxVisiblePages) {
+            startPage = Math.max(1, endPage - maxVisiblePages + 1);
+        }
+
+        for (let i = startPage; i <= endPage; i++) {
+            pages.push(i);
+        }
+
+        return pages;
+    };
 
     // PERMISSION CHECK
     if (
@@ -390,29 +454,41 @@ const Store = () => {
         return <DataLoader />;
     }
 
-    // STATISTICS
-    const totalStores = stores.length;
+    const startEntry =
+        filteredCount === 0
+            ? 0
+            : (currentPage - 1) * entriesPerPage + 1;
 
-    const activeStores = stores.filter(
-        (store) => store.status === "active"
-    ).length;
-
-    const inactiveStores = stores.filter(
-        (store) => store.status === "inactive"
-    ).length;
+    const endEntry = Math.min(
+        currentPage * entriesPerPage,
+        filteredCount
+    );
 
     return (
         <div className="space-y-6">
 
             {/* HEADER */}
-            <div>
-                <h1 className="text-2xl font-bold text-slate-800">
-                    Store Management
-                </h1>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                    <h1 className="text-2xl font-bold text-slate-800">
+                        Store Management
+                    </h1>
 
-                <p className="mt-1 text-sm text-slate-500">
-                    Manage your stores, managers and store locations.
-                </p>
+                    <p className="mt-1 text-sm text-slate-500">
+                        Manage your stores, managers and store locations.
+                    </p>
+                </div>
+
+                {permissions.includes("store:add") && (
+                    <button
+                        type="button"
+                        onClick={handleAddModal}
+                        className="flex items-center justify-center gap-2 rounded-xl bg-linear-to-br from-[#064e3b] via-[#047857] to-[#022c22] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:shadow-md active:scale-95"
+                    >
+                        <FiPlus size={19} />
+                        Add Store
+                    </button>
+                )}
             </div>
 
             {/* STATISTICS */}
@@ -424,6 +500,7 @@ const Store = () => {
                             <p className="text-sm font-medium text-slate-500">
                                 Total Stores
                             </p>
+
                             <h2 className="mt-2 text-3xl font-bold text-slate-800">
                                 {totalStores}
                             </h2>
@@ -441,6 +518,7 @@ const Store = () => {
                             <p className="text-sm font-medium text-slate-500">
                                 Active Stores
                             </p>
+
                             <h2 className="mt-2 text-3xl font-bold text-green-600">
                                 {activeStores}
                             </h2>
@@ -458,6 +536,7 @@ const Store = () => {
                             <p className="text-sm font-medium text-slate-500">
                                 Inactive Stores
                             </p>
+
                             <h2 className="mt-2 text-3xl font-bold text-red-500">
                                 {inactiveStores}
                             </h2>
@@ -471,11 +550,11 @@ const Store = () => {
 
             </div>
 
-            {/* SEARCH AND ADD */}
+            {/* SEARCH AND ENTRIES */}
             <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
 
-                    <div className="relative w-full sm:max-w-md">
+                    <div className="relative w-full lg:max-w-md">
                         <FiSearch
                             className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
                             size={19}
@@ -490,16 +569,27 @@ const Store = () => {
                         />
                     </div>
 
-                    {permissions.includes("store:add") && (
-                        <button
-                            type="button"
-                            onClick={handleAddModal}
-                            className="flex items-center justify-center gap-2 rounded-xl bg-linear-to-br from-[#064e3b] via-[#047857] to-[#022c22] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#002b4b] active:scale-95"
+                    <div className="flex items-center gap-2">
+                        <label
+                            htmlFor="storeEntries"
+                            className="whitespace-nowrap text-sm font-medium text-slate-500"
                         >
-                            <FiPlus size={19} />
-                            Add Store
-                        </button>
-                    )}
+                            Show entries:
+                        </label>
+
+                        <select
+                            id="storeEntries"
+                            value={entriesPerPage}
+                            onChange={handleEntriesChange}
+                            className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-700 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/10"
+                        >
+                            {[10, 20, 50, 100].map((value) => (
+                                <option key={value} value={value}>
+                                    {value}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
 
                 </div>
             </div>
@@ -513,7 +603,7 @@ const Store = () => {
                             <tr>
                                 {[
                                     "Store",
-                                    "Store Code",
+                                    // "Store Code",
                                     "Manager",
                                     "Status",
                                     "Actions",
@@ -529,8 +619,8 @@ const Store = () => {
                         </thead>
 
                         <tbody className="divide-y divide-slate-100">
-                            {filteredStores.length > 0 ? (
-                                filteredStores.map((store) => (
+                            {stores.length > 0 ? (
+                                stores.map((store) => (
                                     <tr
                                         key={store._id}
                                         className="transition hover:bg-slate-50"
@@ -555,11 +645,11 @@ const Store = () => {
                                         </td>
 
                                         {/* CODE */}
-                                        <td className="px-6 py-4">
+                                        {/* <td className="px-6 py-4">
                                             <span className="rounded-lg bg-slate-100 px-3 py-1.5 text-sm font-semibold text-slate-700">
                                                 {store.code}
                                             </span>
-                                        </td>
+                                        </td> */}
 
                                         {/* MANAGER */}
                                         <td className="px-6 py-4">
@@ -583,9 +673,7 @@ const Store = () => {
                                         <td className="px-6 py-4">
                                             <button
                                                 type="button"
-                                                onClick={() =>
-                                                    changeStatus(store._id)
-                                                }
+                                                onClick={() => changeStatus(store._id)}
                                                 className={`rounded-lg px-3 py-2 text-xs font-semibold transition ${store.status === "active"
                                                     ? "bg-green-100 text-green-700 hover:bg-green-200"
                                                     : "bg-red-100 text-red-700 hover:bg-red-200"
@@ -604,9 +692,7 @@ const Store = () => {
                                                         type="button"
                                                         title="View Store"
                                                         onClick={() =>
-                                                            navigate(
-                                                                `/admin/stores/${store._id}`
-                                                            )
+                                                            navigate(`/admin/stores/${store._id}`)
                                                         }
                                                         className="rounded-lg p-2 text-blue-600 transition hover:bg-blue-50"
                                                     >
@@ -618,9 +704,7 @@ const Store = () => {
                                                     <button
                                                         type="button"
                                                         title="Edit Store"
-                                                        onClick={() =>
-                                                            handleEditModal(store)
-                                                        }
+                                                        onClick={() => handleEditModal(store)}
                                                         className="rounded-lg p-2 text-amber-600 transition hover:bg-amber-50"
                                                     >
                                                         <FiEdit2 size={18} />
@@ -631,9 +715,7 @@ const Store = () => {
                                                     <button
                                                         type="button"
                                                         title="Delete Store"
-                                                        onClick={() =>
-                                                            handleDeleteModal(store._id)
-                                                        }
+                                                        onClick={() => handleDeleteModal(store._id)}
                                                         className="rounded-lg p-2 text-red-500 transition hover:bg-red-50"
                                                     >
                                                         <FiTrash2 size={18} />
@@ -668,6 +750,91 @@ const Store = () => {
                         </tbody>
 
                     </table>
+                </div>
+
+                {/* PAGINATION FOOTER */}
+                <div className="flex flex-col gap-4 border-t border-slate-200 bg-white px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+
+                    <p className="text-sm text-slate-500">
+                        Showing{" "}
+                        <span className="font-semibold text-slate-800">
+                            {startEntry}
+                        </span>
+                        {" "}to{" "}
+                        <span className="font-semibold text-slate-800">
+                            {endEntry}
+                        </span>
+                        {" "}of{" "}
+                        <span className="font-semibold text-slate-800">
+                            {filteredCount}
+                        </span>
+                        {" "}stores
+                    </p>
+
+                    <div className="flex flex-wrap items-center gap-1.5">
+
+                        {/* FIRST PAGE */}
+                        <button
+                            type="button"
+                            title="First Page"
+                            disabled={currentPage === 1 || totalPages === 0}
+                            onClick={() => setCurrentPage(1)}
+                            className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:border-emerald-600 hover:bg-emerald-50 hover:text-emerald-700 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-slate-200 disabled:hover:bg-white disabled:hover:text-slate-600"
+                        >
+                            <FiChevronsLeft size={17} />
+                        </button>
+
+                        {/* PREVIOUS */}
+                        <button
+                            type="button"
+                            title="Previous Page"
+                            disabled={currentPage === 1 || totalPages === 0}
+                            onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                            className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:border-emerald-600 hover:bg-emerald-50 hover:text-emerald-700 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-slate-200 disabled:hover:bg-white disabled:hover:text-slate-600"
+                        >
+                            <FiChevronLeft size={17} />
+                        </button>
+
+                        {/* PAGE NUMBERS */}
+                        {getPaginationNumbers().map((page) => (
+                            <button
+                                key={page}
+                                type="button"
+                                onClick={() => setCurrentPage(page)}
+                                className={`flex h-9 min-w-9 items-center justify-center rounded-lg px-3 text-sm font-semibold transition ${currentPage === page
+                                    ? "bg-linear-to-br from-[#064e3b] via-[#047857] to-[#022c22] text-white shadow-sm"
+                                    : "border border-slate-200 text-slate-600 hover:border-emerald-600 hover:bg-emerald-50 hover:text-emerald-700"
+                                    }`}
+                            >
+                                {page}
+                            </button>
+                        ))}
+
+                        {/* NEXT */}
+                        <button
+                            type="button"
+                            title="Next Page"
+                            disabled={currentPage >= totalPages || totalPages === 0}
+                            onClick={() =>
+                                setCurrentPage((prev) => Math.min(totalPages, prev + 1))
+                            }
+                            className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:border-emerald-600 hover:bg-emerald-50 hover:text-emerald-700 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-slate-200 disabled:hover:bg-white disabled:hover:text-slate-600"
+                        >
+                            <FiChevronRight size={17} />
+                        </button>
+
+                        {/* LAST PAGE */}
+                        <button
+                            type="button"
+                            title="Last Page"
+                            disabled={currentPage >= totalPages || totalPages === 0}
+                            onClick={() => setCurrentPage(totalPages)}
+                            className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:border-emerald-600 hover:bg-emerald-50 hover:text-emerald-700 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-slate-200 disabled:hover:bg-white disabled:hover:text-slate-600"
+                        >
+                            <FiChevronsRight size={17} />
+                        </button>
+
+                    </div>
                 </div>
             </div>
 

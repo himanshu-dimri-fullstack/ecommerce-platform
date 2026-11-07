@@ -104,20 +104,103 @@ export const updateSubcategory = async (req, res) => {
 
 export const getAllSubcategory = async (req, res) => {
     try {
-        const { category } = req.query
-        if (category) {
-            const getCategory = await Category.findOne({ slug: category })
-            const subcategories = await Subcategory.find({ category: getCategory._id })
-                .populate("category", "name slug").sort({ createdAt: -1 });
-            return res.status(200).json({ subcategories });
-        }
-        const subcategories = await Subcategory
-            .find()
-            .populate("category", "name").sort({ createdAt: -1 });
+        const {
+            category,
+            search = "",
+            page,
+            limit,
+        } = req.query;
 
-        return res.status(200).json({ subcategories });
+        const filter = {};
+
+        // Category filter
+        if (category) {
+            const getCategory = await Category.findOne({
+                slug: category,
+            });
+
+            if (!getCategory) {
+                return res.status(200).json({
+                    success: true,
+                    subcategories: [],
+                    totalSubcategories: 0,
+                    activeSubcategories: 0,
+                    inactiveSubcategories: 0,
+                    totalPages: 0,
+                    currentPage: Number(page) || 1,
+                    limit: Number(limit) || 10,
+                });
+            }
+
+            filter.category = getCategory._id;
+        }
+
+        // Search only by subcategory name
+        if (search.trim()) {
+            const escapedSearch = search.trim().replace(
+                /[.*+?^${}()|[\]\\]/g,
+                "\\$&"
+            );
+
+            filter.name = {
+                $regex: escapedSearch,
+                $options: "i",
+            };
+        }
+
+        // Pagination is optional to preserve existing API usage
+        const shouldPaginate =
+            page !== undefined || limit !== undefined;
+
+        const currentPage = Math.max(1, Number(page) || 1);
+        const pageLimit = Math.min(
+            100,
+            Math.max(1, Number(limit) || 10)
+        );
+
+        const skip = (currentPage - 1) * pageLimit;
+
+        const [
+            subcategories,
+            totalSubcategories,
+            activeSubcategories,
+            inactiveSubcategories,
+        ] = await Promise.all([
+            Subcategory.find(filter)
+                .populate("category", "name slug")
+                .sort({ createdAt: -1 })
+                .skip(shouldPaginate ? skip : 0)
+                .limit(shouldPaginate ? pageLimit : 0),
+
+            Subcategory.countDocuments(filter),
+
+            Subcategory.countDocuments({
+                ...filter,
+                status: "active",
+            }),
+
+            Subcategory.countDocuments({
+                ...filter,
+                status: { $ne: "active" },
+            }),
+        ]);
+
+        return res.status(200).json({
+            success: true,
+            message: "Subcategories fetched successfully",
+            subcategories,
+            totalSubcategories,
+            activeSubcategories,
+            inactiveSubcategories,
+            currentPage,
+            limit: pageLimit,
+            totalPages: Math.ceil(
+                totalSubcategories / pageLimit
+            ),
+        });
 
     } catch (error) {
+        console.error("Get All Subcategories Error:", error);
         return handleResponseError(error, res);
     }
 };

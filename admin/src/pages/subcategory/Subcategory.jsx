@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
     FiSearch,
     FiPlus,
@@ -8,69 +8,67 @@ import {
     FiCheckCircle,
     FiXCircle,
     FiGrid,
+    FiChevronLeft,
+    FiChevronRight,
+    FiChevronsLeft,
+    FiChevronsRight,
+    FiX,
 } from "react-icons/fi";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Navigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { API } from "../../api/axios";
 import DeleteModal from "../../components/subcategory/DeleteModal";
 import FormModal from "../../components/subcategory/FormModal";
 import DataLoader from "../../components/DataLoader";
 import { useSelector } from "react-redux";
-import { Navigate } from "react-router-dom";
 
 const Subcategory = () => {
-    const user = useSelector((store) => store.auth.user)
+    const user = useSelector((store) => store.auth.user);
     const navigate = useNavigate();
-
-    const [dataLoading, setDataLoading] = useState(true)
 
     // =========================
     // STATES
     // =========================
 
+    const [dataLoading, setDataLoading] = useState(true);
+
     const [search, setSearch] = useState("");
+    const [debouncedSearch, setDebouncedSearch] = useState("");
+
+    const [currentPage, setCurrentPage] = useState(1);
+    const [limit, setLimit] = useState(10);
+    const [totalPages, setTotalPages] = useState(0);
+
+    const [totalSubcategories, setTotalSubcategories] = useState(0);
+    const [activeSubcategories, setActiveSubcategories] = useState(0);
+    const [inactiveSubcategories, setInactiveSubcategories] = useState(0);
 
     const [showModal, setShowModal] = useState(false);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
 
-    const [isEdit, setIsEdit] = useState(false)
-    const [editId, setEditId] = useState(null)
-
+    const [isEdit, setIsEdit] = useState(false);
+    const [editId, setEditId] = useState(null);
     const [deleteId, setDeleteId] = useState(null);
 
-    const [categories, setCategories] = useState([])
+    const [categories, setCategories] = useState([]);
     const [subcategories, setSubcategories] = useState([]);
 
     const [formData, setFormData] = useState({
         name: "",
         category: "",
         description: "",
-        image: ""
+        image: "",
     });
-    const [existingImage, setExistingImage] = useState(null)
 
+    const [existingImage, setExistingImage] = useState(null);
 
-    // =========================
-    // STATISTICS
-    // =========================
-
-    const totalSubcategories = subcategories?.length;
-
-    const activeSubcategories = subcategories.filter(
-        (subcategory) => subcategory.status === "active"
-    ).length;
-
-    const inactiveSubcategories = subcategories.filter(
-        (subcategory) => subcategory.status === "inactive"
-    ).length;
-
+    const permissions = user?.role?.permissions || [];
 
     // =========================
     // FORM CHANGE
     // =========================
 
     const handleChange = (e) => {
-
         const { name, value, files } = e.target;
 
         if (files) {
@@ -78,8 +76,7 @@ const Subcategory = () => {
                 ...prev,
                 image: files[0],
             }));
-        }
-        else {
+        } else {
             setFormData((prev) => ({
                 ...prev,
                 [name]: value,
@@ -87,60 +84,93 @@ const Subcategory = () => {
         }
     };
 
-
     // =========================
     // GET ALL SUBCATEGORIES
     // =========================
 
-    const getAllSubcategories = async () => {
-
+    const getAllSubcategories = async (
+        page = currentPage,
+        searchValue = debouncedSearch,
+        pageLimit = limit
+    ) => {
         try {
+            const res = await API.get("/subcategory/get", {
+                params: {
+                    page,
+                    limit: pageLimit,
+                    search: searchValue,
+                },
+            });
 
-            const res = await API.get("/subcategory/get");
+            setSubcategories(res.data.subcategories || []);
 
-            setSubcategories(res.data.subcategories);
+            setTotalSubcategories(
+                res.data.totalSubcategories || 0
+            );
 
-        }
-        catch (error) {
+            setActiveSubcategories(
+                res.data.activeSubcategories || 0
+            );
 
+            setInactiveSubcategories(
+                res.data.inactiveSubcategories || 0
+            );
+
+            setTotalPages(res.data.totalPages || 0);
+        } catch (error) {
             console.log(error);
 
             toast.error(
                 error?.response?.data?.message ||
                 "Failed to fetch subcategories"
             );
-        }
-        finally {
-            setDataLoading(false)
+        } finally {
+            setDataLoading(false);
         }
     };
 
+    // =========================
+    // GET ALL CATEGORIES
+    // =========================
+
+    const getAllCategories = async () => {
+        try {
+            const res = await API.get("/category/get");
+            setCategories(res.data.categories || []);
+        } catch (error) {
+            console.log(error);
+
+            toast.error(
+                error?.response?.data?.message ||
+                "Failed to fetch categories"
+            );
+        }
+    };
 
     // =========================
     // ADD SUBCATEGORY
     // =========================
 
     const handleAddSubcategory = async (e) => {
-
         e.preventDefault();
 
         try {
-
             setDataLoading(true);
 
-            const finalFormData = new FormData()
-            finalFormData.append("name", formData.name)
-            finalFormData.append("description", formData.description)
-            finalFormData.append("category", formData.category)
-            finalFormData.append("image", formData.image)
+            const finalFormData = new FormData();
 
+            finalFormData.append("name", formData.name);
+            finalFormData.append("description", formData.description);
+            finalFormData.append("category", formData.category);
+
+            if (formData.image) {
+                finalFormData.append("image", formData.image);
+            }
 
             const res = await API.post(
                 "/subcategory/add",
                 finalFormData
             );
-
-            await getAllSubcategories();
 
             toast.success(res.data.message);
 
@@ -148,19 +178,25 @@ const Subcategory = () => {
                 name: "",
                 category: "",
                 description: "",
-                image: ""
+                image: "",
             });
 
-        }
-        catch (error) {
+            setExistingImage(null);
+            setShowModal(false);
+            setCurrentPage(1);
+
+            await getAllSubcategories(
+                1,
+                debouncedSearch,
+                limit
+            );
+        } catch (error) {
             toast.error(
                 error?.response?.data?.message ||
                 "Failed to add subcategory"
             );
-        }
-        finally {
+        } finally {
             setDataLoading(false);
-            setShowModal(false);
         }
     };
 
@@ -169,22 +205,21 @@ const Subcategory = () => {
     // =========================
 
     const handleEditSubcategory = async (e) => {
-
         e.preventDefault();
 
         try {
-
             setDataLoading(true);
 
-            const finalFormData = new FormData()
-            finalFormData.append("name", formData.name)
-            finalFormData.append("description", formData.description)
-            finalFormData.append("category", formData.category)
+            const finalFormData = new FormData();
+
+            finalFormData.append("name", formData.name);
+            finalFormData.append("description", formData.description);
+            finalFormData.append("category", formData.category);
+
             if (formData.image) {
-                finalFormData.append("image", formData.image)
-            }
-            else if (existingImage) {
-                finalFormData.append("existingImage", existingImage)
+                finalFormData.append("image", formData.image);
+            } else if (existingImage) {
+                finalFormData.append("existingImage", existingImage);
             }
 
             const res = await API.put(
@@ -192,30 +227,26 @@ const Subcategory = () => {
                 finalFormData
             );
 
-            await getAllSubcategories();
-
             toast.success(res.data.message);
 
             setFormData({
                 name: "",
                 category: "",
                 description: "",
-                image: ""
+                image: "",
             });
 
-        }
-        catch (error) {
+            setExistingImage(null);
+            setShowModal(false);
 
+            await getAllSubcategories();
+        } catch (error) {
             toast.error(
                 error?.response?.data?.message ||
-                "Failed to add subcategory"
+                "Failed to update subcategory"
             );
-        }
-        finally {
-
+        } finally {
             setDataLoading(false);
-
-            setShowModal(false);
         }
     };
 
@@ -224,58 +255,48 @@ const Subcategory = () => {
     // =========================
 
     const handleDeleteModal = (id) => {
-
         setDeleteId(id);
-
         setShowDeleteModal(true);
     };
-
 
     // =========================
     // DELETE SUBCATEGORY
     // =========================
 
     const handleDeleteSubcategory = async () => {
-
         try {
-
             setDataLoading(true);
 
             const res = await API.delete(
                 `/subcategory/delete/${deleteId}`
             );
 
-            await getAllSubcategories();
-
             toast.success(res.data.message);
 
-        }
-        catch (error) {
+            setShowDeleteModal(false);
+            setDeleteId(null);
 
+            if (subcategories.length === 1 && currentPage > 1) {
+                setCurrentPage((prev) => prev - 1);
+            } else {
+                await getAllSubcategories();
+            }
+        } catch (error) {
             toast.error(
                 error?.response?.data?.message ||
                 "Failed to delete subcategory"
             );
-        }
-        finally {
-
+        } finally {
             setDataLoading(false);
-
-            setShowDeleteModal(false);
-
-            setDeleteId(null);
         }
     };
-
 
     // =========================
     // CHANGE STATUS
     // =========================
 
     const changeStatus = async (id, status) => {
-
         try {
-
             setDataLoading(true);
 
             const res = await API.patch(
@@ -286,51 +307,43 @@ const Subcategory = () => {
                 }
             );
 
-            await getAllSubcategories();
-
             toast.success(res.data.message);
 
-        }
-        catch (error) {
-
+            await getAllSubcategories();
+        } catch (error) {
             toast.error(
                 error?.response?.data?.message ||
                 "Failed to change subcategory status"
             );
-        }
-        finally {
-
+        } finally {
             setDataLoading(false);
         }
     };
-
 
     // =========================
     // VIEW SUBCATEGORY
     // =========================
 
     const handleSubcategoryView = (id) => {
-
         navigate(`/admin/subcategories/${id}`);
     };
-
 
     // =========================
     // EDIT SUBCATEGORY MODAL
     // =========================
 
     const handleEditSubcategoryModal = (subcategory) => {
-        setIsEdit(true)
-        setEditId(subcategory._id)
+        setIsEdit(true);
+        setEditId(subcategory._id);
+
         setFormData({
             name: subcategory.name,
-            category: subcategory.category?._id,
-            description: subcategory.description,
+            category: subcategory.category?._id || "",
+            description: subcategory.description || "",
+            image: "",
         });
-        if (subcategory.image) {
-            setExistingImage(subcategory.image.url)
-        }
 
+        setExistingImage(subcategory.image?.url || null);
         setShowModal(true);
     };
 
@@ -338,124 +351,172 @@ const Subcategory = () => {
     // ADD SUBCATEGORY MODAL
     // =========================
 
-    const handleAddSubcategoryModal = (subcategory) => {
-        setIsEdit(false)
-        setEditId(null)
+    const handleAddSubcategoryModal = () => {
+        setIsEdit(false);
+        setEditId(null);
+
         setFormData({
             name: "",
             category: "",
             description: "",
-            image: ""
+            image: "",
         });
-        setExistingImage(null)
 
+        setExistingImage(null);
         setShowModal(true);
     };
 
-
-
     // =========================
-    // SEARCH
-    // =========================
-
-    const filteredSubcategories = subcategories.filter(
-        (subcategory) => {
-
-            const searchValue = search.toLowerCase();
-
-            return (
-                subcategory.name
-                    ?.toLowerCase()
-                    .includes(searchValue) ||
-
-                subcategory.slug
-                    ?.toLowerCase()
-                    .includes(searchValue) ||
-
-                subcategory.category?.name
-                    ?.toLowerCase()
-                    .includes(searchValue)
-            );
-        }
-    );
-
-
-    // =========================
-    // INITIAL FETCH
+    // SEARCH DEBOUNCE
     // =========================
 
     useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearch(search.trim());
+            setCurrentPage(1);
+        }, 400);
 
+        return () => clearTimeout(timer);
+    }, [search]);
+
+    // =========================
+    // FETCH SUBCATEGORIES
+    // =========================
+
+    useEffect(() => {
         getAllSubcategories();
+    }, [currentPage, limit, debouncedSearch]);
 
+    // =========================
+    // FETCH CATEGORIES
+    // =========================
+
+    useEffect(() => {
+        getAllCategories();
     }, []);
 
-    useEffect(() => {
-        const getAllCategories = async () => {
-            try {
-                const res = await API.get("/category/get");
-                setCategories(res.data.categories);
-            }
-            catch (error) {
-                console.log(error);
-                toast.error(
-                    error?.response?.data?.message ||
-                    "Failed to fetch categories"
-                );
-            }
-            finally {
-                setDataLoading(false)
-            }
-        };
-        getAllCategories()
-    }, [])
+    // =========================
+    // PAGINATION NUMBERS
+    // =========================
 
-    if (!user?.role.permissions.some((permission) => permission.includes("subcategory"))) {
-        return <Navigate to="/admin/dashboard" replace />
+    const getPaginationNumbers = () => {
+        if (totalPages <= 5) {
+            return Array.from(
+                { length: totalPages },
+                (_, i) => i + 1
+            );
+        }
+
+        if (currentPage <= 3) {
+            return [1, 2, 3, 4, "...", totalPages];
+        }
+
+        if (currentPage >= totalPages - 2) {
+            return [
+                1,
+                "...",
+                totalPages - 3,
+                totalPages - 2,
+                totalPages - 1,
+                totalPages,
+            ];
+        }
+
+        return [
+            1,
+            "...",
+            currentPage - 1,
+            currentPage,
+            currentPage + 1,
+            "...",
+            totalPages,
+        ];
+    };
+
+    // =========================
+    // PERMISSIONS
+    // =========================
+
+    if (
+        !permissions.some((permission) =>
+            permission.includes("subcategory")
+        )
+    ) {
+        return <Navigate to="/admin/dashboard" replace />;
     }
 
     if (dataLoading) {
-        return <DataLoader />
+        return <DataLoader />;
     }
 
+    // =========================
+    // PAGINATION INFO
+    // =========================
+
+    const startIndex =
+        totalSubcategories === 0
+            ? 0
+            : (currentPage - 1) * limit + 1;
+
+    const endIndex = Math.min(
+        currentPage * limit,
+        totalSubcategories
+    );
+
+    // =========================
+    // UI
+    // =========================
 
     return (
-
         <div className="space-y-6">
 
-
-            {/* ========================================= */}
             {/* PAGE HEADER */}
-            {/* ========================================= */}
 
-            <div>
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
 
-                <h1 className="text-2xl font-bold text-slate-800">
-                    Subcategories
-                </h1>
+                <div>
+                    <div className="mb-2 flex items-center gap-2">
+                        <span className="h-2 w-2 rounded-full bg-emerald-500" />
 
-                <p className="mt-1 text-sm text-slate-500">
-                    Manage all product subcategories and their status.
-                </p>
+                        <span className="text-xs font-semibold uppercase tracking-widest text-emerald-700">
+                            Subcategory Management
+                        </span>
+                    </div>
+
+                    <h1 className="text-2xl font-bold text-slate-800">
+                        Subcategories
+                    </h1>
+
+                    <p className="mt-1 text-sm text-slate-500">
+                        Manage all product subcategories and their status.
+                    </p>
+                </div>
+
+                {permissions.includes("subcategory:add") && (
+                    <button
+                        onClick={handleAddSubcategoryModal}
+                        className="flex items-center justify-center gap-2 rounded-xl bg-linear-to-br from-[#064e3b] via-[#047857] to-[#022c22] px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:shadow-lg active:scale-95"
+                    >
+                        <FiPlus size={19} />
+                        Add Subcategory
+                    </button>
+                )}
 
             </div>
 
-
-            {/* ========================================= */}
             {/* STAT CARDS */}
-            {/* ========================================= */}
 
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
 
-
                 {/* TOTAL */}
 
-                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:shadow-lg">
 
-                    <div className="flex items-center justify-between">
+                    <div className="absolute -right-8 -top-8 h-28 w-28 rounded-full bg-emerald-50 transition group-hover:scale-125" />
+
+                    <div className="relative flex items-center justify-between">
 
                         <div>
-
                             <p className="text-sm font-medium text-slate-500">
                                 Total Subcategories
                             </p>
@@ -464,27 +525,27 @@ const Subcategory = () => {
                                 {totalSubcategories}
                             </h2>
 
+                            <p className="mt-1 text-xs text-slate-400">
+                                All registered subcategories
+                            </p>
                         </div>
 
-                        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
-
-                            <FiGrid size={24} />
-
+                        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700">
+                            <FiGrid size={25} />
                         </div>
 
                     </div>
-
                 </div>
-
 
                 {/* ACTIVE */}
 
-                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:shadow-lg">
 
-                    <div className="flex items-center justify-between">
+                    <div className="absolute -right-8 -top-8 h-28 w-28 rounded-full bg-green-50 transition group-hover:scale-125" />
+
+                    <div className="relative flex items-center justify-between">
 
                         <div>
-
                             <p className="text-sm font-medium text-slate-500">
                                 Active Subcategories
                             </p>
@@ -493,27 +554,27 @@ const Subcategory = () => {
                                 {activeSubcategories}
                             </h2>
 
+                            <p className="mt-1 text-xs text-slate-400">
+                                Currently available
+                            </p>
                         </div>
 
-                        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-green-50 text-green-600">
-
-                            <FiCheckCircle size={24} />
-
+                        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-green-100 text-green-600">
+                            <FiCheckCircle size={25} />
                         </div>
 
                     </div>
-
                 </div>
-
 
                 {/* INACTIVE */}
 
-                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:shadow-lg">
 
-                    <div className="flex items-center justify-between">
+                    <div className="absolute -right-8 -top-8 h-28 w-28 rounded-full bg-red-50 transition group-hover:scale-125" />
+
+                    <div className="relative flex items-center justify-between">
 
                         <div>
-
                             <p className="text-sm font-medium text-slate-500">
                                 Inactive Subcategories
                             </p>
@@ -522,119 +583,155 @@ const Subcategory = () => {
                                 {inactiveSubcategories}
                             </h2>
 
+                            <p className="mt-1 text-xs text-slate-400">
+                                Currently disabled
+                            </p>
                         </div>
 
-                        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-red-50 text-red-500">
-
-                            <FiXCircle size={24} />
-
+                        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-red-100 text-red-500">
+                            <FiXCircle size={25} />
                         </div>
 
                     </div>
-
                 </div>
 
             </div>
 
+            {/* SEARCH + ENTRIES */}
 
-            {/* ========================================= */}
-            {/* SEARCH + ADD SUBCATEGORY */}
-            {/* ========================================= */}
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
 
-            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
 
                     {/* SEARCH */}
 
-                    <div className="relative w-full sm:max-w-md">
+                    <div className="w-full sm:max-w-md">
 
-                        <FiSearch
-                            className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-                            size={19}
-                        />
+                        <label className="mb-2 block text-sm font-semibold text-slate-700">
+                            Search Subcategories
+                        </label>
 
-                        <input
-                            type="text"
-                            placeholder="Search subcategories..."
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                            className="
-                                w-full
-                                rounded-xl
-                                border border-slate-200
-                                bg-slate-50
-                                py-2.5
-                                pl-10
-                                pr-4
-                                text-sm
-                                outline-none
-                                transition
-                                focus:border-[#003963]
-                                focus:bg-white
-                                focus:ring-2
-                                focus:ring-[#003963]/10
-                            "
-                        />
+                        <div className="relative">
+
+                            <FiSearch
+                                className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
+                                size={19}
+                            />
+
+                            <input
+                                type="text"
+                                placeholder="Search by subcategory name..."
+                                value={search}
+                                onChange={(e) => setSearch(e.target.value)}
+                                className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-11 pr-11 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/10"
+                            />
+
+                            {search && (
+                                <button
+                                    type="button"
+                                    onClick={() => setSearch("")}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-200 hover:text-slate-700"
+                                    title="Clear search"
+                                >
+                                    <FiX size={17} />
+                                </button>
+                            )}
+
+                        </div>
+                    </div>
+
+                    {/* SHOW ENTRIES */}
+
+                    <div className="flex items-center gap-3">
+
+                        <label className="whitespace-nowrap text-sm font-medium text-slate-500">
+                            Show
+                        </label>
+
+                        <select
+                            value={limit}
+                            onChange={(e) => {
+                                setLimit(Number(e.target.value));
+                                setCurrentPage(1);
+                            }}
+                            className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-700 outline-none transition focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/10"
+                        >
+                            <option value={10}>10</option>
+                            <option value={20}>20</option>
+                            <option value={50}>50</option>
+                            <option value={100}>100</option>
+                        </select>
+
+                        <span className="whitespace-nowrap text-sm font-medium text-slate-500">
+                            entries
+                        </span>
 
                     </div>
 
+                </div>
 
-                    {/* ADD SUBCATEGORY */}
+                {/* SEARCH INFO */}
 
-                    {
-                        user?.role?.permissions.includes("subcategory:add") &&
-                        <button
-                            onClick={handleAddSubcategoryModal}
-                            className="
-                            flex
-                            items-center
-                            justify-center
-                            gap-2
-                            rounded-xl
-                            bg-linear-to-br from-[#064e3b] via-[#047857] to-[#022c22]
-                            px-5
-                            py-2.5
-                            text-sm
-                            font-semibold
-                            text-white
-                            transition
-                            active:scale-95
-                        "
-                        >
+                <div className="mt-4 flex flex-col gap-1 border-t border-slate-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
 
-                            <FiPlus size={19} />
+                    <p className="text-xs text-slate-400">
+                        Showing{" "}
+                        <span className="font-semibold text-slate-600">
+                            {startIndex}-{endIndex}
+                        </span>{" "}
+                        of{" "}
+                        <span className="font-semibold text-slate-600">
+                            {totalSubcategories}
+                        </span>{" "}
+                        subcategories
+                    </p>
 
-                            Add Subcategory
-
-                        </button>
-                    }
-
-
+                    {debouncedSearch && (
+                        <p className="text-xs text-emerald-700">
+                            Search results for:{" "}
+                            <span className="font-semibold">
+                                "{debouncedSearch}"
+                            </span>
+                        </p>
+                    )}
 
                 </div>
 
             </div>
 
-
-            {/* ========================================= */}
             {/* SUBCATEGORY TABLE */}
-            {/* ========================================= */}
 
             <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+
+                {/* TABLE HEADER */}
+
+                <div className="flex flex-col gap-2 border-b border-slate-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+
+                    <div>
+                        <h2 className="text-lg font-bold text-slate-800">
+                            Subcategory List
+                        </h2>
+
+                        <p className="mt-0.5 text-xs text-slate-400">
+                            Manage all your registered subcategories
+                        </p>
+                    </div>
+
+                    <span className="w-fit rounded-lg bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700">
+                        {totalSubcategories} Total
+                    </span>
+
+                </div>
+
+                {/* TABLE */}
 
                 <div className="overflow-x-auto">
 
                     <table className="w-full min-w-225">
 
-
-                        {/* TABLE HEADER */}
-
                         <thead className="border-b border-slate-200 bg-slate-50">
 
                             <tr>
-
                                 <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
                                     Subcategory
                                 </th>
@@ -654,26 +751,19 @@ const Subcategory = () => {
                                 <th className="px-6 py-4 text-center text-xs font-semibold uppercase tracking-wide text-slate-500">
                                     Actions
                                 </th>
-
                             </tr>
 
                         </thead>
 
-
-                        {/* TABLE BODY */}
-
                         <tbody className="divide-y divide-slate-100">
 
-
-                            {filteredSubcategories.length > 0 ? (
-
-                                filteredSubcategories.map((subcategory) => (
+                            {subcategories.length > 0 ? (
+                                subcategories.map((subcategory) => (
 
                                     <tr
                                         key={subcategory._id}
-                                        className="transition hover:bg-slate-50"
+                                        className="transition hover:bg-emerald-50/30"
                                     >
-
 
                                         {/* SUBCATEGORY */}
 
@@ -681,19 +771,27 @@ const Subcategory = () => {
 
                                             <div className="flex items-center gap-3">
 
-                                                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#003963]/10 font-semibold text-[#003963]">
+                                                <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-emerald-50 text-emerald-700">
 
-                                                    <FiGrid size={18} />
+                                                    {subcategory.image?.url ? (
+                                                        <img
+                                                            src={subcategory.image.url}
+                                                            alt={subcategory.name}
+                                                            className="h-full w-full object-cover"
+                                                        />
+                                                    ) : (
+                                                        <FiGrid size={20} />
+                                                    )}
 
                                                 </div>
 
-                                                <div>
+                                                <div className="min-w-0">
 
                                                     <p className="font-semibold text-slate-800">
                                                         {subcategory.name}
                                                     </p>
 
-                                                    <p className="text-xs text-slate-400">
+                                                    <p className="mt-0.5 text-xs text-slate-400">
                                                         ID: #{subcategory._id}
                                                     </p>
 
@@ -703,66 +801,52 @@ const Subcategory = () => {
 
                                         </td>
 
-
                                         {/* PARENT CATEGORY */}
 
                                         <td className="px-6 py-4">
 
-                                            <span className="rounded-lg bg-blue-50 px-3 py-1.5 text-xs font-medium text-[#003963]">
-
+                                            <span className="inline-flex rounded-lg bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700">
                                                 {subcategory.category?.name ||
                                                     subcategory.categoryName ||
                                                     "-"}
-
                                             </span>
 
                                         </td>
-
 
                                         {/* SLUG */}
 
                                         <td className="px-6 py-4">
 
-                                            <span className="rounded-lg bg-slate-100 px-3 py-1.5 font-mono text-xs text-slate-600">
-                                                {subcategory.slug}
+                                            <span className="inline-flex rounded-lg bg-slate-100 px-3 py-1.5 font-mono text-xs text-slate-600">
+                                                {subcategory.slug || "-"}
                                             </span>
 
                                         </td>
-
 
                                         {/* STATUS */}
 
                                         <td className="px-6 py-4">
 
                                             <button
-                                                disabled={!(user?.role.permissions.includes("subcategory:status"))}
                                                 type="button"
+                                                disabled={!permissions.includes("subcategory:status")}
                                                 onClick={() =>
                                                     changeStatus(
                                                         subcategory._id,
                                                         subcategory.status
                                                     )
                                                 }
-                                                className={`
-                                            rounded-lg
-                                            p-2
-                                            transition
-                                            ${subcategory?.status === "active"
-                                                        ? "text-green-500 text-sm bg-green-100"
-                                                        : "text-red-600 text-sm bg-red-100"
-                                                    }
-                                        `}
+                                                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${subcategory.status === "active"
+                                                        ? "bg-green-100 text-green-700 hover:bg-green-200"
+                                                        : "bg-red-100 text-red-600 hover:bg-red-200"
+                                                    }`}
                                             >
-                                                {subcategory?.status === "active" ? (
-                                                    "active"
-                                                ) : (
-                                                    "inactive"
-                                                )}
-
+                                                {subcategory.status === "active"
+                                                    ? "Active"
+                                                    : "Inactive"}
                                             </button>
 
                                         </td>
-
 
                                         {/* ACTIONS */}
 
@@ -770,109 +854,41 @@ const Subcategory = () => {
 
                                             <div className="flex items-center justify-center gap-2">
 
+                                                {permissions.includes("subcategory:read") && (
+                                                    <button
+                                                        onClick={() =>
+                                                            handleSubcategoryView(subcategory._id)
+                                                        }
+                                                        title="View"
+                                                        className="rounded-lg p-2 text-blue-600 transition hover:bg-blue-50"
+                                                    >
+                                                        <FiEye size={18} />
+                                                    </button>
+                                                )}
 
-                                                {/* VIEW */}
+                                                {permissions.includes("subcategory:update") && (
+                                                    <button
+                                                        onClick={() =>
+                                                            handleEditSubcategoryModal(subcategory)
+                                                        }
+                                                        title="Edit"
+                                                        className="rounded-lg p-2 text-amber-600 transition hover:bg-amber-50"
+                                                    >
+                                                        <FiEdit2 size={18} />
+                                                    </button>
+                                                )}
 
-                                                <div className="group relative">
-                                                    {
-                                                        user?.role?.permissions.includes("subcategory:read") &&
-                                                        <button
-                                                            onClick={() =>
-                                                                handleSubcategoryView(
-                                                                    subcategory._id
-                                                                )
-                                                            }
-                                                            className="
-                                                            rounded-lg
-                                                            p-2
-                                                            text-blue-600
-                                                            transition
-                                                            hover:bg-blue-50
-                                                        "
-                                                        >
-
-                                                            <FiEye size={18} />
-
-                                                        </button>
-
-                                                    }
-
-
-                                                    <span className="pointer-events-none absolute bottom-full left-1/2 mb-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-800 px-2 py-1 text-xs text-white opacity-0 transition group-hover:opacity-100">
-                                                        View
-                                                    </span>
-
-                                                </div>
-
-
-                                                {/* EDIT */}
-
-                                                <div className="group relative">
-                                                    {
-                                                        user?.role?.permissions.includes("subcategory:update") &&
-                                                        <button
-                                                            onClick={() =>
-                                                                handleEditSubcategoryModal(
-                                                                    subcategory
-                                                                )
-                                                            }
-                                                            className="
-                                                            rounded-lg
-                                                            p-2
-                                                            text-amber-600
-                                                            transition
-                                                            hover:bg-amber-50
-                                                        "
-                                                        >
-
-                                                            <FiEdit2 size={18} />
-
-                                                        </button>
-                                                    }
-
-
-
-                                                    <span className="pointer-events-none absolute bottom-full left-1/2 mb-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-800 px-2 py-1 text-xs text-white opacity-0 transition group-hover:opacity-100">
-                                                        Edit
-                                                    </span>
-
-                                                </div>
-
-
-                                                {/* DELETE */}
-
-                                                <div className="group relative">
-                                                    {
-                                                        user?.role?.permissions.includes("subcategory:delete") &&
-                                                        <button
-                                                            onClick={() =>
-                                                                handleDeleteModal(
-                                                                    subcategory._id
-                                                                )
-                                                            }
-                                                            className="
-                                                            rounded-lg
-                                                            p-2
-                                                            text-red-500
-                                                            transition
-                                                            hover:bg-red-50
-                                                        "
-                                                        >
-
-                                                            <FiTrash2 size={18} />
-
-                                                        </button>
-                                                    }
-
-
-
-
-
-                                                    <span className="pointer-events-none absolute bottom-full left-1/2 mb-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-800 px-2 py-1 text-xs text-white opacity-0 transition group-hover:opacity-100">
-                                                        Delete
-                                                    </span>
-
-                                                </div>
+                                                {permissions.includes("subcategory:delete") && (
+                                                    <button
+                                                        onClick={() =>
+                                                            handleDeleteModal(subcategory._id)
+                                                        }
+                                                        title="Delete"
+                                                        className="rounded-lg p-2 text-red-500 transition hover:bg-red-50"
+                                                    >
+                                                        <FiTrash2 size={18} />
+                                                    </button>
+                                                )}
 
                                             </div>
 
@@ -881,31 +897,26 @@ const Subcategory = () => {
                                     </tr>
 
                                 ))
-
                             ) : (
 
                                 <tr>
+                                    <td colSpan="5" className="px-6 py-16 text-center">
 
-                                    <td
-                                        colSpan="5"
-                                        className="px-6 py-12 text-center"
-                                    >
+                                        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
+                                            <FiGrid size={30} />
+                                        </div>
 
-                                        <FiGrid
-                                            size={40}
-                                            className="mx-auto text-slate-300"
-                                        />
-
-                                        <p className="mt-3 font-medium text-slate-600">
+                                        <p className="mt-4 font-semibold text-slate-700">
                                             No subcategories found
                                         </p>
 
                                         <p className="mt-1 text-sm text-slate-400">
-                                            Try changing your search or add a new subcategory.
+                                            {debouncedSearch
+                                                ? "Try changing your search."
+                                                : "Add a new subcategory to get started."}
                                         </p>
 
                                     </td>
-
                                 </tr>
 
                             )}
@@ -916,15 +927,103 @@ const Subcategory = () => {
 
                 </div>
 
+                {/* TABLE FOOTER + PAGINATION */}
+
+                <div className="flex flex-col gap-4 border-t border-slate-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+
+                    <p className="text-xs text-slate-400">
+                        Showing{" "}
+                        <span className="font-semibold text-slate-600">
+                            {startIndex}-{endIndex}
+                        </span>{" "}
+                        of{" "}
+                        <span className="font-semibold text-slate-600">
+                            {totalSubcategories}
+                        </span>{" "}
+                        subcategories
+                    </p>
+
+                    {totalSubcategories > 0 && (
+                        <div className="flex flex-wrap items-center gap-1">
+
+                            {/* FIRST PAGE */}
+
+                            <button
+                                disabled={currentPage === 1}
+                                onClick={() => setCurrentPage(1)}
+                                title="First page"
+                                className="rounded-lg border border-slate-200 p-2 text-slate-500 transition hover:bg-emerald-50 hover:text-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
+                            >
+                                <FiChevronsLeft size={17} />
+                            </button>
+
+                            {/* PREVIOUS PAGE */}
+
+                            <button
+                                disabled={currentPage === 1}
+                                onClick={() => setCurrentPage((prev) => prev - 1)}
+                                title="Previous page"
+                                className="rounded-lg border border-slate-200 p-2 text-slate-500 transition hover:bg-emerald-50 hover:text-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
+                            >
+                                <FiChevronLeft size={17} />
+                            </button>
+
+                            {/* PAGE NUMBERS */}
+
+                            {getPaginationNumbers().map((page, index) => (
+                                page === "..." ? (
+                                    <span
+                                        key={`dots-${index}`}
+                                        className="px-2 text-sm text-slate-400"
+                                    >
+                                        ...
+                                    </span>
+                                ) : (
+                                    <button
+                                        key={page}
+                                        onClick={() => setCurrentPage(page)}
+                                        className={`min-w-9 rounded-lg px-3 py-2 text-sm font-semibold transition ${currentPage === page
+                                                ? "bg-linear-to-br from-[#064e3b] via-[#047857] to-[#022c22] text-white shadow-sm"
+                                                : "border border-slate-200 text-slate-600 hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700"
+                                            }`}
+                                    >
+                                        {page}
+                                    </button>
+                                )
+                            ))}
+
+                            {/* NEXT PAGE */}
+
+                            <button
+                                disabled={currentPage === totalPages}
+                                onClick={() => setCurrentPage((prev) => prev + 1)}
+                                title="Next page"
+                                className="rounded-lg border border-slate-200 p-2 text-slate-500 transition hover:bg-emerald-50 hover:text-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
+                            >
+                                <FiChevronRight size={17} />
+                            </button>
+
+                            {/* LAST PAGE */}
+
+                            <button
+                                disabled={currentPage === totalPages}
+                                onClick={() => setCurrentPage(totalPages)}
+                                title="Last page"
+                                className="rounded-lg border border-slate-200 p-2 text-slate-500 transition hover:bg-emerald-50 hover:text-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
+                            >
+                                <FiChevronsRight size={17} />
+                            </button>
+
+                        </div>
+                    )}
+
+                </div>
+
             </div>
 
-
-            {/* ========================================= */}
             {/* SUBCATEGORY MODAL */}
-            {/* ========================================= */}
 
             {showModal && (
-
                 <FormModal
                     handleChange={handleChange}
                     setShowModal={setShowModal}
@@ -937,21 +1036,15 @@ const Subcategory = () => {
                     existingImage={existingImage}
                     setExistingImage={setExistingImage}
                 />
-
             )}
 
-
-            {/* ========================================= */}
             {/* DELETE MODAL */}
-            {/* ========================================= */}
 
             {showDeleteModal && (
-
                 <DeleteModal
                     setShowDeleteModal={setShowDeleteModal}
                     handleDeleteSubcategory={handleDeleteSubcategory}
                 />
-
             )}
 
         </div>

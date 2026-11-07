@@ -14,15 +14,115 @@ export const getAllManagers = async (_, res) => {
     }
 }
 
-export const getAllStores = async (_, res) => {
+
+export const getAllStores = async (req, res) => {
     try {
-        const stores = await Store.find().populate("manager", "firstName lastName").sort({ createdAt: -1 })
-        return res.status(200).json({ stores })
-    }
-    catch (error) {
+        const {
+            page,
+            limit,
+            search = "",
+        } = req.query;
+
+        // BACKWARD COMPATIBILITY
+        const isPaginated =
+            page !== undefined ||
+            limit !== undefined ||
+            search !== "";
+
+        // GLOBAL STATISTICS
+        const [
+            totalStores,
+            activeStores,
+            inactiveStores,
+        ] = await Promise.all([
+            Store.countDocuments(),
+            Store.countDocuments({ status: "active" }),
+            Store.countDocuments({ status: "inactive" }),
+        ]);
+
+        // OLD API BEHAVIOUR: RETURN ALL STORES
+        if (!isPaginated) {
+            const stores = await Store.find()
+                .populate("manager", "firstName lastName")
+                .sort({ createdAt: -1 });
+
+            return res.status(200).json({
+                stores,
+                totalStores,
+                activeStores,
+                inactiveStores,
+            });
+        }
+
+        const currentPage = Math.max(1, Number(page) || 1);
+        const pageLimit = Math.min(
+            100,
+            Math.max(1, Number(limit) || 10)
+        );
+
+        const skip = (currentPage - 1) * pageLimit;
+
+        let filter = {};
+
+        // SEARCH FILTER
+        if (search.trim()) {
+            const searchRegex = new RegExp(
+                search.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+                "i"
+            );
+
+            // FIND MANAGERS MATCHING THE SEARCH
+            const matchingManagers = await User.find({
+                $or: [
+                    { firstName: searchRegex },
+                    { lastName: searchRegex },
+                ],
+            }).distinct("_id");
+
+            filter = {
+                $or: [
+                    { name: searchRegex },
+                    { code: searchRegex },
+                    { phone: searchRegex },
+                    { address: searchRegex },
+                    { manager: { $in: matchingManagers } },
+                ],
+            };
+        }
+
+        // FILTERED COUNT
+        const filteredCount = await Store.countDocuments(filter);
+
+        const totalPages = Math.max(
+            1,
+            Math.ceil(filteredCount / pageLimit)
+        );
+
+        const safePage = Math.min(currentPage, totalPages);
+        const safeSkip = (safePage - 1) * pageLimit;
+
+        // FETCH PAGINATED STORES
+        const stores = await Store.find(filter)
+            .populate("manager", "firstName lastName")
+            .sort({ createdAt: -1 })
+            .skip(safeSkip)
+            .limit(pageLimit);
+
+        return res.status(200).json({
+            stores,
+            totalStores,
+            activeStores,
+            inactiveStores,
+            filteredCount,
+            totalPages,
+            currentPage: safePage,
+            limit: pageLimit,
+        });
+
+    } catch (error) {
         return handleResponseError(error, res);
     }
-}
+};
 
 // ADD STORE
 export const createStore = async (req, res) => {

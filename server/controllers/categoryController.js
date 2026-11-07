@@ -97,15 +97,68 @@ export const updateCategory = async (req, res) => {
     }
 }
 
-export const getCategory = async (_, res) => {
+export const getCategory = async (req, res) => {
     try {
-        const categories = await Category.find().sort({ createdAt: -1 });
-        res.status(200).json({ categories });
+        const page = Math.max(Number(req.query.page) || 1, 1);
+        const limit = Math.min(
+            Math.max(Number(req.query.limit) || 10, 1),
+            100
+        );
+
+        const search = req.query.search?.trim() || "";
+
+        const filter = {};
+
+        if (search) {
+            const escapedSearch = search.replace(
+                /[.*+?^${}()|[\]\\]/g,
+                "\\$&"
+            );
+
+            filter.$or = [
+                { name: { $regex: escapedSearch, $options: "i" } },
+                { slug: { $regex: escapedSearch, $options: "i" } },
+            ];
+        }
+
+        const [
+            categories,
+            totalCategories,
+            activeCategories,
+            inactiveCategories,
+            filteredCount,
+        ] = await Promise.all([
+            Category.find(filter)
+                .sort({ createdAt: -1 })
+                .skip((page - 1) * limit)
+                .limit(limit),
+
+            Category.countDocuments(),
+
+            Category.countDocuments({ status: "active" }),
+
+            Category.countDocuments({ status: "inactive" }),
+
+            Category.countDocuments(filter),
+        ]);
+
+        res.status(200).json({
+            categories,
+            totalCategories,
+            activeCategories,
+            inactiveCategories,
+            filteredCount,
+            totalPages: Math.ceil(filteredCount / limit),
+            currentPage: page,
+            limit,
+        });
+
+    } catch (error) {
+        res.status(500).json({
+            message: error.message,
+        });
     }
-    catch (error) {
-        res.status(500).json({ message: error.message })
-    }
-}
+};
 
 export const getCategoryById = async (req, res) => {
     try {

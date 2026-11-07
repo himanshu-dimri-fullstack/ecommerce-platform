@@ -897,9 +897,89 @@ export const getMyOrders = async (req, res) => {
 // GET ALL ORDERS
 // --------------------------------------------------
 
+
 export const getAllOrders = async (req, res) => {
     try {
-        const orders = await Order.find()
+        const {
+            page = 1,
+            limit = 10,
+            search = "",
+            status = "all",
+        } = req.query;
+
+        const currentPage = Math.max(1, Number(page) || 1);
+        const pageLimit = Math.min(100, Math.max(1, Number(limit) || 10));
+
+        // GLOBAL ORDER STATISTICS
+        const [
+            totalOrders,
+            pendingOrders,
+            deliveredOrders,
+            cancelledOrders,
+        ] = await Promise.all([
+            Order.countDocuments(),
+
+            Order.countDocuments({
+                orderStatus: {
+                    $in: ["placed", "confirmed", "processing", "packed"],
+                },
+            }),
+
+            Order.countDocuments({
+                orderStatus: "delivered",
+            }),
+
+            Order.countDocuments({
+                orderStatus: "cancelled",
+            }),
+        ]);
+
+        // BASE FILTER
+        const filter = {};
+
+        // SEARCH BY ORDER NUMBER OR CUSTOMER NAME/EMAIL
+        if (search.trim()) {
+            const searchRegex = new RegExp(
+                search.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+                "i"
+            );
+
+            const User = Order.db.model("User");
+
+            const matchingUsers = await User.find({
+                $or: [
+                    { name: searchRegex },
+                    { email: searchRegex },
+                ],
+            }).select("_id").lean();
+
+            const userIds = matchingUsers.map((user) => user._id);
+
+            filter.$or = [
+                { orderNumber: searchRegex },
+                { user: { $in: userIds } },
+            ];
+        }
+
+        // FILTER BY ORDER STATUS
+        if (status && status !== "all") {
+            filter.orderStatus = status;
+        }
+
+        // FILTERED ORDER COUNT
+        const filteredCount = await Order.countDocuments(filter);
+
+        // PAGINATION
+        const totalPages = Math.max(
+            1,
+            Math.ceil(filteredCount / pageLimit)
+        );
+
+        const safePage = Math.min(currentPage, totalPages);
+        const skip = (safePage - 1) * pageLimit;
+
+        // FETCH PAGINATED ORDERS
+        const orders = await Order.find(filter)
             .populate({
                 path: "user",
                 select: "name email phone",
@@ -908,6 +988,8 @@ export const getAllOrders = async (req, res) => {
                 path: "address",
             })
             .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(pageLimit)
             .lean();
 
         if (!orders.length) {
@@ -915,9 +997,18 @@ export const getAllOrders = async (req, res) => {
                 success: true,
                 message: "No orders found",
                 orders: [],
+                totalOrders,
+                pendingOrders,
+                deliveredOrders,
+                cancelledOrders,
+                filteredCount,
+                totalPages,
+                currentPage: safePage,
+                limit: pageLimit,
             });
         }
 
+        // GET ITEMS ONLY FOR CURRENT PAGE ORDERS
         const orderIds = orders.map((order) => order._id);
 
         const orderItems = await OrderItem.find({
@@ -933,6 +1024,7 @@ export const getAllOrders = async (req, res) => {
             })
             .lean();
 
+        // GROUP ORDER ITEMS
         const itemsMap = {};
 
         orderItems.forEach((item) => {
@@ -946,7 +1038,9 @@ export const getAllOrders = async (req, res) => {
                 ...item,
 
                 productName:
-                    item.productName || item.product?.name || "Product",
+                    item.productName ||
+                    item.product?.name ||
+                    "Product",
 
                 variantName:
                     item.variantName ||
@@ -954,10 +1048,14 @@ export const getAllOrders = async (req, res) => {
                     item.variant?.name ||
                     "",
 
-                sku: item.sku || item.variant?.sku || "",
+                sku:
+                    item.sku ||
+                    item.variant?.sku ||
+                    "",
             });
         });
 
+        // FORMAT ORDERS
         const formattedOrders = orders.map((order) => ({
             ...order,
             items: itemsMap[order._id.toString()] || [],
@@ -967,7 +1065,20 @@ export const getAllOrders = async (req, res) => {
             success: true,
             message: "Orders fetched successfully",
             orders: formattedOrders,
+
+            // GLOBAL STATISTICS
+            totalOrders,
+            pendingOrders,
+            deliveredOrders,
+            cancelledOrders,
+
+            // PAGINATION
+            filteredCount,
+            totalPages,
+            currentPage: safePage,
+            limit: pageLimit,
         });
+
     } catch (error) {
         console.error("Get All Orders Error:", error);
 
@@ -977,6 +1088,7 @@ export const getAllOrders = async (req, res) => {
         });
     }
 };
+
 
 // --------------------------------------------------
 // GET SINGLE ORDER
