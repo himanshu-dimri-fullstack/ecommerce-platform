@@ -27,52 +27,71 @@ interface CartState {
 
 interface ApiError {
     message?: string;
+    response?: {
+        data?: {
+            message?: string;
+        };
+    };
 }
 
 export const fetchCart = createAsyncThunk<
     CartItem[],
-    void,
+    string,
     { rejectValue: string }
 >(
     "cart/fetchCart",
-    async (_, { rejectWithValue }) => {
+    async (storeId, { rejectWithValue }) => {
         try {
-            const res = await API.get("/cart/get");
+            if (!storeId) {
+                return rejectWithValue("Store ID is required");
+            }
 
-            const items: CartItem[] = (res.data.items || []).map((item: any) => {
-                const product =
-                    typeof item.product === "object" ? item.product : undefined;
+            const res = await API.get(`/cart/get/${storeId}`);
 
-                const variant =
-                    typeof item.variant === "object" ? item.variant : undefined;
+            const items: CartItem[] = (res.data.items || []).map(
+                (item: any) => {
+                    const product =
+                        typeof item.product === "object"
+                            ? item.product
+                            : undefined;
 
-                const variantImage =
-                    typeof variant?.image === "string"
-                        ? variant.image
-                        : variant?.image?.url;
+                    const variant =
+                        typeof item.variant === "object"
+                            ? item.variant
+                            : undefined;
 
-                return {
-                    _id: variant?._id ?? "",
-                    productId:
-                        product?._id,
-                    productName: item.product.name,
-                    name: variant?.name || product?.name || "",
-                    unitValue: String(variant?.unitValue ?? ""),
-                    unit: variant?.unit ?? "",
-                    sellingPrice: item.price ?? 0,
-                    mrp: variant?.mrp ?? item.price ?? 0,
-                    image:
-                        variantImage ||
-                        product?.images?.[0]?.url ||
-                        "",
-                    quantity: item.quantity ?? 1,
-                };
-            });
+                    const variantImage =
+                        typeof variant?.image === "string"
+                            ? variant.image
+                            : variant?.image?.url;
+
+                    return {
+                        _id: variant?._id ?? "",
+                        productId: product?._id ?? "",
+                        productName: product?.name ?? "",
+                        name: variant?.name || product?.name || "",
+                        unitValue: String(variant?.unitValue ?? ""),
+                        unit: variant?.unit ?? "",
+                        sellingPrice: item.price ?? 0,
+                        mrp: variant?.mrp ?? item.price ?? 0,
+                        image:
+                            variantImage ||
+                            product?.images?.[0]?.url ||
+                            "",
+                        quantity: item.quantity ?? 1,
+                    };
+                }
+            );
 
             return items;
         } catch (error: unknown) {
             const err = error as ApiError;
-            return rejectWithValue(err.message || "Failed to fetch cart");
+
+            return rejectWithValue(
+                err.response?.data?.message ||
+                err.message ||
+                "Failed to fetch cart"
+            );
         }
     }
 );
@@ -86,6 +105,7 @@ const initialState: CartState = {
 const cartSlice = createSlice({
     name: "cart",
     initialState,
+
     reducers: {
         setCart: (state, action: PayloadAction<CartItem[]>) => {
             state.items = action.payload;
@@ -109,7 +129,10 @@ const cartSlice = createSlice({
 
         removeFromCart: (
             state,
-            action: PayloadAction<{ product: string; _id: string }>
+            action: PayloadAction<{
+                product: string;
+                _id: string;
+            }>
         ) => {
             state.items = state.items.filter(
                 (item) =>
@@ -122,7 +145,10 @@ const cartSlice = createSlice({
 
         increaseQuantity: (
             state,
-            action: PayloadAction<{ product: string; _id: string }>
+            action: PayloadAction<{
+                product: string;
+                _id: string;
+            }>
         ) => {
             const item = state.items.find(
                 (item) =>
@@ -130,12 +156,17 @@ const cartSlice = createSlice({
                     item._id === action.payload._id
             );
 
-            if (item) item.quantity += 1;
+            if (item) {
+                item.quantity += 1;
+            }
         },
 
         decreaseQuantity: (
             state,
-            action: PayloadAction<{ product: string; _id: string }>
+            action: PayloadAction<{
+                product: string;
+                _id: string;
+            }>
         ) => {
             const item = state.items.find(
                 (item) =>
@@ -169,13 +200,19 @@ const cartSlice = createSlice({
                 state.loading = true;
                 state.error = "";
             })
+
             .addCase(fetchCart.fulfilled, (state, action) => {
                 state.items = action.payload;
                 state.loading = false;
+                state.error = "";
             })
+
             .addCase(fetchCart.rejected, (state, action) => {
                 state.error =
-                    action.payload ?? action.error.message ?? "Failed to fetch cart";
+                    action.payload ??
+                    action.error.message ??
+                    "Failed to fetch cart";
+
                 state.loading = false;
             });
     },

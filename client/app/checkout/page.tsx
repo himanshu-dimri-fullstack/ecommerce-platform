@@ -223,7 +223,9 @@ export default function CheckoutPage() {
     const dispatch = useDispatch<AppDispatch>();
     const router = useRouter();
 
+    // ==========================================
     // REDUX
+    // ==========================================
 
     const user = useSelector(
         (store: RootState) => store.auth.user
@@ -233,7 +235,17 @@ export default function CheckoutPage() {
         (store: RootState) => store.cart.items
     ) as CartItem[];
 
+    // CURRENT SELECTED / NEAREST STORE
+
+    const nearestStore = useSelector(
+        (store: RootState) => store.store.store
+    );
+
+    const storeId = nearestStore?._id as string | undefined;
+
+    // ==========================================
     // CONTACT DETAILS
+    // ==========================================
 
     const [contact, setContact] = useState<ContactForm>({
         firstName: "",
@@ -242,7 +254,9 @@ export default function CheckoutPage() {
         phone: "",
     });
 
+    // ==========================================
     // ADDRESSES
+    // ==========================================
 
     const [addresses, setAddresses] = useState<Address[]>([]);
     const [selectedAddress, setSelectedAddress] = useState("");
@@ -250,13 +264,17 @@ export default function CheckoutPage() {
     const [saving, setSaving] = useState(false);
     const [deletingId, setDeletingId] = useState<string | null>(null);
 
+    // ==========================================
     // ADDRESS MODAL
+    // ==========================================
 
     const [showAddressModal, setShowAddressModal] = useState(false);
     const [editingAddress, setEditingAddress] = useState<Address | null>(null);
     const [addressForm, setAddressForm] = useState<AddressForm>(initialAddress);
 
+    // ==========================================
     // PAYMENT
+    // ==========================================
 
     const [paymentMethod, setPaymentMethod] = useState<"cod" | "online" | "">("");
     const [processing, setProcessing] = useState(false);
@@ -549,6 +567,7 @@ export default function CheckoutPage() {
 
     const canProceed =
         isAddressValid &&
+        Boolean(storeId) &&
         Boolean(paymentMethod) &&
         cartItems.length > 0 &&
         !processing;
@@ -595,9 +614,11 @@ export default function CheckoutPage() {
             console.log("Verified Order:", data.order);
             console.log("Verified Payment:", data.payment);
 
-            // Cart refresh only after successful backend verification.
+            // Refresh only the cart belonging to this store.
 
-            await dispatch(fetchCart());
+            if (storeId) {
+                await dispatch(fetchCart(storeId));
+            }
 
             router.replace("/orders");
 
@@ -689,6 +710,11 @@ export default function CheckoutPage() {
             return;
         }
 
+        if (!storeId) {
+            toast.error("Unable to identify your delivery store. Please select your location again.");
+            return;
+        }
+
         if (!cartItems?.length) {
             toast.error("Your cart is empty");
             return;
@@ -714,6 +740,7 @@ export default function CheckoutPage() {
                     {
                         addressId: selectedAddress,
                         paymentMethod: "cod",
+                        storeId,
                     },
                     {
                         withCredentials: true,
@@ -733,7 +760,9 @@ export default function CheckoutPage() {
                 console.log("COD Order:", data.order);
                 console.log("COD Payment:", data.payment);
 
-                await dispatch(fetchCart());
+                // Refresh only the current store's cart.
+
+                await dispatch(fetchCart(storeId));
 
                 router.replace("/orders");
 
@@ -760,6 +789,7 @@ export default function CheckoutPage() {
                 "/order/create-online",
                 {
                     addressId: selectedAddress,
+                    storeId,
                 },
                 {
                     withCredentials: true,
@@ -1019,8 +1049,8 @@ export default function CheckoutPage() {
                                                     setSelectedAddress(address._id)
                                                 }
                                                 className={`relative cursor-pointer rounded-2xl border-2 p-5 transition-all ${isSelected
-                                                        ? "border-[#0c831f] bg-[#f3fbf3]"
-                                                        : "border-gray-200 hover:border-gray-300"
+                                                    ? "border-[#0c831f] bg-[#f3fbf3]"
+                                                    : "border-gray-200 hover:border-gray-300"
                                                     }`}
                                             >
 
@@ -1028,8 +1058,8 @@ export default function CheckoutPage() {
 
                                                     <div
                                                         className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${isSelected
-                                                                ? "bg-[#0c831f] text-white"
-                                                                : "bg-gray-100 text-gray-600"
+                                                            ? "bg-[#0c831f] text-white"
+                                                            : "bg-gray-100 text-gray-600"
                                                             }`}
                                                     >
                                                         <Icon size={21} />
@@ -1107,8 +1137,8 @@ export default function CheckoutPage() {
 
                                                     <div
                                                         className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 ${isSelected
-                                                                ? "border-[#0c831f] bg-[#0c831f] text-white"
-                                                                : "border-gray-300"
+                                                            ? "border-[#0c831f] bg-[#0c831f] text-white"
+                                                            : "border-gray-300"
                                                             }`}
                                                     >
                                                         {isSelected && (
@@ -1217,8 +1247,8 @@ export default function CheckoutPage() {
                                                 setPaymentMethod(option.value)
                                             }
                                             className={`flex items-center gap-3 rounded-xl border-2 p-4 text-left transition ${active
-                                                    ? "border-[#0c831f] bg-green-50"
-                                                    : "border-gray-200 hover:border-gray-300"
+                                                ? "border-[#0c831f] bg-green-50"
+                                                : "border-gray-200 hover:border-gray-300"
                                                 }`}
                                         >
 
@@ -1239,8 +1269,8 @@ export default function CheckoutPage() {
 
                                             <div
                                                 className={`flex h-5 w-5 items-center justify-center rounded-full border-2 ${active
-                                                        ? "border-[#0c831f] bg-[#0c831f]"
-                                                        : "border-gray-300"
+                                                    ? "border-[#0c831f] bg-[#0c831f]"
+                                                    : "border-gray-300"
                                                     }`}
                                             >
                                                 {active && (
@@ -1533,8 +1563,8 @@ export default function CheckoutPage() {
                                                     }))
                                                 }
                                                 className={`flex flex-col items-center gap-2 rounded-xl border-2 py-4 transition ${addressForm.type === option.value
-                                                        ? "border-[#0c831f] bg-green-50 text-[#0c831f]"
-                                                        : "border-gray-200 text-gray-600"
+                                                    ? "border-[#0c831f] bg-green-50 text-[#0c831f]"
+                                                    : "border-gray-200 text-gray-600"
                                                     }`}
                                             >
 

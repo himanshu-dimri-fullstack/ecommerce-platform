@@ -26,21 +26,71 @@ const FormModal = ({
         "brand",
         "product",
         "productVariant",
+        "order",
+        "deliveryPartner",
     ];
 
-    const actions = ["add", "read", "update", "delete", "status"];
+    // Module-wise permissions
+    const moduleActions = {
+        dashboard: ["read"],
 
-    const formatModuleName = (module) => {
-        return module.charAt(0).toUpperCase() + module.slice(1);
+        order: ["read", "assign"],
+
+        deliveryPartner: [
+            "add",
+            "read",
+            "update",
+            "delete",
+            "status",
+        ],
     };
 
-    // Check whether permission exists in array
+    // Default permissions for remaining modules
+    const defaultActions = [
+        "add",
+        "read",
+        "update",
+        "delete",
+        "status",
+    ];
+
+    // All possible table columns
+    const allActions = [
+        "add",
+        "read",
+        "update",
+        "delete",
+        "status",
+        "assign",
+    ];
+
+    const getModuleActions = (module) => {
+        return moduleActions[module] || defaultActions;
+    };
+
+    const formatModuleName = (module) => {
+        const names = {
+            productVariant: "Product Variant",
+            deliveryPartner: "Delivery Partner",
+        };
+
+        return names[module] ||
+            module.charAt(0).toUpperCase() + module.slice(1);
+    };
+
+    const formatActionName = (action) => {
+        return action.charAt(0).toUpperCase() + action.slice(1);
+    };
+
+    // Check permission
     const hasPermission = (module, action) => {
         if (module === "dashboard") {
             return action === "read";
         }
 
-        return formData.permissions?.includes(`${module}:${action}`) || false;
+        return (
+            formData.permissions?.includes(`${module}:${action}`) || false
+        );
     };
 
     return (
@@ -58,7 +108,7 @@ const FormModal = ({
                 className="
                     flex
                     w-full
-                    max-w-2xl
+                    max-w-3xl
                     max-h-[90vh]
                     flex-col
                     overflow-hidden
@@ -123,11 +173,7 @@ const FormModal = ({
                 <div className="min-h-0 flex-1 overflow-y-auto">
                     <form
                         id="role-form"
-                        onSubmit={
-                            isEdit
-                                ? handleEditRole
-                                : handleAddRole
-                        }
+                        onSubmit={isEdit ? handleEditRole : handleAddRole}
                         className="space-y-5 p-6"
                     >
                         {/* ROLE NAME */}
@@ -159,6 +205,7 @@ const FormModal = ({
                                     value={formData.name || ""}
                                     onChange={handleChange}
                                     placeholder="Enter role name"
+                                    required
                                     className="
                                         w-full rounded-xl
                                         border border-slate-200
@@ -196,123 +243,153 @@ const FormModal = ({
 
                             <div
                                 className="
-                                    overflow-hidden
+                                    overflow-x-auto
                                     rounded-xl
                                     border border-slate-200
                                 "
                             >
-                                {/* TABLE HEADER */}
+                                <div className="min-w-162.5">
 
-                                <div
-                                    className="
-                                        grid
-                                        grid-cols-[1fr_repeat(5,60px)]
-                                        sm:grid-cols-[1fr_repeat(5,72px)]
-                                        border-b border-slate-200
-                                        bg-slate-50
-                                        px-4 py-3
-                                    "
-                                >
+                                    {/* TABLE HEADER */}
+
                                     <div
                                         className="
-                                            text-xs font-semibold
-                                            uppercase tracking-wide
-                                            text-slate-500
+                                            grid
+                                            grid-cols-[1fr_repeat(6,72px)]
+                                            border-b border-slate-200
+                                            bg-slate-50
+                                            px-4 py-3
                                         "
                                     >
-                                        Module
-                                    </div>
+                                        <div
+                                            className="
+                                                text-xs font-semibold
+                                                uppercase tracking-wide
+                                                text-slate-500
+                                            "
+                                        >
+                                            Module
+                                        </div>
 
-                                    {["Add", "Read", "Update", "Delete", "Status"].map(
-                                        (action) => (
+                                        {allActions.map((action) => (
                                             <div
                                                 key={action}
                                                 className="
                                                     text-center
-                                                    text-[10px] sm:text-xs font-semibold
+                                                    text-xs font-semibold
                                                     uppercase tracking-wide
                                                     text-slate-500
                                                 "
                                             >
-                                                {action}
+                                                {formatActionName(action)}
                                             </div>
-                                        )
-                                    )}
-                                </div>
-
-                                {/* PERMISSION ROWS */}
-
-                                {modules.map((module) => (
-                                    <div
-                                        key={module}
-                                        className="
-                                            grid
-                                            grid-cols-[1fr_repeat(5,60px)]
-                                            sm:grid-cols-[1fr_repeat(5,72px)]
-                                            items-center
-                                            border-b border-slate-100
-                                            px-4 py-3
-                                            last:border-b-0
-                                            hover:bg-slate-50/70
-                                        "
-                                    >
-                                        {/* MODULE */}
-
-                                        <div className="flex items-center gap-2">
-                                            <div
-                                                className="
-                                                    flex h-8 w-8
-                                                    items-center justify-center
-                                                    rounded-lg
-                                                    bg-[#003963]/10
-                                                    text-[#003963]
-                                                "
-                                            >
-                                                <FiShield size={15} />
-                                            </div>
-
-                                            <span
-                                                className="
-                                                    text-sm font-medium
-                                                    text-slate-700
-                                                "
-                                            >
-                                                {formatModuleName(module)}
-                                            </span>
-                                        </div>
-
-                                        {/* PERMISSIONS */}
-
-                                        {actions.map((action) => {
-                                            const isDashboard = module === "dashboard";
-
-                                            return (
-                                                <div
-                                                    key={action}
-                                                    className="flex justify-center"
-                                                >
-                                                    <input
-                                                        type="checkbox"
-                                                        name={`permissions.${module}.${action}`}
-                                                        checked={hasPermission(module, action)}
-                                                        onChange={handleChange}
-                                                        disabled={isDashboard}
-                                                        className={`
-                                                            h-4 w-4
-                                                            rounded
-                                                            border-slate-300
-                                                            accent-[#003963]
-                                                            ${isDashboard
-                                                                ? "cursor-not-allowed opacity-60"
-                                                                : "cursor-pointer"
-                                                            }
-                                                        `}
-                                                    />
-                                                </div>
-                                            );
-                                        })}
+                                        ))}
                                     </div>
-                                ))}
+
+                                    {/* PERMISSION ROWS */}
+
+                                    {modules.map((module) => {
+                                        const allowedActions =
+                                            getModuleActions(module);
+
+                                        return (
+                                            <div
+                                                key={module}
+                                                className="
+                                                    grid
+                                                    grid-cols-[1fr_repeat(6,72px)]
+                                                    items-center
+                                                    border-b border-slate-100
+                                                    px-4 py-3
+                                                    last:border-b-0
+                                                    hover:bg-slate-50/70
+                                                "
+                                            >
+                                                {/* MODULE */}
+
+                                                <div className="flex items-center gap-2">
+                                                    <div
+                                                        className="
+                                                            flex h-8 w-8
+                                                            shrink-0
+                                                            items-center justify-center
+                                                            rounded-lg
+                                                            bg-[#003963]/10
+                                                            text-[#003963]
+                                                        "
+                                                    >
+                                                        <FiShield size={15} />
+                                                    </div>
+
+                                                    <span
+                                                        className="
+                                                            text-sm font-medium
+                                                            text-slate-700
+                                                        "
+                                                    >
+                                                        {formatModuleName(module)}
+                                                    </span>
+                                                </div>
+
+                                                {/* PERMISSIONS */}
+
+                                                {allActions.map((action) => {
+                                                    const isAllowed =
+                                                        allowedActions.includes(action);
+
+                                                    const isDashboard =
+                                                        module === "dashboard";
+
+                                                    if (!isAllowed) {
+                                                        return (
+                                                            <div
+                                                                key={action}
+                                                                className="flex justify-center"
+                                                            >
+                                                                <span className="text-slate-200">
+                                                                    -
+                                                                </span>
+                                                            </div>
+                                                        );
+                                                    }
+
+                                                    return (
+                                                        <div
+                                                            key={action}
+                                                            className="flex justify-center"
+                                                        >
+                                                            <input
+                                                                type="checkbox"
+                                                                name={`permissions.${module}.${action}`}
+                                                                checked={hasPermission(
+                                                                    module,
+                                                                    action
+                                                                )}
+                                                                onChange={handleChange}
+                                                                disabled={isDashboard}
+                                                                title={
+                                                                    isDashboard
+                                                                        ? "Dashboard read permission is mandatory"
+                                                                        : `${module}:${action}`
+                                                                }
+                                                                className={`
+                                                                    h-4 w-4
+                                                                    rounded
+                                                                    border-slate-300
+                                                                    accent-[#003963]
+                                                                    ${isDashboard
+                                                                        ? "cursor-not-allowed opacity-60"
+                                                                        : "cursor-pointer"
+                                                                    }
+                                                                `}
+                                                            />
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
                             </div>
                         </div>
                     </form>
@@ -329,8 +406,6 @@ const FormModal = ({
                         px-6 py-4
                     "
                 >
-                    {/* CANCEL */}
-
                     <button
                         type="button"
                         onClick={() => setShowModal(false)}
@@ -346,8 +421,6 @@ const FormModal = ({
                     >
                         Cancel
                     </button>
-
-                    {/* SUBMIT */}
 
                     <button
                         type="submit"

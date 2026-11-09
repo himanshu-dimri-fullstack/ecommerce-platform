@@ -1,7 +1,8 @@
+
 "use client";
 
 import { API } from "@/axios/axios";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
     FiX,
     FiMail,
@@ -12,8 +13,9 @@ import {
     FiArrowRight,
 } from "react-icons/fi";
 import { useDispatch, useSelector } from "react-redux";
-import type { RootState } from "@/redux/store";
+import type { RootState, AppDispatch } from "@/redux/store";
 import { setUser } from "@/redux/authSlice";
+import { clearCart, fetchCart } from "@/redux/cartSlice";
 import toast from "react-hot-toast";
 
 interface LoginModalProps {
@@ -23,57 +25,118 @@ interface LoginModalProps {
 
 export default function LoginModal({
     setLoginOpen,
-    setIsSignupOpen
+    setIsSignupOpen,
 }: LoginModalProps) {
-    const user = useSelector((store: RootState) => store.auth.user)
-    const cart = useSelector((store: RootState) => store.cart.items)
-    const dispatch = useDispatch()
+    const cart = useSelector((state: RootState) => state.cart.items);
+
+    const { store: nearestStore } = useSelector(
+        (state: RootState) => state.store
+    );
+
+    const storeId = nearestStore?._id;
+
+    const dispatch = useDispatch<AppDispatch>();
+
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [showPassword, setShowPassword] = useState(false);
+    const [loading, setLoading] = useState(false);
 
-    const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    const handleSubmit = async (
+        event: React.FormEvent<HTMLFormElement>
+    ) => {
         event.preventDefault();
 
-        if (!email) {
-            toast.error("Email is required")
-            return
+        if (!email.trim()) {
+            toast.error("Email is required");
+            return;
         }
+
         if (!password) {
-            toast.error("Password is required")
-            return
+            toast.error("Password is required");
+            return;
+        }
+
+        if (!storeId) {
+            toast.error("Please select your delivery location first");
+            return;
         }
 
         try {
-            const res = await API.post("/user/login", { email, password })
+            setLoading(true);
+
+            // 1. Login user
+            const res = await API.post("/user/login", {
+                email,
+                password,
+            });
+
+            // 2. Update Redux authentication state
+            dispatch(setUser(res.data.user));
+
+            // 3. Merge guest cart into logged-in user's store cart
             if (cart.length > 0) {
-                const cartRes = await API.post("/cart/addCartItems", { cart })
-                console.log("cartRes", cartRes.data.message)
+                try {
+                    const cartRes = await API.post(
+                        "/cart/addCartItems",
+                        {
+                            cart,
+                            storeId,
+                        }
+                    );
+
+                    console.log(
+                        "Cart merge:",
+                        cartRes.data.message
+                    );
+
+                    // Guest cart merge successful
+                    dispatch(clearCart());
+
+                } catch (cartError: any) {
+                    console.log(
+                        "Cart merge error:",
+                        cartError?.response?.data?.message
+                    );
+
+                    toast.error(
+                        cartError?.response?.data?.message ||
+                        "Unable to merge your cart"
+                    );
+                }
             }
-            dispatch(setUser(res.data.user))
-            setLoginOpen(false)
-            toast.success(res.data.message)
-        }
-        catch (error: any) {
-            console.log(error?.response?.data?.message)
-            toast.error(error?.response?.data?.message)
+
+            // 4. Fetch updated cart from database
+            await dispatch(fetchCart(storeId)).unwrap();
+
+            // 5. Close modal
+            setLoginOpen(false);
+
+            toast.success(res.data.message);
+
+        } catch (error: any) {
+            console.log(error?.response?.data?.message);
+
+            toast.error(
+                error?.response?.data?.message ||
+                error?.message ||
+                "Login failed. Please try again."
+            );
+        } finally {
+            setLoading(false);
         }
     };
 
     return (
-        <div
-            className="fixed inset-0 z-100 flex items-center justify-center overflow-y-auto bg-black/50 p-4 backdrop-blur-sm"
-        >
+        <div className="fixed inset-0 z-100 flex items-center justify-center overflow-y-auto bg-black/50 p-4 backdrop-blur-sm">
             <div
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="login-modal-title"
                 className="relative my-auto w-full max-w-md overflow-hidden rounded-3xl bg-white shadow-2xl"
             >
-                {/* Top Accent */}
                 <div className="h-1.5 bg-[#0c831f]" />
 
-                {/* Close Button */}
                 <button
                     type="button"
                     onClick={() => setLoginOpen(false)}
@@ -84,7 +147,6 @@ export default function LoginModal({
                 </button>
 
                 <div className="px-6 py-8 sm:px-9 sm:py-10">
-                    {/* Logo */}
                     <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#0c831f] text-white shadow-lg shadow-green-900/15">
                         <FiZap size={30} fill="currentColor" />
                     </div>
@@ -105,7 +167,6 @@ export default function LoginModal({
                         delivered quickly.
                     </p>
 
-                    {/* Login Form */}
                     <form
                         onSubmit={handleSubmit}
                         className="mt-8 space-y-5"
@@ -205,14 +266,17 @@ export default function LoginModal({
                         {/* Submit */}
                         <button
                             type="submit"
-                            className="group flex h-13 w-full items-center justify-center gap-2 rounded-xl bg-[#0c831f] px-5 text-sm font-extrabold text-white shadow-lg shadow-green-900/10 transition hover:bg-green-800 active:scale-[0.99]"
+                            disabled={loading}
+                            className="group flex h-13 w-full items-center justify-center gap-2 rounded-xl bg-[#0c831f] px-5 text-sm font-extrabold text-white shadow-lg shadow-green-900/10 transition hover:bg-green-800 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
                         >
-                            Login to your account
+                            {loading ? "Please wait..." : "Login to your account"}
 
-                            <FiArrowRight
-                                size={18}
-                                className="transition-transform group-hover:translate-x-1"
-                            />
+                            {!loading && (
+                                <FiArrowRight
+                                    size={18}
+                                    className="transition-transform group-hover:translate-x-1"
+                                />
+                            )}
                         </button>
                     </form>
 
@@ -223,8 +287,8 @@ export default function LoginModal({
                             <button
                                 type="button"
                                 onClick={() => {
-                                    setLoginOpen(false)
-                                    setIsSignupOpen(true)
+                                    setLoginOpen(false);
+                                    setIsSignupOpen(true);
                                 }}
                                 className="font-bold text-[#0c831f] transition-colors hover:text-[#096b19] hover:underline"
                             >

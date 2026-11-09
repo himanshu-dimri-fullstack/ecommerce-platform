@@ -30,6 +30,8 @@ import BannerDetail from "./pages/banner/BannerDetail"
 import Order from "./pages/order/Order"
 import OrderDetail from "./pages/order/OrderDetail"
 import StoreInventory from "./pages/inventory/StoreInventory"
+import DeliveryPartners from "./pages/delivery_partner/DeliveryPartners"
+import DeliveryPartnerDetail from "./pages/delivery_partner/DeliveryPartnerDetail"
 
 const App = () => {
   return (
@@ -64,6 +66,8 @@ const App = () => {
           <Route path="/admin/banner/:id" element={<BannerDetail />} />
           <Route path="/admin/orders" element={<Order />} />
           <Route path="/admin/orders/:id" element={<OrderDetail />} />
+          <Route path="/admin/delivery-partners" element={<DeliveryPartners />} />
+          <Route path="/admin/delivery-partners/:id" element={<DeliveryPartnerDetail />} />
           <Route
             path="/admin/inventory/store/:storeId"
             element={<StoreInventory />}

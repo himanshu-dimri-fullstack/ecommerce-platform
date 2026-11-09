@@ -1,6 +1,7 @@
 
 import mongoose from "mongoose";
 import crypto from "crypto";
+
 import Order from "../models/Order.js";
 import OrderItem from "../models/OrderItem.js";
 import Cart from "../models/Cart.js";
@@ -19,12 +20,17 @@ export const placeOrder = async (req, res) => {
 
     try {
         const userId = req.user.id;
-        const { addressId, paymentMethod } = req.body;
+        const { addressId, paymentMethod, storeId } = req.body;
 
-        if (!addressId || !paymentMethod) {
+        if (
+            !addressId ||
+            !paymentMethod ||
+            !storeId ||
+            !mongoose.Types.ObjectId.isValid(storeId)
+        ) {
             return res.status(400).json({
                 success: false,
-                message: "Address and payment method are required",
+                message: "Address, payment method and valid store are required",
             });
         }
 
@@ -37,7 +43,7 @@ export const placeOrder = async (req, res) => {
 
         session.startTransaction();
 
-        // Validate address
+        // Validate address ownership
         const address = await Address.findOne({
             _id: addressId,
             user: userId,
@@ -47,13 +53,14 @@ export const placeOrder = async (req, res) => {
             throw new Error("Invalid delivery address");
         }
 
-        // Fetch cart
+        // Fetch cart for the selected store
         const cart = await Cart.findOne({
             user: userId,
+            store: storeId,
         }).session(session);
 
         if (!cart) {
-            throw new Error("Cart not found");
+            throw new Error("Cart not found for this store");
         }
 
         // Fetch cart items
@@ -79,13 +86,13 @@ export const placeOrder = async (req, res) => {
             1000 + Math.random() * 9000
         )}`;
 
-        // Create order
+        // Create COD order
         const [order] = await Order.create(
             [
                 {
                     orderNumber,
                     user: userId,
-                    store: null,
+                    store: cart.store,
                     address: address._id,
 
                     subtotal: cart.subtotal,
@@ -109,6 +116,7 @@ export const placeOrder = async (req, res) => {
         // Create order items
         const orderItems = cartItems.map((item) => ({
             order: order._id,
+
             product: item.product._id,
             variant: item.variant?._id || null,
 
@@ -153,13 +161,15 @@ export const placeOrder = async (req, res) => {
             { session }
         );
 
-        // Clear cart for COD
+        // Clear only this store's cart
         await CartItem.deleteMany({
             cart: cart._id,
         }).session(session);
 
         await Cart.deleteOne({
             _id: cart._id,
+            user: userId,
+            store: cart.store,
         }).session(session);
 
         await session.commitTransaction();
@@ -171,6 +181,7 @@ export const placeOrder = async (req, res) => {
             order: {
                 _id: order._id,
                 orderNumber: order.orderNumber,
+                store: order.store,
 
                 subtotal: order.subtotal,
                 discount: order.discount,
@@ -225,12 +236,16 @@ export const createOnlineOrder = async (req, res) => {
 
     try {
         const userId = req.user.id;
-        const { addressId } = req.body;
+        const { addressId, storeId } = req.body;
 
-        if (!addressId) {
+        if (
+            !addressId ||
+            !storeId ||
+            !mongoose.Types.ObjectId.isValid(storeId)
+        ) {
             return res.status(400).json({
                 success: false,
-                message: "Delivery address is required",
+                message: "Delivery address and valid store are required",
             });
         }
 
@@ -247,15 +262,16 @@ export const createOnlineOrder = async (req, res) => {
             });
         }
 
-        // Fetch cart
+        // Fetch cart for selected store
         const cart = await Cart.findOne({
             user: userId,
+            store: storeId,
         });
 
         if (!cart) {
             return res.status(404).json({
                 success: false,
-                message: "Cart not found",
+                message: "Cart not found for this store",
             });
         }
 
@@ -311,6 +327,7 @@ export const createOnlineOrder = async (req, res) => {
 
             notes: {
                 userId: userId.toString(),
+                storeId: cart.store.toString(),
                 orderNumber,
             },
         });
@@ -319,7 +336,7 @@ export const createOnlineOrder = async (req, res) => {
         createdOrder = await Order.create({
             orderNumber,
             user: userId,
-            store: null,
+            store: cart.store,
             address: address._id,
 
             subtotal: cart.subtotal,
@@ -334,7 +351,6 @@ export const createOnlineOrder = async (req, res) => {
             paymentStatus: "pending",
             orderStatus: "placed",
 
-            // Save Razorpay order ID directly in Order
             razorpayOrderId: razorpayOrder.id,
 
             placedAt: new Date(),
@@ -365,11 +381,6 @@ export const createOnlineOrder = async (req, res) => {
 
         await OrderItem.insertMany(orderItems);
 
-        // IMPORTANT:
-        // No Payment.create() here.
-        // No CartItem.deleteMany() here.
-        // No Cart.deleteOne() here.
-
         return res.status(201).json({
             success: true,
             message: "Online order created successfully",
@@ -377,6 +388,7 @@ export const createOnlineOrder = async (req, res) => {
             order: {
                 _id: createdOrder._id,
                 orderNumber: createdOrder.orderNumber,
+                store: createdOrder.store,
                 totalAmount: createdOrder.totalAmount,
                 paymentMethod: createdOrder.paymentMethod,
                 paymentStatus: createdOrder.paymentStatus,
@@ -632,9 +644,10 @@ export const verifyOnlinePayment = async (req, res) => {
         order.paymentStatus = "paid";
         await order.save();
 
-        // Clear cart only after successful payment
+        // Clear only the cart belonging to this order's store
         const cart = await Cart.findOne({
             user: userId,
+            store: order.store,
         });
 
         if (cart) {
@@ -644,6 +657,8 @@ export const verifyOnlinePayment = async (req, res) => {
 
             await Cart.deleteOne({
                 _id: cart._id,
+                user: userId,
+                store: order.store,
             });
         }
 
@@ -654,6 +669,7 @@ export const verifyOnlinePayment = async (req, res) => {
             order: {
                 _id: order._id,
                 orderNumber: order.orderNumber,
+                store: order.store,
                 paymentStatus: order.paymentStatus,
                 orderStatus: order.orderStatus,
             },
@@ -776,7 +792,7 @@ export const cancelOnlineOrder = async (req, res) => {
             });
         }
 
-        // Clean up any pending Razorpay Payment record from the older flow
+        // Clean up any pending Razorpay Payment record
         await Payment.deleteMany({
             order: order._id,
             user: userId,
@@ -822,6 +838,7 @@ export const getMyOrders = async (req, res) => {
             user: userId,
         })
             .populate("address")
+            .populate("store", "name code")
             .sort({ createdAt: -1 })
             .lean();
 
@@ -896,7 +913,6 @@ export const getMyOrders = async (req, res) => {
 // --------------------------------------------------
 // GET ALL ORDERS
 // --------------------------------------------------
-
 
 export const getAllOrders = async (req, res) => {
     try {
@@ -986,6 +1002,10 @@ export const getAllOrders = async (req, res) => {
             })
             .populate({
                 path: "address",
+            })
+            .populate({
+                path: "store",
+                select: "name code",
             })
             .sort({ createdAt: -1 })
             .skip(skip)
@@ -1089,7 +1109,6 @@ export const getAllOrders = async (req, res) => {
     }
 };
 
-
 // --------------------------------------------------
 // GET SINGLE ORDER
 // --------------------------------------------------
@@ -1107,7 +1126,8 @@ export const getSingleOrder = async (req, res) => {
 
         const order = await Order.findById(id)
             .populate("user")
-            .populate("address");
+            .populate("address")
+            .populate("store", "name code");
 
         if (!order) {
             return res.status(404).json({

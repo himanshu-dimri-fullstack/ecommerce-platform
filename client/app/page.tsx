@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState, useRef } from "react";
@@ -13,9 +14,12 @@ import {
     FiLoader
 } from "react-icons/fi";
 import { API } from "@/axios/axios.js";
-import { addToCart } from "@/redux/cartSlice";
+import {
+    addToCart,
+    fetchCart,
+    setCart,
+} from "@/redux/cartSlice";
 import Image from "next/image";
-import { fetchCart, setCart } from "@/redux/cartSlice";
 import { useDispatch, useSelector } from "react-redux";
 import type { RootState, AppDispatch } from "@/redux/store";
 
@@ -42,6 +46,11 @@ interface Product {
         }
     ];
     rating: number;
+    product: {
+        _id: string;
+        name: string;
+    };
+    unitValue?: string;
 }
 
 interface Offer {
@@ -150,11 +159,21 @@ function ProductSkeleton() {
 }
 
 export default function ShopPage() {
-    const user = useSelector((store: RootState) => store.auth.user);
-    const { store: nearestStore, loading: storeLoading } = useSelector(
+    const user = useSelector(
+        (store: RootState) => store.auth.user
+    );
+
+    const {
+        store: nearestStore,
+        loading: storeLoading
+    } = useSelector(
         (state: RootState) => state.store
     );
+
+    const storeId = nearestStore?._id;
+
     const dispatch = useDispatch<AppDispatch>();
+
     const [categories, setCategories] = useState<Category[]>([]);
     const [products, setProducts] = useState<Product[]>([]);
 
@@ -165,15 +184,15 @@ export default function ShopPage() {
     const [categoriesLoading, setCategoriesLoading] = useState(true);
     const [productsLoading, setProductsLoading] = useState(true);
 
-    const [banners, setBanners] = useState([])
-    // console.log("banners", banners)
+    const [banners, setBanners] = useState([]);
 
-    const fetchCategories = async (storeId: string) => {
+    // Fetch categories according to current store
+    const fetchCategories = async (currentStoreId: string) => {
         try {
             setCategoriesLoading(true);
 
             const res = await API.get(
-                `/category/store/${storeId}/available`
+                `/category/store/${currentStoreId}/available`
             );
 
             setCategories(res.data.categories || []);
@@ -184,23 +203,19 @@ export default function ShopPage() {
             setCategoriesLoading(false);
         }
     };
-    // const fetchProducts = async () => {
-    //     try {
-    //         const res = await API.get("/variant/get");
-    //         console.log(res);
-    //         setProducts(res.data.variants);
-    //     } finally {
-    //         setProductsLoading(false);
-    //     }
-    // };
 
-    const fetchProducts = async (storeId: string) => {
+    // Fetch available products according to current store
+    const fetchProducts = async (currentStoreId: string) => {
         try {
+            setProductsLoading(true);
+
             const res = await API.get(
-                `/inventory/store/${storeId}/available`
+                `/inventory/store/${currentStoreId}/available`
             );
 
-            setProducts(res.data.variants);
+            console.log("products res", res.data);
+
+            setProducts(res.data.variants || []);
         } catch (error) {
             console.error("Failed to fetch store products:", error);
             setProducts([]);
@@ -209,50 +224,7 @@ export default function ShopPage() {
         }
     };
 
-    const handleAddToCart = async (product: any) => {
-        if (!user) {
-            dispatch(addToCart({
-                productId: product.product._id,
-                productName: product.product.name,
-                _id: product._id,
-                name: product.name,
-                unitValue: product.unitValue,
-                unit: product.unit,
-                image: product.images[0].url,
-                sellingPrice: product.sellingPrice,
-                mrp: product.mrp,
-                quantity: 1,
-            }));
-            return;
-        }
-
-        const productId = product._id;
-
-        // Prevent repeated clicks while the API request is running
-        if (addingItemsRef.current.has(productId)) return;
-
-        addingItemsRef.current.add(productId);
-        setAddingItems((prev) => [...prev, productId]);
-
-        try {
-            await API.post("/cart/add", {
-                product: product.product._id,
-                variant: product._id,
-                quantity: 1,
-            });
-
-            await dispatch(fetchCart());
-        } catch (error: any) {
-            console.error("Failed to add product to cart:", error);
-        } finally {
-            addingItemsRef.current.delete(productId);
-
-            setAddingItems((prev) =>
-                prev.filter((id) => id !== productId)
-            );
-        }
-    };
-
+    // Fetch banners
     const getBanners = async () => {
         try {
             const res = await API.get("/banner/get");
@@ -265,21 +237,81 @@ export default function ShopPage() {
         }
     };
 
+    // Add product to cart
+    const handleAddToCart = async (product: Product) => {
+        // Guest user: Redux cart
+        if (!user) {
+            dispatch(
+                addToCart({
+                    productId: product.product?._id,
+                    productName: product.product?.name || product.name,
+                    _id: product._id,
+                    name: product.name,
+                    unitValue: product.unitValue,
+                    unit: product.unit,
+                    image: product.images?.[0]?.url || "",
+                    sellingPrice: product.sellingPrice,
+                    mrp: product.mrp,
+                    quantity: 1,
+                })
+            );
+
+            return;
+        }
+
+        // Logged-in user: Store-specific cart
+        if (!storeId) {
+            console.error("Store not found");
+            return;
+        }
+
+        const productId = product._id;
+
+        // Prevent repeated clicks while API request is running
+        if (addingItemsRef.current.has(productId)) {
+            return;
+        }
+
+        addingItemsRef.current.add(productId);
+
+        setAddingItems((prev) => [...prev, productId]);
+
+        try {
+            await API.post("/cart/add", {
+                product: product.product._id,
+                variant: product._id,
+                quantity: 1,
+                storeId,
+            });
+
+            // Refresh current store cart
+            await dispatch(fetchCart(storeId));
+        } catch (error: any) {
+            console.error("Failed to add product to cart:", error);
+        } finally {
+            addingItemsRef.current.delete(productId);
+
+            setAddingItems((prev) =>
+                prev.filter((id) => id !== productId)
+            );
+        }
+    };
+
     const formatBannerHtml = (html = "") => {
-        // CKEditor ke automatically added paragraph wrappers remove karo
         const cleanedHtml = html.replace(/<\/?p>/g, "");
 
-        // HTML entities decode karo
         const textarea = document.createElement("textarea");
         textarea.innerHTML = cleanedHtml;
 
         return textarea.value;
     };
 
+    // Get banners once
     useEffect(() => {
         getBanners();
     }, []);
 
+    // Fetch categories and products whenever store changes
     useEffect(() => {
         if (storeLoading) {
             setCategoriesLoading(true);
@@ -287,19 +319,39 @@ export default function ShopPage() {
             return;
         }
 
-        if (nearestStore?._id) {
-            fetchCategories(nearestStore._id);
-            fetchProducts(nearestStore._id);
+        if (storeId) {
+            fetchCategories(storeId);
+            fetchProducts(storeId);
         } else {
             setCategories([]);
             setProducts([]);
             setCategoriesLoading(false);
             setProductsLoading(false);
         }
-    }, [nearestStore?._id, storeLoading]);
+    }, [storeId, storeLoading]);
+
+    // Fetch cart for the currently selected store
+    useEffect(() => {
+        if (storeLoading) return;
+
+        if (!user || !storeId) {
+            if (user) {
+                dispatch(setCart([]));
+            }
+
+            return;
+        }
+
+        // Remove previous store's items immediately
+        dispatch(setCart([]));
+
+        // Fetch cart belonging to current store
+        dispatch(fetchCart(storeId));
+    }, [user, storeId, storeLoading, dispatch]);
 
     return (
         <main className="min-h-screen bg-[#F8FAF9] pb-20 text-gray-900">
+
             {/* HERO SECTION */}
             <section className="mx-auto max-w-7xl px-4 pt-4 sm:px-6 sm:pt-6 lg:px-8">
                 <div className="relative overflow-hidden rounded-3xl bg-linear-to-br from-[#0c831f] via-emerald-800 to-green-950 p-6 shadow-2xl shadow-green-900/20 sm:p-10 lg:p-12">
@@ -396,22 +448,6 @@ export default function ShopPage() {
                 </div>
             </section>
 
-            {/* <section className="mx-auto max-w-7xl px-4 pt-4 sm:px-6 sm:pt-6 lg:px-8">
-                {
-                    banners.map((item: any) => {
-                        return (
-                            <div>
-                                <div
-                                    dangerouslySetInnerHTML={{
-                                        __html: formatBannerHtml(item.htmlContent),
-                                    }}
-                                />
-                            </div>
-                        )
-                    })
-                }
-            </section> */}
-
             {/* VALUE PROPOSITION STRIP */}
             <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -442,18 +478,13 @@ export default function ShopPage() {
                                 key={i}
                                 className="group relative overflow-hidden rounded-2xl border border-green-100/80 bg-linear-to-br from-[#f0fdf4] via-white to-white p-5 transition-all duration-300 hover:-translate-y-1 hover:border-green-200 hover:shadow-[0_12px_35px_rgba(12,131,31,0.09)] sm:p-6"
                             >
-
-                                {/* Background Decoration */}
                                 <div className="absolute -right-8 -top-8 h-28 w-28 rounded-full bg-green-100/40 blur-2xl transition-all duration-500 group-hover:scale-150" />
 
                                 <div className="relative flex items-center gap-4">
-
-                                    {/* Icon */}
                                     <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#0c831f] text-white shadow-lg shadow-green-900/15 transition-all duration-300 group-hover:rotate-3 group-hover:scale-105">
                                         <Icon size={25} strokeWidth={1.8} />
                                     </div>
 
-                                    {/* Content */}
                                     <div className="min-w-0">
                                         <span className="inline-flex rounded-md bg-green-100 px-2 py-1 text-[9px] font-extrabold tracking-[0.12em] text-[#0c831f]">
                                             {item.tag}
@@ -513,7 +544,7 @@ export default function ShopPage() {
                                         <Image
                                             loading="eager"
                                             alt={category.name}
-                                            src={category.image?.url}
+                                            src={category.image.url}
                                             fill
                                             sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
                                             className="h-full w-full object-cover"
@@ -597,6 +628,7 @@ export default function ShopPage() {
                     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
                         {products.map((product) => {
                             const isAdding = addingItems.includes(product._id);
+
                             const discount =
                                 product.mrp > product.sellingPrice
                                     ? Math.round(
@@ -620,7 +652,7 @@ export default function ShopPage() {
                                                 </span>
                                             )}
 
-                                            {product.images[0]?.url ? (
+                                            {product.images?.[0]?.url ? (
                                                 <Image
                                                     loading="eager"
                                                     alt={product.name}
@@ -671,7 +703,7 @@ export default function ShopPage() {
 
                                         <button
                                             type="button"
-                                            disabled={isAdding}
+                                            disabled={isAdding || !storeId || storeLoading}
                                             onClick={(e) => {
                                                 e.preventDefault();
                                                 e.stopPropagation();

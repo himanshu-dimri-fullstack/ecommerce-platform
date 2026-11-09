@@ -1,3 +1,4 @@
+
 import mongoose from "mongoose";
 
 const cartSchema = new mongoose.Schema(
@@ -11,7 +12,7 @@ const cartSchema = new mongoose.Schema(
         store: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "Store",
-            // required: true,
+            required: true,
         },
 
         subtotal: {
@@ -53,6 +54,12 @@ const cartSchema = new mongoose.Schema(
     {
         timestamps: true,
     }
+);
+
+// One cart per user per store
+cartSchema.index(
+    { user: 1, store: 1 },
+    { unique: true }
 );
 
 const Cart = mongoose.model("Cart", cartSchema);

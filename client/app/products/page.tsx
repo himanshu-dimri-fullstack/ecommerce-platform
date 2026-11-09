@@ -12,7 +12,7 @@ import {
     FiLoader
 } from "react-icons/fi";
 import { useRouter, useSearchParams } from "next/navigation";
-import { addToCart, fetchCart } from "@/redux/cartSlice";
+import { addToCart, fetchCart, setCart } from "@/redux/cartSlice";
 import { useDispatch, useSelector } from "react-redux";
 import type { RootState, AppDispatch } from "@/redux/store";
 
@@ -65,6 +65,8 @@ function ProductsPage() {
 
     const dispatch = useDispatch<AppDispatch>();
 
+    const storeId = nearestStore?._id;
+
     const [addingItems, setAddingItems] = useState<string[]>([]);
     const addingItemsRef = useRef(new Set<string>());
 
@@ -88,7 +90,7 @@ function ProductsPage() {
             return;
         }
 
-        if (!nearestStore?._id) {
+        if (!storeId) {
             setCategories([]);
             setProducts([]);
             setLoading(false);
@@ -105,10 +107,10 @@ function ProductsPage() {
             try {
                 const [categoryRes, inventoryRes] = await Promise.all([
                     API.get(
-                        `/category/store/${nearestStore._id}/available`
+                        `/category/store/${storeId}/available`
                     ),
                     API.get(
-                        `/inventory/store/${nearestStore._id}/available`
+                        `/inventory/store/${storeId}/available`
                     )
                 ]);
 
@@ -138,7 +140,23 @@ function ProductsPage() {
             isActive = false;
         };
 
-    }, [nearestStore?._id, storeLoading]);
+    }, [storeId, storeLoading]);
+
+    // Fetch cart for the currently selected store
+    useEffect(() => {
+        if (storeLoading) return;
+
+        // Guest cart Redux mein hi rahega
+        if (!user) return;
+
+        // Previous store cart clear karo
+        dispatch(setCart([]));
+
+        if (storeId) {
+            dispatch(fetchCart(storeId));
+        }
+
+    }, [user, storeId, storeLoading, dispatch]);
 
     // Keep selected category in sync with URL
     useEffect(() => {
@@ -180,6 +198,14 @@ function ProductsPage() {
     };
 
     const handleAddToCart = async (product: Variant) => {
+        // Store select hona zaroori hai
+        if (!storeId || storeLoading) {
+            return;
+        }
+
+        const variantId = product._id;
+
+        // Guest user
         if (!user) {
             dispatch(addToCart({
                 productId: product.product._id,
@@ -193,24 +219,30 @@ function ProductsPage() {
                 mrp: product.mrp,
                 quantity: 1,
             }));
+
             return;
         }
 
-        const variantId = product._id;
-
+        // Prevent duplicate requests
         if (addingItemsRef.current.has(variantId)) return;
 
         addingItemsRef.current.add(variantId);
-        setAddingItems((prev) => [...prev, variantId]);
+
+        setAddingItems((prev) => [
+            ...prev,
+            variantId
+        ]);
 
         try {
             await API.post("/cart/add", {
                 product: product.product._id,
                 variant: product._id,
                 quantity: 1,
+                storeId,
             });
 
-            await dispatch(fetchCart());
+            // Fetch cart of the same store
+            await dispatch(fetchCart(storeId));
 
         } catch (error) {
             console.error("Failed to add product to cart:", error);
@@ -262,6 +294,7 @@ function ProductsPage() {
                                         }`}
                                 >
                                     All
+
                                     <span
                                         className={`ml-2 inline-block h-1.5 w-1.5 rounded-full ${selectedCategory === "All"
                                                 ? "bg-white"
@@ -379,7 +412,9 @@ function ProductsPage() {
                                                     />
                                                 ) : (
                                                     <div className="flex h-full items-center justify-center">
-                                                        <span className="text-3xl">🛍️</span>
+                                                        <span className="text-3xl">
+                                                            🛍️
+                                                        </span>
                                                     </div>
                                                 )}
                                             </div>
@@ -423,7 +458,10 @@ function ProductsPage() {
                                                 >
                                                     {isAdding ? (
                                                         <>
-                                                            <FiLoader className="animate-spin" size={15} />
+                                                            <FiLoader
+                                                                className="animate-spin"
+                                                                size={15}
+                                                            />
                                                             <span>Adding...</span>
                                                         </>
                                                     ) : (

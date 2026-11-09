@@ -46,11 +46,23 @@ function Navbar() {
     const pathname = usePathname();
     const dispatch = useDispatch<AppDispatch>();
 
-    const user = useSelector((store: RootState) => store.auth.user);
-    const loading = useSelector((store: RootState) => store.auth.loading);
-    const cartItems = useSelector((store: RootState) => store.cart.items);
+    const user = useSelector((state: RootState) => state.auth.user);
+    const loading = useSelector((state: RootState) => state.auth.loading);
 
-    const cartCount = cartItems?.length ?? 0;
+    const cartItems = useSelector((state: RootState) => state.cart.items);
+
+    const {
+        store: nearestStore,
+        loading: storeLoading
+    } = useSelector((state: RootState) => state.store);
+
+    const storeId = nearestStore?._id;
+
+    // Total quantity in cart
+    const cartCount = cartItems?.reduce(
+        (total, item) => total + item.quantity,
+        0
+    ) ?? 0;
 
     const [loginOpen, setLoginOpen] = useState(false);
     const [isSignupOpen, setIsSignupOpen] = useState(false);
@@ -82,6 +94,7 @@ function Navbar() {
         }
     };
 
+    // Logout
     const handleLogout = async () => {
         if (loggingOut) return;
 
@@ -92,10 +105,12 @@ function Navbar() {
 
             dispatch(setUser(null));
             dispatch(setCart([]));
+
             setAccountOpen(false);
             setMobileMenuOpen(false);
 
             toast.success(res.data.message);
+
         } catch (error: any) {
             toast.error(
                 error?.response?.data?.message ||
@@ -124,12 +139,23 @@ function Navbar() {
         };
     }, []);
 
-    // Fetch Cart
+    // Fetch store-specific cart
     useEffect(() => {
+        // Wait until store selection is resolved
+        if (storeLoading) return;
+
+        // Guest cart Redux mein hi rahega
         if (!user) return;
 
-        dispatch(fetchCart());
-    }, [user, dispatch]);
+        // Clear previous store cart
+        dispatch(setCart([]));
+
+        // Fetch cart only when store is selected
+        if (storeId) {
+            dispatch(fetchCart(storeId));
+        }
+
+    }, [user, storeId, storeLoading, dispatch]);
 
     // Reusable Profile Avatar
     const ProfileAvatar = ({ size = "h-9 w-9" }: { size?: string }) => (
@@ -302,8 +328,8 @@ function Navbar() {
                                         key={item.href}
                                         href={item.href}
                                         className={`whitespace-nowrap text-sm font-bold transition ${active
-                                            ? "text-[#0c831f]"
-                                            : "text-gray-700 hover:text-[#0c831f]"
+                                                ? "text-[#0c831f]"
+                                                : "text-gray-700 hover:text-[#0c831f]"
                                             }`}
                                     >
                                         {item.label}
@@ -339,8 +365,8 @@ function Navbar() {
                                         href={item.href}
                                         onClick={() => setMobileMenuOpen(false)}
                                         className={`rounded-xl px-4 py-3 text-sm font-bold transition ${active
-                                            ? "bg-green-50 text-[#0c831f]"
-                                            : "text-gray-700 hover:bg-gray-50"
+                                                ? "bg-green-50 text-[#0c831f]"
+                                                : "text-gray-700 hover:bg-gray-50"
                                             }`}
                                     >
                                         {item.label}
@@ -359,6 +385,7 @@ function Navbar() {
                                     >
                                         <span className="flex min-w-0 items-center gap-3">
                                             <ProfileAvatar />
+
                                             <span className="truncate">
                                                 {userName}
                                             </span>

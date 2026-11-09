@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState, Suspense, useRef } from "react";
@@ -6,21 +7,16 @@ import Link from "next/link";
 import {
     FiArrowLeft,
     FiShoppingCart,
-    FiPlus,
-    FiMinus,
-    FiStar,
     FiTruck,
     FiShield,
     FiRefreshCw,
-    FiCheckCircle,
     FiLoader
 } from "react-icons/fi";
 import { useParams } from "next/navigation";
 import { API } from "@/axios/axios";
-import { addToCart } from "@/redux/cartSlice";
+import { addToCart, fetchCart, setCart } from "@/redux/cartSlice";
 import { useDispatch, useSelector } from "react-redux";
 import type { RootState, AppDispatch } from "@/redux/store";
-import { fetchCart, setCart } from "@/redux/cartSlice";
 
 export interface Image {
     url: string;
@@ -79,12 +75,10 @@ export interface ProductVariant {
     updatedAt: string;
     dimensions: Dimensions;
     discountPercentage?: number;
-    images: [
-        {
-            url: string;
-            public_url: string;
-        }
-    ];
+    images: {
+        url: string;
+        public_url: string;
+    }[];
     mrp: number;
     name: string;
     product: Product;
@@ -158,15 +152,11 @@ function ProductDetailSkeleton() {
 
                     {/* Product Information Skeleton */}
                     <section className="rounded-3xl border border-gray-100 bg-white p-5 sm:p-8">
-
-                        {/* Brand */}
                         <Skeleton className="mt-3 h-4 w-28" />
 
-                        {/* Product Name */}
                         <Skeleton className="mt-4 h-8 w-4/5 sm:h-10" />
                         <Skeleton className="mt-2 h-8 w-3/5 sm:h-10" />
 
-                        {/* Unit */}
                         <Skeleton className="mt-4 h-4 w-24" />
 
                         {/* Price */}
@@ -197,12 +187,6 @@ function ProductDetailSkeleton() {
                             <Skeleton className="mb-4 h-4 w-32" />
 
                             <div className="flex flex-wrap items-center gap-4">
-                                <div className="flex h-12 items-center rounded-xl border border-gray-200 bg-white">
-                                    <Skeleton className="h-10 w-10 rounded-lg" />
-                                    <Skeleton className="mx-2 h-4 w-5" />
-                                    <Skeleton className="h-10 w-10 rounded-lg" />
-                                </div>
-
                                 <Skeleton className="h-12 min-w-36 flex-1 rounded-xl" />
                             </div>
 
@@ -233,88 +217,172 @@ function ProductDetailSkeleton() {
 }
 
 function ProductDetail() {
-    const { slug } = useParams();
-    const user = useSelector((store: RootState) => store.auth.user);
+    const params = useParams();
+    const slug = params.slug as string;
+
+    const user = useSelector((state: RootState) => state.auth.user);
+
+    const {
+        store: nearestStore,
+        loading: storeLoading
+    } = useSelector((state: RootState) => state.store);
+
+    const storeId = nearestStore?._id;
+
     const dispatch = useDispatch<AppDispatch>();
 
-    const [addingItems, setAddingItems] = useState<string[]>([]);
-    const addingItemsRef = useRef(new Set<string>());
+    const [adding, setAdding] = useState(false);
+    const addingRef = useRef(false);
 
     const [productVariant, setProductVariant] = useState<ProductVariant | null>(null);
     const [product, setProduct] = useState<Product | null>(null);
 
-    // Skeleton loading state
     const [loading, setLoading] = useState(true);
 
-    const fetchProduct = async () => {
-        try {
-            const res = await API.get(`/variant/get/slug/${slug}`);
-            setProductVariant(res.data.variant);
-            setProduct(res.data.variant.product)
-        }
-        catch (error) {
-            if (error instanceof Error) {
-                console.log(error.message);
-            } else {
-                console.log("An unknown error occurred");
-            }
-        } finally {
-            setLoading(false);
-        }
-    };
+    // Fetch cart for selected store
+    useEffect(() => {
+        if (storeLoading || !user) return;
 
-    const handleAddToCart = async (product: any) => {
-        if (!user) {
-            dispatch(addToCart({
-                productId: product.product._id,
-                productName: product.product.name,
-                _id: product._id,
-                name: product.name,
-                unitValue: product.unitValue,
-                unit: product.unit,
-                image: product.images[0].url,
-                sellingPrice: product.sellingPrice,
-                mrp: product.mrp,
-                quantity: 1,
-            }));
+        // Clear previous store cart
+        dispatch(setCart([]));
+
+        if (storeId) {
+            dispatch(fetchCart(storeId));
+        }
+
+    }, [user, storeId, storeLoading, dispatch]);
+
+    // Fetch product variant
+    useEffect(() => {
+        if (!slug) return;
+
+        let isActive = true;
+
+        const fetchProduct = async () => {
+            setLoading(true);
+
+            try {
+                const res = await API.get(`/variant/get/slug/${slug}`);
+
+                if (!isActive) return;
+
+                const variant = res.data.variant;
+
+                setProductVariant(variant);
+                setProduct(variant.product);
+
+            } catch (error) {
+                console.error("Failed to fetch product:", error);
+
+                if (isActive) {
+                    setProductVariant(null);
+                    setProduct(null);
+                }
+
+            } finally {
+                if (isActive) {
+                    setLoading(false);
+                }
+            }
+        };
+
+        fetchProduct();
+
+        return () => {
+            isActive = false;
+        };
+
+    }, [slug]);
+
+    // Add product to cart
+    const handleAddToCart = async () => {
+        // Product variant available hona chahiye
+        if (!productVariant || !productVariant.product) return;
+
+        // Store select hona zaroori hai
+        if (!storeId || storeLoading) {
+            console.error("Please select a delivery location first.");
             return;
         }
-        // return
-        const productId = product._id;
 
-        // Prevent repeated clicks while the API request is running
-        if (addingItemsRef.current.has(productId)) return;
+        const variant = productVariant;
 
-        addingItemsRef.current.add(productId);
-        setAddingItems((prev) => [...prev, productId]);
+        // Prevent duplicate clicks
+        if (addingRef.current) return;
+
+        addingRef.current = true;
+        setAdding(true);
 
         try {
+            // Guest user
+            if (!user) {
+                dispatch(addToCart({
+                    productId: variant.product._id,
+                    productName: variant.product.name,
+                    _id: variant._id,
+                    name: variant.name,
+                    unitValue: String(variant.unitValue),
+                    unit: variant.unit,
+                    image: variant.images?.[0]?.url || "",
+                    sellingPrice: variant.sellingPrice,
+                    mrp: variant.mrp,
+                    quantity: 1,
+                }));
+
+                return;
+            }
+
+            // Logged-in user
             await API.post("/cart/add", {
-                product: product.product._id,
-                variant: product._id,
+                product: variant.product._id,
+                variant: variant._id,
                 quantity: 1,
+                storeId,
             });
 
-            await dispatch(fetchCart());
-        } catch (error: any) {
-            console.error("Failed to add product to cart:", error);
-        } finally {
-            addingItemsRef.current.delete(productId);
+            // Fetch updated cart of the same store
+            await dispatch(fetchCart(storeId));
 
-            setAddingItems((prev) =>
-                prev.filter((id) => id !== productId)
-            );
+        } catch (error) {
+            console.error("Failed to add product to cart:", error);
+
+        } finally {
+            addingRef.current = false;
+            setAdding(false);
         }
     };
 
-    useEffect(() => {
-        fetchProduct();
-    }, []);
-
-    // Show skeleton until the API request finishes
     if (loading) {
         return <ProductDetailSkeleton />;
     }
+
+    if (!productVariant || !product) {
+        return (
+            <main className="flex min-h-screen items-center justify-center bg-[#f8faf8] px-4">
+                <div className="text-center">
+                    <FiShoppingCart className="mx-auto h-12 w-12 text-gray-300" />
+
+                    <h2 className="mt-4 text-xl font-bold text-gray-900">
+                        Product not found
+                    </h2>
+
+                    <p className="mt-2 text-sm text-gray-500">
+                        This product is currently unavailable.
+                    </p>
+
+                    <Link
+                        href="/products"
+                        className="mt-5 inline-flex items-center gap-2 rounded-xl bg-[#0c831f] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#096b19]"
+                    >
+                        <FiArrowLeft />
+                        Back to products
+                    </Link>
+                </div>
+            </main>
+        );
+    }
+
+    const discount = productVariant.discountPercentage ?? 0;
 
     return (
         <main className="min-h-screen bg-[#f8faf8] pb-12">
@@ -332,21 +400,24 @@ function ProductDetail() {
                     <Link href="/" className="hover:text-[#0c831f]">
                         Home
                     </Link>
+
                     <span>/</span>
+
                     <Link href="/products" className="hover:text-[#0c831f]">
                         Products
                     </Link>
 
-                    {product?.category && (
+                    {product.category && (
                         <>
                             <span>/</span>
-                            <span>{product?.category.name}</span>
+                            <span>{product.category.name}</span>
                         </>
                     )}
 
                     <span>/</span>
+
                     <span className="font-semibold text-gray-900">
-                        {productVariant?.name}
+                        {productVariant.name}
                     </span>
                 </div>
             </div>
@@ -358,13 +429,13 @@ function ProductDetail() {
                     {/* Product Image */}
                     <section className="relative">
                         <div className="relative flex min-h-80 items-center justify-center overflow-hidden rounded-3xl border border-gray-100 bg-white p-6 sm:min-h-120 sm:p-12">
-                            {(productVariant?.discountPercentage ?? 0) && (
+                            {discount > 0 && (
                                 <span className="absolute left-5 top-5 z-10 rounded-lg bg-[#0c831f] px-3 py-2 text-sm font-extrabold text-white">
-                                    {productVariant?.discountPercentage}% OFF
+                                    {discount}% OFF
                                 </span>
                             )}
 
-                            {productVariant?.images ? (
+                            {productVariant.images?.[0]?.url ? (
                                 <div className="relative h-72 w-full sm:h-100">
                                     <Image
                                         src={productVariant.images[0].url}
@@ -385,6 +456,7 @@ function ProductDetail() {
                         <div className="mt-4 grid grid-cols-3 gap-3">
                             <div className="flex items-center gap-2 rounded-2xl border border-gray-100 bg-white p-3">
                                 <FiTruck className="shrink-0 text-[#0c831f]" size={20} />
+
                                 <span className="text-xs font-semibold text-gray-700">
                                     Fast delivery
                                 </span>
@@ -392,6 +464,7 @@ function ProductDetail() {
 
                             <div className="flex items-center gap-2 rounded-2xl border border-gray-100 bg-white p-3">
                                 <FiShield className="shrink-0 text-[#0c831f]" size={20} />
+
                                 <span className="text-xs font-semibold text-gray-700">
                                     Quality assured
                                 </span>
@@ -399,6 +472,7 @@ function ProductDetail() {
 
                             <div className="flex items-center gap-2 rounded-2xl border border-gray-100 bg-white p-3">
                                 <FiRefreshCw className="shrink-0 text-[#0c831f]" size={20} />
+
                                 <span className="text-xs font-semibold text-gray-700">
                                     Easy support
                                 </span>
@@ -409,18 +483,18 @@ function ProductDetail() {
                     {/* Product Information */}
                     <section className="rounded-3xl border border-gray-100 bg-white p-5 sm:p-8">
 
-                        {product?.brand && (
+                        {product.brand && (
                             <p className="mt-3 text-sm font-bold uppercase tracking-wider text-[#0c831f]">
-                                {product?.brand?.name}
+                                {product.brand.name}
                             </p>
                         )}
 
                         <h1 className="mt-2 text-2xl font-black leading-tight tracking-tight text-gray-900 sm:text-4xl">
-                            {productVariant?.name}
+                            {productVariant.name}
                         </h1>
 
                         <p className="mt-3 text-sm font-medium text-gray-500">
-                            {`${productVariant?.unitValue}` + " " + `${productVariant?.unit}`}
+                            {`${productVariant.unitValue} ${productVariant.unit}`}
                         </p>
 
                         <div className="mt-6 border-t border-gray-100 pt-6">
@@ -430,16 +504,17 @@ function ProductDetail() {
 
                             <div className="mt-2 flex flex-wrap items-center gap-3">
                                 <span className="text-3xl font-black text-gray-900">
-                                    ₹{productVariant?.sellingPrice}
+                                    ₹{productVariant.sellingPrice}
                                 </span>
 
-                                {(productVariant?.discountPercentage ?? 0) && (
+                                {discount > 0 && (
                                     <>
                                         <span className="text-lg text-gray-400 line-through">
-                                            ₹{productVariant?.mrp}
+                                            ₹{productVariant.mrp}
                                         </span>
+
                                         <span className="rounded-md bg-green-50 px-2 py-1 text-sm font-bold text-[#0c831f]">
-                                            Save {productVariant?.discountPercentage}%
+                                            Save {discount}%
                                         </span>
                                     </>
                                 )}
@@ -456,70 +531,64 @@ function ProductDetail() {
                                 size={22}
                                 className="mt-0.5 shrink-0 text-[#0c831f]"
                             />
+
                             <div>
                                 <p className="text-sm font-bold text-gray-900">
                                     Delivery to your doorstep
                                 </p>
+
                                 <p className="mt-1 text-sm text-gray-600">
-                                    "Fast delivery available"
+                                    Fast delivery available
                                 </p>
                             </div>
                         </div>
 
+                        {/* Add to Cart */}
                         <div className="mt-7">
                             <div className="flex flex-wrap items-center gap-4">
                                 <button
-                                    onClick={(e) => {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                        handleAddToCart(product);
-                                    }}
+                                    onClick={handleAddToCart}
                                     type="button"
+                                    disabled={adding || storeLoading || !storeId}
                                     className="flex h-12 flex-1 items-center justify-center gap-2 rounded-xl bg-[#0c831f] px-5 text-sm font-bold text-white transition hover:bg-[#096b19] disabled:cursor-not-allowed disabled:bg-gray-300"
                                 >
-                                    Add to Cart
-                                </button>
-
-                                {/* <button
-                                    type="button"
-                                    disabled={isAdding}
-                                    onClick={(e) => {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                        handleAddToCart(product);
-                                    }}
-                                    className="flex items-center gap-1 rounded-lg border border-[#0c831f] bg-green-50 px-3 py-2 text-sm font-extrabold text-[#0c831f] transition hover:bg-[#0c831f] hover:text-white disabled:cursor-not-allowed disabled:opacity-70"
-                                >
-                                    {isAdding ? (
+                                    {adding ? (
                                         <>
-                                            <FiLoader className="animate-spin" size={15} />
-                                            <span>Adding...</span>
+                                            <FiLoader className="animate-spin" size={18} />
+                                            Adding...
                                         </>
                                     ) : (
                                         <>
-                                            ADD <FiPlus />
+                                            <FiShoppingCart size={18} />
+                                            Add to Cart
                                         </>
                                     )}
-                                    
-                                </button> */}
+                                </button>
                             </div>
+
+                            {!storeLoading && !storeId && (
+                                <p className="mt-3 text-sm text-red-500">
+                                    Please select a delivery location before adding products to your cart.
+                                </p>
+                            )}
                         </div>
 
                         {/* Product Metadata */}
-                        {product?.name && (
+                        {product.name && (
                             <div className="mt-7 border-t border-gray-100 pt-5">
                                 <h2 className="text-sm font-bold text-gray-900">
                                     Product information
                                 </h2>
 
                                 <div className="mt-3 space-y-3 text-sm">
-                                    {product?.category?.name && (
+                                    {product.category?.name && (
                                         <div className="flex justify-between gap-4">
                                             <span className="text-gray-500">
                                                 Category Type
                                             </span>
+
                                             <span className="text-right font-semibold text-gray-800">
-                                                {product?.category?.name}
+                                                {product.category.name}
                                             </span>
                                         </div>
                                     )}
@@ -529,30 +598,31 @@ function ProductDetail() {
                                             <span className="text-gray-500">
                                                 Subcategory Type
                                             </span>
+
                                             <span className="text-right font-semibold text-gray-800">
-                                                {product?.subcategory?.name}
+                                                {product.subcategory.name}
                                             </span>
                                         </div>
                                     )}
 
-                                    {product?.name && (
-                                        <div className="flex justify-between gap-4">
-                                            <span className="text-gray-500">
-                                                Product Type
-                                            </span>
-                                            <span className="text-right font-semibold text-gray-800">
-                                                {product?.name}
-                                            </span>
-                                        </div>
-                                    )}
+                                    <div className="flex justify-between gap-4">
+                                        <span className="text-gray-500">
+                                            Product Type
+                                        </span>
 
-                                    {product?.brand && (
+                                        <span className="text-right font-semibold text-gray-800">
+                                            {product.name}
+                                        </span>
+                                    </div>
+
+                                    {product.brand && (
                                         <div className="flex justify-between gap-4">
                                             <span className="text-gray-500">
                                                 Brand
                                             </span>
+
                                             <span className="font-semibold text-gray-800">
-                                                {product?.brand?.name}
+                                                {product.brand.name}
                                             </span>
                                         </div>
                                     )}

@@ -6,28 +6,29 @@ import {
     updateCartItem,
     removeCartItem,
     clearCart,
-    addCompleteCart
+    addCompleteCart,
 } from "../controllers/cartController.js";
 
 import { Auth } from "../middlewares/Auth.js";
 
 const router = express.Router();
 
-// Get user's cart for a store
-router.get("/get", Auth, getCart);
+// Get cart for current store
+router.get("/get/:storeId", Auth, getCart);
 
-// Add product variant to cart
+// Add product to cart
 router.post("/add", Auth, addToCart);
 
-router.post("/addCartItems", Auth, addCompleteCart)
+// Merge guest cart after login
+router.post("/addCartItems", Auth, addCompleteCart);
 
-// Update quantity of a cart item
-router.patch("/update/:id", Auth, updateCartItem);
+// Update cart item quantity
+router.patch("/update/:storeId/:id", Auth, updateCartItem);
 
 // Remove one cart item
-router.delete("/delete/:id", Auth, removeCartItem);
+router.delete("/delete/:storeId/:id", Auth, removeCartItem);
 
-// Remove all items from a store's cart
-// router.delete("/cart/clear/:storeId", Auth, clearCart);
+// Clear current store cart
+router.delete("/clear/:storeId", Auth, clearCart);
 
 export default router;
