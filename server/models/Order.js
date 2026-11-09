@@ -100,7 +100,7 @@ const orderSchema = new mongoose.Schema(
 
         deliveryPartner: {
             type: mongoose.Schema.Types.ObjectId,
-            ref: "User",
+            ref: "DeliveryPartner",
             default: null,
         },
 

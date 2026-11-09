@@ -803,3 +803,29 @@ export const updateMyOnlineStatus = async (req, res) => {
         });
     }
 };
+
+// GET DELIVERY PARTNERS AVAILABLE FOR ORDER ASSIGNMENT
+export const getAvailableDeliveryPartnersForAssignment = async (req, res) => {
+    try {
+        const deliveryPartners = await DeliveryPartner.find({
+            status: "active",
+            isOnline: true,
+            isAvailable: true,
+        })
+            .populate("user", "firstName lastName email phone")
+            .sort({ updatedAt: -1 });
+
+        return res.status(200).json({
+            success: true,
+            count: deliveryPartners.length,
+            deliveryPartners,
+        });
+    } catch (error) {
+        console.error("Get Available Delivery Partners Error:", error);
+
+        return res.status(500).json({
+            success: false,
+            message: "Failed to fetch available delivery partners.",
+        });
+    }
+};

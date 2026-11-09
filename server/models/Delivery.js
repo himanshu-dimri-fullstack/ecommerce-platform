@@ -15,8 +15,8 @@ const deliverySchema = new mongoose.Schema(
         deliveryPartner: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "DeliveryPartner",
-            required: true,
-            index: true
+            default: null,
+            index: true,
         },
 
         // STORE REFERENCE

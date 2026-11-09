@@ -11,11 +11,13 @@ import {
     createOnlineOrder,
     verifyOnlinePayment,
     cancelOnlineOrder,
+    assignDeliveryPartner,
+    verifyDeliveryOtp
 } from "../controllers/orderController.js";
 
 const router = express.Router();
 
-// COD order
+// place order
 router.post("/place", Auth, placeOrder);
 
 // User orders
@@ -23,7 +25,15 @@ router.get("/my-orders", Auth, getMyOrders);
 
 // Admin orders
 router.get("/get", Auth, Permission("order:read"), getAllOrders);
-router.get("/get/:id", Auth, getSingleOrder);
+router.get("/get/:id", Auth, Permission("order:read"), getSingleOrder);
+router.patch(
+    "/assign-delivery-partner",
+    Auth,
+    Permission("order:assign"),
+    assignDeliveryPartner
+);
+
+router.post("/verify-otp", Auth, verifyDeliveryOtp);
 
 // Razorpay online payment
 router.post("/create-online", Auth, createOnlineOrder);

@@ -7,9 +7,10 @@ import {
     FiXCircle,
     FiPackage,
     FiMapPin,
-    FiCalendar,
     FiCreditCard,
     FiTruck,
+    FiShield,
+    FiX,
 } from "react-icons/fi";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
 import { toast } from "react-toastify";
@@ -24,6 +25,19 @@ const OrderDetail = () => {
 
     const [order, setOrder] = useState(null);
     const [dataLoading, setDataLoading] = useState(true);
+
+    // OTP STATES
+    const [showOtpModal, setShowOtpModal] = useState(false);
+    const [otp, setOtp] = useState("");
+    const [otpLoading, setOtpLoading] = useState(false);
+
+    // ROLE CHECK
+    const roleName =
+        typeof user?.role === "string"
+            ? user.role
+            : user?.role?.name;
+
+    const isDeliveryPartner = roleName === "delivery_partner";
 
     // GET SINGLE ORDER
     const getOrderDetails = async () => {
@@ -43,6 +57,46 @@ const OrderDetail = () => {
     useEffect(() => {
         getOrderDetails();
     }, [id]);
+
+    // VERIFY DELIVERY OTP
+    const handleVerifyOtp = async (e) => {
+        e.preventDefault();
+
+        if (!/^\d{4}$/.test(otp)) {
+            toast.error("Please enter a valid 4-digit OTP");
+            return;
+        }
+
+        try {
+            setOtpLoading(true);
+
+            const res = await API.post("/order/verify-otp", {
+                orderId: id,
+                otp,
+            });
+
+            if (res.data.success) {
+                toast.success(
+                    res.data.message || "Delivery verified successfully"
+                );
+
+                setShowOtpModal(false);
+                setOtp("");
+
+                // Refresh order details after successful verification
+                await getOrderDetails();
+            }
+        } catch (error) {
+            console.error("OTP Verification Error:", error);
+
+            toast.error(
+                error?.response?.data?.message ||
+                "OTP verification failed"
+            );
+        } finally {
+            setOtpLoading(false);
+        }
+    };
 
     const formatDate = (date) => {
         if (!date) return "-";
@@ -126,6 +180,11 @@ const OrderDetail = () => {
         );
     }
 
+    const canVerifyDelivery =
+        isDeliveryPartner &&
+        order.orderStatus !== "delivered" &&
+        order.orderStatus !== "cancelled";
+
     return (
         <div className="space-y-6">
             {/* PAGE HEADER */}
@@ -150,11 +209,25 @@ const OrderDetail = () => {
                     </div>
                 </div>
 
-                <span
-                    className={`inline-block w-fit rounded-lg px-3 py-2 text-xs font-semibold ${getStatusClass(order.orderStatus)}`}
-                >
-                    {getStatusLabel(order.orderStatus)}
-                </span>
+                <div className="flex flex-wrap items-center gap-3">
+                    <span
+                        className={`inline-block w-fit rounded-lg px-3 py-2 text-xs font-semibold ${getStatusClass(order.orderStatus)}`}
+                    >
+                        {getStatusLabel(order.orderStatus)}
+                    </span>
+
+                    {/* VERIFY OTP BUTTON - DELIVERY PARTNER ONLY */}
+                    {canVerifyDelivery && (
+                        <button
+                            type="button"
+                            onClick={() => setShowOtpModal(true)}
+                            className="flex items-center gap-2 rounded-lg bg-[#003963] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#002b4a]"
+                        >
+                            <FiShield size={17} />
+                            Verify OTP
+                        </button>
+                    )}
+                </div>
             </div>
 
             {/* ORDER INFO */}
@@ -440,6 +513,99 @@ const OrderDetail = () => {
                     </div>
                 )}
             </div>
+
+            {/* VERIFY OTP MODAL */}
+            {showOtpModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/50 p-4 backdrop-blur-sm">
+                    <div className="my-auto w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl">
+
+                        <div className="flex items-center justify-between border-b border-slate-100 px-6 py-5">
+                            <div>
+                                <h2 className="text-lg font-bold text-slate-800">
+                                    Verify Delivery OTP
+                                </h2>
+                                <p className="mt-1 text-xs text-slate-500">
+                                    Order #{order.orderNumber}
+                                </p>
+                            </div>
+
+                            <button
+                                type="button"
+                                disabled={otpLoading}
+                                onClick={() => {
+                                    setShowOtpModal(false);
+                                    setOtp("");
+                                }}
+                                className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                            >
+                                <FiX size={20} />
+                            </button>
+                        </div>
+
+                        <form onSubmit={handleVerifyOtp} className="p-6">
+                            <div className="mb-5 flex flex-col items-center text-center">
+                                <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-50 text-[#003963]">
+                                    <FiShield size={30} />
+                                </div>
+
+                                <h3 className="mt-4 text-base font-bold text-slate-800">
+                                    Enter Customer OTP
+                                </h3>
+
+                                <p className="mt-2 max-w-xs text-sm leading-6 text-slate-500">
+                                    Ask the customer for their 4-digit delivery OTP to complete this order.
+                                </p>
+                            </div>
+
+                            <label className="mb-2 block text-sm font-semibold text-slate-700">
+                                Delivery OTP
+                            </label>
+
+                            <input
+                                type="text"
+                                inputMode="numeric"
+                                autoComplete="one-time-code"
+                                maxLength={4}
+                                value={otp}
+                                onChange={(e) =>
+                                    setOtp(
+                                        e.target.value
+                                            .replace(/\D/g, "")
+                                            .slice(0, 4)
+                                    )
+                                }
+                                placeholder="Enter 4-digit OTP"
+                                disabled={otpLoading}
+                                autoFocus
+                                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 text-center text-2xl font-bold tracking-[0.6em] text-slate-800 outline-none transition placeholder:text-sm placeholder:font-medium placeholder:tracking-normal focus:border-[#003963] focus:bg-white focus:ring-4 focus:ring-blue-50 disabled:opacity-60"
+                            />
+
+                            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row">
+                                <button
+                                    type="button"
+                                    disabled={otpLoading}
+                                    onClick={() => {
+                                        setShowOtpModal(false);
+                                        setOtp("");
+                                    }}
+                                    className="flex-1 rounded-xl border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 disabled:opacity-50"
+                                >
+                                    Cancel
+                                </button>
+
+                                <button
+                                    type="submit"
+                                    disabled={otpLoading || otp.length !== 4}
+                                    className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#003963] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#002b4a] disabled:cursor-not-allowed disabled:opacity-50"
+                                >
+                                    <FiCheckCircle size={17} />
+                                    {otpLoading ? "Verifying..." : "Verify & Complete"}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

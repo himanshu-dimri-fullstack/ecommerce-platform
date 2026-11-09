@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
@@ -22,6 +21,7 @@ import {
     FiRefreshCw,
     FiCalendar,
     FiHash,
+    FiShield,
 } from "react-icons/fi";
 
 interface OrderAddress {
@@ -60,6 +60,11 @@ interface OrderItem {
     totalPrice: number;
 }
 
+interface OrderDelivery {
+    deliveryOtp?: string | null;
+    deliveryStatus?: string;
+}
+
 interface Order {
     _id: string;
     orderNumber: string;
@@ -79,6 +84,7 @@ interface Order {
     cancellationReason?: string;
     address?: OrderAddress;
     items?: OrderItem[];
+    delivery?: OrderDelivery | null;
     createdAt: string;
 }
 
@@ -383,8 +389,8 @@ export default function MyOrdersPage() {
                             type="button"
                             onClick={() => setFilter(item.value)}
                             className={`shrink-0 rounded-full px-5 py-2.5 text-sm font-bold transition ${filter === item.value
-                                ? "bg-[#0c831f] text-white"
-                                : "border border-gray-200 bg-white text-gray-600 hover:border-[#0c831f] hover:text-[#0c831f]"
+                                    ? "bg-[#0c831f] text-white"
+                                    : "border border-gray-200 bg-white text-gray-600 hover:border-[#0c831f] hover:text-[#0c831f]"
                                 }`}
                         >
                             {item.label}
@@ -439,6 +445,13 @@ export default function MyOrdersPage() {
                             const items = order.items || [];
                             const currentStep = orderSteps.indexOf(order.orderStatus);
                             const isCancelled = order.orderStatus === "cancelled";
+
+                            // DELIVERY OTP
+                            const deliveryOtp = order.delivery?.deliveryOtp;
+
+                            const canShowOtp =
+                                Boolean(deliveryOtp) &&
+                                !["delivered", "cancelled"].includes(order.orderStatus);
 
                             return (
 
@@ -518,10 +531,10 @@ export default function MyOrdersPage() {
                                                 Payment Status
                                             </p>
                                             <p className={`mt-2 font-bold capitalize ${order.paymentStatus === "paid"
-                                                ? "text-green-600"
-                                                : order.paymentStatus === "failed"
-                                                    ? "text-red-600"
-                                                    : "text-yellow-600"
+                                                    ? "text-green-600"
+                                                    : order.paymentStatus === "failed"
+                                                        ? "text-red-600"
+                                                        : "text-yellow-600"
                                                 }`}>
                                                 {order.paymentStatus}
                                             </p>
@@ -625,15 +638,15 @@ export default function MyOrdersPage() {
                                                                     className="relative"
                                                                 >
                                                                     <div className={`flex h-10 w-10 items-center justify-center rounded-full ${completed
-                                                                        ? "bg-[#0c831f] text-white"
-                                                                        : "bg-gray-200 text-gray-400"
+                                                                            ? "bg-[#0c831f] text-white"
+                                                                            : "bg-gray-200 text-gray-400"
                                                                         }`}>
                                                                         <StepIcon size={18} />
                                                                     </div>
 
                                                                     <p className={`mt-2 text-xs font-bold capitalize ${completed
-                                                                        ? "text-[#0c831f]"
-                                                                        : "text-gray-400"
+                                                                            ? "text-[#0c831f]"
+                                                                            : "text-gray-400"
                                                                         }`}>
                                                                         {step.replaceAll("_", " ")}
                                                                     </p>
@@ -651,6 +664,57 @@ export default function MyOrdersPage() {
 
                                                 )}
                                             </section>
+
+                                            {/* DELIVERY OTP */}
+                                            {canShowOtp && (
+                                                <section className="overflow-hidden rounded-2xl border border-green-200 bg-white">
+
+                                                    <div className="flex items-center gap-3 border-b border-green-100 bg-green-50 px-5 py-4">
+                                                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#0c831f] text-white">
+                                                            <FiShield size={20} />
+                                                        </div>
+
+                                                        <div>
+                                                            <h3 className="font-extrabold text-gray-900">
+                                                                Delivery Verification OTP
+                                                            </h3>
+
+                                                            <p className="mt-0.5 text-xs text-gray-600">
+                                                                Your secure code for order delivery
+                                                            </p>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="p-5 sm:p-6">
+
+                                                        <p className="text-sm text-gray-600">
+                                                            Share this OTP with the delivery partner when your order arrives.
+                                                        </p>
+
+                                                        <div className="my-5 flex items-center justify-center">
+                                                            <div className="rounded-2xl border-2 border-dashed border-[#0c831f] bg-green-50 px-8 py-4">
+                                                                <p className="text-center text-xs font-bold uppercase tracking-[0.25em] text-green-700">
+                                                                    Your OTP
+                                                                </p>
+
+                                                                <p className="mt-2 text-4xl font-black tracking-[0.35em] text-[#0c831f]">
+                                                                    {deliveryOtp}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="flex items-start gap-2 rounded-xl bg-amber-50 p-3 text-xs leading-5 text-amber-800">
+                                                            <FiShield className="mt-0.5 shrink-0" size={15} />
+
+                                                            <p>
+                                                                Do not share this OTP over a phone call or before receiving your order. Give it to the delivery partner only at the time of delivery verification.
+                                                            </p>
+                                                        </div>
+
+                                                    </div>
+
+                                                </section>
+                                            )}
 
                                             {/* PRODUCTS */}
                                             <section>

@@ -12,7 +12,8 @@ import {
     deleteDeliveryPartner,
     getAvailableDeliveryPartnerUsers,
     getMyDeliveryPartnerStatus,
-    updateMyOnlineStatus
+    updateMyOnlineStatus,
+    getAvailableDeliveryPartnersForAssignment,
 } from "../controllers/deliveryPartnerController.js";
 
 import { Auth } from "../middlewares/Auth.js";
@@ -109,6 +110,13 @@ router.patch(
     "/me/online-status",
     Auth,
     updateMyOnlineStatus
+);
+
+router.get(
+    "/available-for-assignment",
+    Auth,
+    Permission("order:assign"),
+    getAvailableDeliveryPartnersForAssignment
 );
 
 export default router;

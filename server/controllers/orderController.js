@@ -1,15 +1,182 @@
-
 import mongoose from "mongoose";
 import crypto from "crypto";
-
 import Order from "../models/Order.js";
 import OrderItem from "../models/OrderItem.js";
 import Cart from "../models/Cart.js";
 import CartItem from "../models/CartItem.js";
 import Address from "../models/Address.js";
 import Payment from "../models/Payment.js";
-
+import Delivery from "../models/Delivery.js";
+import DeliveryPartner from "../models/DeliveryPartner.js";
 import razorpay from "../config/razorpay.js";
+import User from "../models/User.js";
+import Role from "../models/Role.js";
+import StoreInventory from "../models/Inventory.js";
+
+
+
+// --------------------------------------------------
+// RESERVE AVAILABLE INVENTORY
+// Only availableQuantity will be decreased.
+// quantity and reservedQuantity remain unchanged.
+// --------------------------------------------------
+
+const reserveAvailableInventory = async (
+    storeId,
+    cartItems,
+    session
+) => {
+    for (const item of cartItems) {
+        const productId = item.product?._id || item.product;
+        const variantId = item.variant?._id || item.variant;
+        const orderQuantity = Number(item.quantity);
+
+        if (!productId || !variantId) {
+            throw new Error(
+                "Product or variant information is missing from cart"
+            );
+        }
+
+        if (
+            !Number.isInteger(orderQuantity) ||
+            orderQuantity <= 0
+        ) {
+            throw new Error("Invalid product quantity in cart");
+        }
+
+        const inventoryUpdate = await StoreInventory.updateOne(
+            {
+                store: storeId,
+                product: productId,
+                variant: variantId,
+                status: "active",
+                availableQuantity: {
+                    $gte: orderQuantity,
+                },
+            },
+            {
+                $inc: {
+                    availableQuantity: -orderQuantity,
+                },
+            },
+            {
+                session,
+            }
+        );
+
+        if (inventoryUpdate.modifiedCount !== 1) {
+            throw new Error(
+                `Insufficient available stock for ${item.product?.name || "a product"}`
+            );
+        }
+    }
+};
+
+// --------------------------------------------------
+// RELEASE AVAILABLE INVENTORY
+// Used when an unpaid online order is cancelled.
+// Only availableQuantity will be increased.
+// --------------------------------------------------
+
+const releaseAvailableInventory = async (
+    storeId,
+    orderItems,
+    session
+) => {
+    for (const item of orderItems) {
+        if (!item.product || !item.variant) {
+            throw new Error(
+                "Product or variant information is missing from order"
+            );
+        }
+
+        const orderQuantity = Number(item.quantity);
+
+        if (
+            !Number.isInteger(orderQuantity) ||
+            orderQuantity <= 0
+        ) {
+            throw new Error("Invalid order item quantity");
+        }
+
+        const inventoryUpdate = await StoreInventory.updateOne(
+            {
+                store: storeId,
+                product: item.product,
+                variant: item.variant,
+            },
+            {
+                $inc: {
+                    availableQuantity: orderQuantity,
+                },
+            },
+            {
+                session,
+            }
+        );
+
+        if (inventoryUpdate.modifiedCount !== 1) {
+            throw new Error(
+                "Inventory record not found while releasing stock"
+            );
+        }
+    }
+};
+
+// --------------------------------------------------
+// CREATE DELIVERY RECORD
+// Used by both COD and Online orders
+// --------------------------------------------------
+
+const createOrderDelivery = async (
+    order,
+    address,
+    session = null
+) => {
+    const deliveryOtp = crypto.randomInt(1000, 10000).toString();
+
+    const coordinates = address.location?.coordinates;
+
+    if (
+        !Array.isArray(coordinates) ||
+        coordinates.length !== 2 ||
+        !coordinates.every(Number.isFinite)
+    ) {
+        throw new Error("Customer delivery location is invalid");
+    }
+
+    const deliveryAddress = [
+        address.houseNumber,
+        address.street,
+        address.landmark,
+        address.city,
+        address.state,
+        address.country,
+        address.pincode,
+    ]
+        .filter(Boolean)
+        .join(", ");
+
+    const deliveryData = {
+        order: order._id,
+        deliveryPartner: null,
+        store: order.store,
+        deliveryOtp,
+        deliveryAddress,
+        customerLocation: {
+            type: "Point",
+            coordinates,
+        },
+        notes: "",
+    };
+
+    const [delivery] = await Delivery.create(
+        [deliveryData],
+        session ? { session } : {}
+    );
+
+    return delivery;
+};
 
 // --------------------------------------------------
 // PLACE COD ORDER
@@ -53,7 +220,7 @@ export const placeOrder = async (req, res) => {
             throw new Error("Invalid delivery address");
         }
 
-        // Fetch cart for the selected store
+        // Fetch cart for selected store
         const cart = await Cart.findOne({
             user: userId,
             store: storeId,
@@ -80,6 +247,13 @@ export const placeOrder = async (req, res) => {
         if (!cartItems.length) {
             throw new Error("Your cart is empty");
         }
+
+        // CHECK AND DECREASE AVAILABLE INVENTORY
+        await reserveAvailableInventory(
+            cart.store,
+            cartItems,
+            session
+        );
 
         // Generate order number
         const orderNumber = `ORD-${Date.now()}-${Math.floor(
@@ -161,6 +335,9 @@ export const placeOrder = async (req, res) => {
             { session }
         );
 
+        // Create delivery record with OTP
+        await createOrderDelivery(order, address, session);
+
         // Clear only this store's cart
         await CartItem.deleteMany({
             cart: cart._id,
@@ -226,13 +403,13 @@ export const placeOrder = async (req, res) => {
 
 // --------------------------------------------------
 // CREATE ONLINE ORDER
-// Creates Order + OrderItems only.
+// Creates Order + OrderItems + Delivery
 // Does not create Payment document.
 // Does not clear cart.
 // --------------------------------------------------
 
 export const createOnlineOrder = async (req, res) => {
-    let createdOrder = null;
+    const session = await mongoose.startSession();
 
     try {
         const userId = req.user.id;
@@ -332,32 +509,75 @@ export const createOnlineOrder = async (req, res) => {
             },
         });
 
-        // Create local order
-        createdOrder = await Order.create({
-            orderNumber,
+        // Start transaction for local order and inventory operations
+        session.startTransaction();
+
+        // Recheck cart inside transaction
+        const currentCart = await Cart.findOne({
+            _id: cart._id,
             user: userId,
-            store: cart.store,
-            address: address._id,
+            store: storeId,
+        }).session(session);
 
-            subtotal: cart.subtotal,
-            discount: cart.discount || 0,
-            deliveryFee: cart.deliveryFee || 0,
-            tax: cart.tax || 0,
-            totalAmount,
+        if (!currentCart) {
+            throw new Error("Cart is no longer available");
+        }
 
-            coupon: cart.coupon || null,
+        const currentCartItems = await CartItem.find({
+            cart: currentCart._id,
+        })
+            .populate({
+                path: "product",
+                select: "name",
+            })
+            .populate({
+                path: "variant",
+                select: "name variantName sku",
+            })
+            .session(session);
 
-            paymentMethod: "online",
-            paymentStatus: "pending",
-            orderStatus: "placed",
+        if (!currentCartItems.length) {
+            throw new Error("Your cart is empty");
+        }
 
-            razorpayOrderId: razorpayOrder.id,
+        // DECREASE AVAILABLE INVENTORY
+        await reserveAvailableInventory(
+            currentCart.store,
+            currentCartItems,
+            session
+        );
 
-            placedAt: new Date(),
-        });
+        // Create local order
+        const [createdOrder] = await Order.create(
+            [
+                {
+                    orderNumber,
+                    user: userId,
+                    store: currentCart.store,
+                    address: address._id,
+
+                    subtotal: currentCart.subtotal,
+                    discount: currentCart.discount || 0,
+                    deliveryFee: currentCart.deliveryFee || 0,
+                    tax: currentCart.tax || 0,
+                    totalAmount,
+
+                    coupon: currentCart.coupon || null,
+
+                    paymentMethod: "online",
+                    paymentStatus: "pending",
+                    orderStatus: "placed",
+
+                    razorpayOrderId: razorpayOrder.id,
+
+                    placedAt: new Date(),
+                },
+            ],
+            { session }
+        );
 
         // Create order items
-        const orderItems = cartItems.map((item) => ({
+        const orderItems = currentCartItems.map((item) => ({
             order: createdOrder._id,
 
             product: item.product._id,
@@ -379,7 +599,16 @@ export const createOnlineOrder = async (req, res) => {
             totalPrice: item.totalPrice,
         }));
 
-        await OrderItem.insertMany(orderItems);
+        await OrderItem.insertMany(orderItems, { session });
+
+        // Create delivery record with OTP
+        await createOrderDelivery(
+            createdOrder,
+            address,
+            session
+        );
+
+        await session.commitTransaction();
 
         return res.status(201).json({
             success: true,
@@ -403,19 +632,8 @@ export const createOnlineOrder = async (req, res) => {
             },
         });
     } catch (error) {
-        // Clean up incomplete local order if item creation fails
-        if (createdOrder?._id) {
-            await OrderItem.deleteMany({
-                order: createdOrder._id,
-            }).catch((cleanupError) => {
-                console.error("Order item cleanup error:", cleanupError);
-            });
-
-            await Order.deleteOne({
-                _id: createdOrder._id,
-            }).catch((cleanupError) => {
-                console.error("Order cleanup error:", cleanupError);
-            });
+        if (session.inTransaction()) {
+            await session.abortTransaction();
         }
 
         console.error("Create Online Order Error:", error);
@@ -424,13 +642,15 @@ export const createOnlineOrder = async (req, res) => {
             success: false,
             message: error.message || "Unable to create online order",
         });
+    } finally {
+        await session.endSession();
     }
 };
 
 // --------------------------------------------------
 // VERIFY ONLINE PAYMENT
-// Creates Payment only after Razorpay confirms capture.
-// Clears cart only after successful verification.
+// Inventory is NOT changed here.
+// Available quantity was already decreased at order creation.
 // --------------------------------------------------
 
 export const verifyOnlinePayment = async (req, res) => {
@@ -463,7 +683,6 @@ export const verifyOnlinePayment = async (req, res) => {
             });
         }
 
-        // Find user's online order
         const order = await Order.findOne({
             _id: orderId,
             user: userId,
@@ -477,7 +696,6 @@ export const verifyOnlinePayment = async (req, res) => {
             });
         }
 
-        // Check existing payment for idempotency
         let payment = await Payment.findOne({
             order: order._id,
             user: userId,
@@ -496,7 +714,6 @@ export const verifyOnlinePayment = async (req, res) => {
             });
         }
 
-        // Match Razorpay order ID
         if (order.razorpayOrderId !== razorpay_order_id) {
             return res.status(400).json({
                 success: false,
@@ -504,7 +721,6 @@ export const verifyOnlinePayment = async (req, res) => {
             });
         }
 
-        // Validate signature format
         if (!/^[a-f0-9]{64}$/i.test(razorpay_signature)) {
             return res.status(400).json({
                 success: false,
@@ -516,7 +732,6 @@ export const verifyOnlinePayment = async (req, res) => {
             throw new Error("Razorpay secret key is not configured");
         }
 
-        // Generate expected signature
         const generatedSignature = crypto
             .createHmac(
                 "sha256",
@@ -551,12 +766,10 @@ export const verifyOnlinePayment = async (req, res) => {
             });
         }
 
-        // Fetch payment directly from Razorpay
         const razorpayPayment = await razorpay.payments.fetch(
             razorpay_payment_id
         );
 
-        // Validate payment details
         if (
             razorpayPayment.order_id !== razorpay_order_id ||
             razorpayPayment.amount !== Math.round(order.totalAmount * 100) ||
@@ -568,7 +781,6 @@ export const verifyOnlinePayment = async (req, res) => {
             });
         }
 
-        // Only captured payments are successful
         if (razorpayPayment.status !== "captured") {
             return res.status(409).json({
                 success: false,
@@ -577,7 +789,6 @@ export const verifyOnlinePayment = async (req, res) => {
             });
         }
 
-        // Map Razorpay payment method to our Payment schema
         const allowedMethods = [
             "upi",
             "card",
@@ -600,8 +811,6 @@ export const verifyOnlinePayment = async (req, res) => {
             status: razorpayPayment.status,
         };
 
-        // Create Payment only after successful capture.
-        // If an old pending record exists, update it.
         if (!payment) {
             payment = await Payment.create({
                 order: order._id,
@@ -695,11 +904,13 @@ export const verifyOnlinePayment = async (req, res) => {
 
 // --------------------------------------------------
 // CANCEL ONLINE ORDER
-// Called when Razorpay checkout is dismissed.
+// Releases available inventory when unpaid order is cancelled.
 // Does not touch the cart.
 // --------------------------------------------------
 
 export const cancelOnlineOrder = async (req, res) => {
+    const session = await mongoose.startSession();
+
     try {
         const userId = req.user.id;
         const { orderId } = req.body;
@@ -738,7 +949,6 @@ export const cancelOnlineOrder = async (req, res) => {
             });
         }
 
-        // Check whether a successful Payment record already exists
         const existingPayment = await Payment.findOne({
             order: order._id,
             user: userId,
@@ -753,14 +963,12 @@ export const cancelOnlineOrder = async (req, res) => {
             });
         }
 
-        // Ask Razorpay for all payment attempts for this order
         const razorpayPayments = await razorpay.orders.fetchPayments(
             order.razorpayOrderId
         );
 
         const payments = razorpayPayments.items || [];
 
-        // Do not delete if payment is captured or still processing
         const activeStatuses = [
             "created",
             "authorized",
@@ -779,8 +987,6 @@ export const cancelOnlineOrder = async (req, res) => {
             });
         }
 
-        // Only allow cleanup when there are no attempts
-        // or every payment attempt has definitively failed
         const allPaymentsFailed = payments.every(
             (item) => item.status === "failed"
         );
@@ -792,37 +998,63 @@ export const cancelOnlineOrder = async (req, res) => {
             });
         }
 
-        // Clean up any pending Razorpay Payment record
+        // Start transaction for inventory release and order deletion
+        session.startTransaction();
+
+        const orderItems = await OrderItem.find({
+            order: order._id,
+        }).session(session);
+
+        // RESTORE ONLY AVAILABLE QUANTITY
+        await releaseAvailableInventory(
+            order.store,
+            orderItems,
+            session
+        );
+
+        // Delete pending Razorpay Payment record
         await Payment.deleteMany({
             order: order._id,
             user: userId,
             paymentGateway: "razorpay",
             status: "pending",
-        });
+        }).session(session);
+
+        // Delete delivery record and its OTP
+        await Delivery.deleteOne({
+            order: order._id,
+        }).session(session);
 
         // Delete order items
         await OrderItem.deleteMany({
             order: order._id,
-        });
+        }).session(session);
 
         // Delete local order
         await Order.deleteOne({
             _id: order._id,
             user: userId,
-        });
+        }).session(session);
 
-        // Cart is deliberately untouched
+        await session.commitTransaction();
+
         return res.status(200).json({
             success: true,
             message: "Unpaid order cancelled successfully",
         });
     } catch (error) {
+        if (session.inTransaction()) {
+            await session.abortTransaction();
+        }
+
         console.error("Cancel Online Order Error:", error);
 
         return res.status(500).json({
             success: false,
             message: error.message || "Unable to cancel online order",
         });
+    } finally {
+        await session.endSession();
     }
 };
 
@@ -865,6 +1097,12 @@ export const getMyOrders = async (req, res) => {
             })
             .lean();
 
+        const deliveries = await Delivery.find({
+            order: { $in: orderIds },
+        })
+            .select("+deliveryOtp deliveryStatus order")
+            .lean();
+
         const itemsMap = {};
 
         orderItems.forEach((item) => {
@@ -890,9 +1128,19 @@ export const getMyOrders = async (req, res) => {
             });
         });
 
+        const deliveryMap = {};
+
+        deliveries.forEach((delivery) => {
+            deliveryMap[delivery.order.toString()] = {
+                deliveryOtp: delivery.deliveryOtp,
+                deliveryStatus: delivery.deliveryStatus,
+            };
+        });
+
         const formattedOrders = orders.map((order) => ({
             ...order,
             items: itemsMap[order._id.toString()] || [],
+            delivery: deliveryMap[order._id.toString()] || null,
         }));
 
         return res.status(200).json({
@@ -920,191 +1168,110 @@ export const getAllOrders = async (req, res) => {
             page = 1,
             limit = 10,
             search = "",
-            status = "all",
+            status = "",
         } = req.query;
 
-        const currentPage = Math.max(1, Number(page) || 1);
-        const pageLimit = Math.min(100, Math.max(1, Number(limit) || 10));
+        const userId = req.user?._id || req.user?.id;
+        const roleId = req.user?.role?._id || req.user?.role;
 
-        // GLOBAL ORDER STATISTICS
-        const [
-            totalOrders,
-            pendingOrders,
-            deliveredOrders,
-            cancelledOrders,
-        ] = await Promise.all([
-            Order.countDocuments(),
+        if (!userId || !roleId) {
+            return res.status(401).json({
+                success: false,
+                message: "User authentication details missing",
+            });
+        }
 
-            Order.countDocuments({
-                orderStatus: {
-                    $in: ["placed", "confirmed", "processing", "packed"],
-                },
-            }),
+        const fetchRole = await Role.findById(roleId).select("name");
 
-            Order.countDocuments({
-                orderStatus: "delivered",
-            }),
+        if (!fetchRole) {
+            return res.status(403).json({
+                success: false,
+                message: "Invalid user role",
+            });
+        }
 
-            Order.countDocuments({
-                orderStatus: "cancelled",
-            }),
-        ]);
-
-        // BASE FILTER
         const filter = {};
 
-        // SEARCH BY ORDER NUMBER OR CUSTOMER NAME/EMAIL
+        if (fetchRole.name === "super_admin") {
+            // Super admin can access all orders.
+        } else if (fetchRole.name === "delivery_partner") {
+            const deliveryPartner = await DeliveryPartner.findOne({
+                user: userId,
+            }).select("_id");
+
+            if (!deliveryPartner) {
+                return res.status(200).json({
+                    success: true,
+                    orders: [],
+                    totalOrders: 0,
+                    filteredCount: 0,
+                    currentPage: Number(page),
+                    totalPages: 0,
+                });
+            }
+
+            filter.deliveryPartner = deliveryPartner._id;
+        } else {
+            return res.status(403).json({
+                success: false,
+                message: "You are not authorized to view orders",
+            });
+        }
+
         if (search.trim()) {
             const searchRegex = new RegExp(
                 search.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
                 "i"
             );
 
-            const User = Order.db.model("User");
-
-            const matchingUsers = await User.find({
-                $or: [
-                    { name: searchRegex },
-                    { email: searchRegex },
-                ],
-            }).select("_id").lean();
-
-            const userIds = matchingUsers.map((user) => user._id);
-
             filter.$or = [
                 { orderNumber: searchRegex },
-                { user: { $in: userIds } },
             ];
         }
 
-        // FILTER BY ORDER STATUS
         if (status && status !== "all") {
             filter.orderStatus = status;
         }
 
-        // FILTERED ORDER COUNT
-        const filteredCount = await Order.countDocuments(filter);
+        const pageNumber = Math.max(1, Number(page) || 1);
+        const limitNumber = Math.max(1, Number(limit) || 10);
 
-        // PAGINATION
-        const totalPages = Math.max(
-            1,
-            Math.ceil(filteredCount / pageLimit)
-        );
+        const skip = (pageNumber - 1) * limitNumber;
 
-        const safePage = Math.min(currentPage, totalPages);
-        const skip = (safePage - 1) * pageLimit;
+        const [orders, totalOrders] = await Promise.all([
+            Order.find(filter)
+                .populate({
+                    path: "deliveryPartner",
+                    select: "user vehicleType vehicleNumber status",
+                    populate: {
+                        path: "user",
+                        select: "firstName lastName email phone",
+                    },
+                })
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(limitNumber),
 
-        // FETCH PAGINATED ORDERS
-        const orders = await Order.find(filter)
-            .populate({
-                path: "user",
-                select: "name email phone",
-            })
-            .populate({
-                path: "address",
-            })
-            .populate({
-                path: "store",
-                select: "name code",
-            })
-            .sort({ createdAt: -1 })
-            .skip(skip)
-            .limit(pageLimit)
-            .lean();
+            Order.countDocuments(filter),
+        ]);
 
-        if (!orders.length) {
-            return res.status(200).json({
-                success: true,
-                message: "No orders found",
-                orders: [],
-                totalOrders,
-                pendingOrders,
-                deliveredOrders,
-                cancelledOrders,
-                filteredCount,
-                totalPages,
-                currentPage: safePage,
-                limit: pageLimit,
-            });
-        }
-
-        // GET ITEMS ONLY FOR CURRENT PAGE ORDERS
-        const orderIds = orders.map((order) => order._id);
-
-        const orderItems = await OrderItem.find({
-            order: { $in: orderIds },
-        })
-            .populate({
-                path: "product",
-                select: "name image",
-            })
-            .populate({
-                path: "variant",
-                select: "name variantName sku",
-            })
-            .lean();
-
-        // GROUP ORDER ITEMS
-        const itemsMap = {};
-
-        orderItems.forEach((item) => {
-            const orderId = item.order.toString();
-
-            if (!itemsMap[orderId]) {
-                itemsMap[orderId] = [];
-            }
-
-            itemsMap[orderId].push({
-                ...item,
-
-                productName:
-                    item.productName ||
-                    item.product?.name ||
-                    "Product",
-
-                variantName:
-                    item.variantName ||
-                    item.variant?.variantName ||
-                    item.variant?.name ||
-                    "",
-
-                sku:
-                    item.sku ||
-                    item.variant?.sku ||
-                    "",
-            });
-        });
-
-        // FORMAT ORDERS
-        const formattedOrders = orders.map((order) => ({
-            ...order,
-            items: itemsMap[order._id.toString()] || [],
-        }));
+        console.log("Logged-in role:", fetchRole.name);
+        console.log("Orders found:", totalOrders);
 
         return res.status(200).json({
             success: true,
-            message: "Orders fetched successfully",
-            orders: formattedOrders,
-
-            // GLOBAL STATISTICS
+            orders,
             totalOrders,
-            pendingOrders,
-            deliveredOrders,
-            cancelledOrders,
-
-            // PAGINATION
-            filteredCount,
-            totalPages,
-            currentPage: safePage,
-            limit: pageLimit,
+            filteredCount: totalOrders,
+            currentPage: pageNumber,
+            totalPages: Math.ceil(totalOrders / limitNumber),
         });
-
     } catch (error) {
         console.error("Get All Orders Error:", error);
 
         return res.status(500).json({
             success: false,
-            message: "Something went wrong while fetching orders",
+            message: error.message,
         });
     }
 };
@@ -1159,5 +1326,322 @@ export const getSingleOrder = async (req, res) => {
             message: "Internal server error",
             error: error.message,
         });
+    }
+};
+
+// --------------------------------------------------
+// ASSIGN DELIVERY PARTNER TO ORDER
+// --------------------------------------------------
+
+export const assignDeliveryPartner = async (req, res) => {
+    let reservedPartner = null;
+
+    try {
+        const { orderId, deliveryPartnerId } = req.body;
+
+        if (
+            !mongoose.Types.ObjectId.isValid(orderId) ||
+            !mongoose.Types.ObjectId.isValid(deliveryPartnerId)
+        ) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid order or delivery partner ID.",
+            });
+        }
+
+        const order = await Order.findById(orderId);
+
+        if (!order) {
+            return res.status(404).json({
+                success: false,
+                message: "Order not found.",
+            });
+        }
+
+        if (["delivered", "cancelled"].includes(order.orderStatus)) {
+            return res.status(400).json({
+                success: false,
+                message: "Delivery partner cannot be assigned to this order.",
+            });
+        }
+
+        const selectedPartner = await DeliveryPartner.findById(
+            deliveryPartnerId
+        ).populate("user", "firstName lastName email phone");
+
+        if (!selectedPartner || !selectedPartner.user) {
+            return res.status(404).json({
+                success: false,
+                message: "Delivery partner not found.",
+            });
+        }
+
+        if (
+            order.deliveryPartner &&
+            order.deliveryPartner.toString() ===
+            selectedPartner._id.toString()
+        ) {
+            return res.status(200).json({
+                success: true,
+                message: "This delivery partner is already assigned.",
+                order,
+                deliveryPartner: selectedPartner,
+            });
+        }
+
+        reservedPartner = await DeliveryPartner.findOneAndUpdate(
+            {
+                _id: deliveryPartnerId,
+                status: "active",
+                isOnline: true,
+                isAvailable: true,
+            },
+            {
+                $set: {
+                    isAvailable: false,
+                },
+            },
+            {
+                new: true,
+            }
+        ).populate("user", "firstName lastName email phone");
+
+        if (!reservedPartner || !reservedPartner.user) {
+            return res.status(409).json({
+                success: false,
+                message: "This delivery partner is no longer available.",
+            });
+        }
+
+        const delivery = await Delivery.findOne({
+            order: order._id,
+        });
+
+        if (!delivery) {
+            throw new Error("Delivery record not found for this order.");
+        }
+
+        const previousPartnerId = order.deliveryPartner;
+
+        order.deliveryPartner = reservedPartner._id;
+        await order.save();
+
+        delivery.deliveryPartner = reservedPartner._id;
+        await delivery.save();
+
+        if (
+            previousPartnerId &&
+            previousPartnerId.toString() !== reservedPartner._id.toString()
+        ) {
+            await DeliveryPartner.updateOne(
+                {
+                    _id: previousPartnerId,
+                },
+                {
+                    $set: {
+                        isAvailable: true,
+                    },
+                }
+            );
+        }
+
+        const updatedOrder = await Order.findById(orderId)
+            .populate("user", "firstName lastName email phone")
+            .populate("address")
+            .populate("store", "name code")
+            .populate({
+                path: "deliveryPartner",
+                populate: {
+                    path: "user",
+                    select: "firstName lastName email phone",
+                },
+            });
+
+        return res.status(200).json({
+            success: true,
+            message: "Delivery partner assigned successfully.",
+            order: updatedOrder,
+            deliveryPartner: reservedPartner,
+        });
+    } catch (error) {
+        if (reservedPartner) {
+            await DeliveryPartner.updateOne(
+                {
+                    _id: reservedPartner._id,
+                },
+                {
+                    $set: {
+                        isAvailable: true,
+                    },
+                }
+            ).catch((releaseError) => {
+                console.error("Partner Release Error:", releaseError);
+            });
+        }
+
+        console.error("Assign Delivery Partner Error:", error);
+
+        return res.status(500).json({
+            success: false,
+            message: error.message || "Failed to assign delivery partner.",
+        });
+    }
+};
+
+// --------------------------------------------------
+// VERIFY DELIVERY OTP
+// --------------------------------------------------
+
+export const verifyDeliveryOtp = async (req, res) => {
+    const session = await mongoose.startSession();
+
+    try {
+        const userId = req.user.id;
+        const { orderId, otp } = req.body;
+
+        if (
+            !orderId ||
+            !mongoose.Types.ObjectId.isValid(orderId) ||
+            !/^\d{4}$/.test(String(otp || ""))
+        ) {
+            return res.status(400).json({
+                success: false,
+                message: "Valid order ID and 4-digit OTP are required",
+            });
+        }
+
+        // Find logged-in user's delivery partner profile
+        const deliveryPartner = await DeliveryPartner.findOne({
+            user: userId,
+        }).select("_id");
+
+        if (!deliveryPartner) {
+            return res.status(403).json({
+                success: false,
+                message: "Delivery partner profile not found",
+            });
+        }
+
+        session.startTransaction();
+
+        // Find delivery assigned to this logged-in partner
+        // Explicitly select OTP because deliveryOtp has select:false
+        const delivery = await Delivery.findOne({
+            order: orderId,
+            deliveryPartner: deliveryPartner._id,
+            deliveryStatus: "assigned",
+        })
+            .select("+deliveryOtp")
+            .session(session);
+
+        if (!delivery) {
+            await session.abortTransaction();
+
+            return res.status(404).json({
+                success: false,
+                message: "Assigned delivery not found or already completed",
+            });
+        }
+
+        // Verify OTP securely
+        const savedOtp = String(delivery.deliveryOtp || "");
+        const enteredOtp = String(otp);
+
+        const savedBuffer = Buffer.from(savedOtp);
+        const enteredBuffer = Buffer.from(enteredOtp);
+
+        const isOtpValid =
+            savedBuffer.length === enteredBuffer.length &&
+            crypto.timingSafeEqual(savedBuffer, enteredBuffer);
+
+        if (!isOtpValid) {
+            await session.abortTransaction();
+
+            return res.status(400).json({
+                success: false,
+                message: "Invalid delivery OTP",
+            });
+        }
+
+        // Find corresponding order
+        const order = await Order.findOne({
+            _id: orderId,
+            deliveryPartner: deliveryPartner._id,
+        }).session(session);
+
+        if (!order) {
+            throw new Error("Order not found or not assigned to you");
+        }
+
+        if (
+            ["delivered", "cancelled"].includes(order.orderStatus)
+        ) {
+            await session.abortTransaction();
+
+            return res.status(409).json({
+                success: false,
+                message: "This order is already completed or cancelled",
+            });
+        }
+
+        const deliveredAt = new Date();
+
+        // Update delivery
+        delivery.deliveryStatus = "delivered";
+        delivery.deliveredAt = deliveredAt;
+
+        // OTP should not be needed again
+        delivery.deliveryOtp = undefined;
+
+        await delivery.save({ session });
+
+        // Update order
+        order.orderStatus = "delivered";
+        order.deliveredAt = deliveredAt;
+
+        await order.save({ session });
+
+        // Make delivery partner available again
+        await DeliveryPartner.updateOne(
+            {
+                _id: deliveryPartner._id,
+            },
+            {
+                $set: {
+                    isAvailable: true,
+                },
+            },
+            { session }
+        );
+
+        await session.commitTransaction();
+
+        return res.status(200).json({
+            success: true,
+            message: "Delivery verified successfully",
+            order: {
+                _id: order._id,
+                orderNumber: order.orderNumber,
+                orderStatus: order.orderStatus,
+                deliveredAt: order.deliveredAt,
+            },
+            delivery: {
+                deliveryStatus: delivery.deliveryStatus,
+                deliveredAt: delivery.deliveredAt,
+            },
+        });
+    } catch (error) {
+        if (session.inTransaction()) {
+            await session.abortTransaction();
+        }
+
+        console.error("Verify Delivery OTP Error:", error);
+
+        return res.status(500).json({
+            success: false,
+            message: error.message || "OTP verification failed",
+        });
+    } finally {
+        await session.endSession();
     }
 };

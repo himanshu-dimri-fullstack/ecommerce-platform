@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from "react";
 import {
     FiSearch,
@@ -21,14 +22,6 @@ import { API } from "../../api/axios";
 import DataLoader from "../../components/DataLoader";
 import { useSelector } from "react-redux";
 
-// Temporary static delivery partners
-const deliveryPartners = [
-    { _id: "partner_1", name: "Rahul Sharma", phone: "9876543210", email: "rahul@example.com" },
-    { _id: "partner_2", name: "Amit Kumar", phone: "9876543211", email: "amit@example.com" },
-    { _id: "partner_3", name: "Vikas Singh", phone: "9876543212", email: "vikas@example.com" },
-    { _id: "partner_4", name: "Rohit Verma", phone: "9876543213", email: "rohit@example.com" },
-];
-
 const Order = () => {
     const user = useSelector((store) => store.auth.user);
     const navigate = useNavigate();
@@ -50,11 +43,24 @@ const Order = () => {
     const [totalPages, setTotalPages] = useState(1);
     const [filteredCount, setFilteredCount] = useState(0);
 
+    // ASSIGN DELIVERY PARTNER STATES
     const [showAssignModal, setShowAssignModal] = useState(false);
     const [orderToAssign, setOrderToAssign] = useState(null);
-    const [assignedPartners, setAssignedPartners] = useState({});
+    const [deliveryPartners, setDeliveryPartners] = useState([]);
+    const [partnersLoading, setPartnersLoading] = useState(false);
+    const [assigningPartnerId, setAssigningPartnerId] = useState(null);
 
-    const canEditOrders = user?.role?.permissions?.includes("order:update");
+    // ROLE CHECK
+    const userRole =
+        typeof user?.role === "object"
+            ? user.role?.name
+            : user?.role;
+
+    const isDeliveryPartner = userRole === "delivery_partner";
+
+    const canEditOrders =
+        // !isDeliveryPartner &&
+        user?.role?.permissions?.includes("order:assign");
 
     // GET ALL ORDERS
     const getAllOrders = async (
@@ -109,8 +115,6 @@ const Order = () => {
 
     // FETCH WHEN PAGE, LIMIT, SEARCH OR STATUS CHANGES
     useEffect(() => {
-        // No setDataLoading(true) here.
-        // Full-page loader is only for the initial page load.
         getAllOrders(
             currentPage,
             entriesPerPage,
@@ -124,32 +128,133 @@ const Order = () => {
         navigate(`/admin/orders/${order._id}`);
     };
 
+    // GET DELIVERY PARTNERS AVAILABLE FOR ASSIGNMENT
+    const getAvailableDeliveryPartners = async () => {
+        try {
+            setPartnersLoading(true);
+            setDeliveryPartners([]);
+
+            const res = await API.get(
+                "/delivery-partner/available-for-assignment"
+            );
+
+            console.log(">>>>>>>>>>", res.data)
+
+            setDeliveryPartners(
+                res.data?.deliveryPartners || []
+            );
+        } catch (error) {
+            console.error("Fetch available delivery partners error:", error);
+
+            toast.error(
+                error?.response?.data?.message ||
+                "Failed to fetch available delivery partners"
+            );
+        } finally {
+            setPartnersLoading(false);
+        }
+    };
+
     // OPEN ASSIGN MODAL
-    const handleOpenAssignModal = (order) => {
+    const handleOpenAssignModal = async (order) => {
         setOrderToAssign(order);
         setShowAssignModal(true);
+
+        await getAvailableDeliveryPartners();
     };
 
-    // ASSIGN DELIVERY PARTNER (TEMPORARY FRONTEND STATE)
-    const handleAssignPartner = (partner) => {
-        if (!orderToAssign) return;
+    // ASSIGN DELIVERY PARTNER
+    const handleAssignPartner = async (partner) => {
+        if (!orderToAssign || assigningPartnerId) return;
 
-        setAssignedPartners((prev) => ({
-            ...prev,
-            [orderToAssign._id]: partner,
-        }));
+        try {
+            setAssigningPartnerId(partner._id);
 
-        toast.success(
-            `${partner.name} assigned to order #${orderToAssign.orderNumber || orderToAssign._id}`
-        );
+            const res = await API.patch(
+                "/order/assign-delivery-partner",
+                {
+                    orderId: orderToAssign._id,
+                    deliveryPartnerId: partner._id,
+                }
+            );
 
-        setShowAssignModal(false);
-        setOrderToAssign(null);
+            if (!res.data?.success) {
+                throw new Error(
+                    res.data?.message || "Failed to assign delivery partner"
+                );
+            }
+
+            const updatedOrder = res.data.order;
+
+            // UPDATE ORDER IN CURRENT LIST
+            if (updatedOrder) {
+                setOrders((prev) =>
+                    prev.map((order) =>
+                        order._id === updatedOrder._id
+                            ? updatedOrder
+                            : order
+                    )
+                );
+            } else {
+                // FALLBACK: USE POPULATED USER FROM SELECTED PARTNER
+                setOrders((prev) =>
+                    prev.map((order) =>
+                        order._id === orderToAssign._id
+                            ? {
+                                ...order,
+                                deliveryPartner: partner,
+                            }
+                            : order
+                    )
+                );
+            }
+
+            toast.success(
+                res.data.message ||
+                `${getPartnerName(partner.user)} assigned successfully`
+            );
+
+            setShowAssignModal(false);
+            setOrderToAssign(null);
+            setDeliveryPartners([]);
+
+            // REFRESH ORDERS FROM BACKEND
+            getAllOrders();
+        } catch (error) {
+            console.error("Assign delivery partner error:", error);
+
+            toast.error(
+                error?.response?.data?.message ||
+                error.message ||
+                "Failed to assign delivery partner"
+            );
+
+            // Refresh available partners because availability may have changed.
+            getAvailableDeliveryPartners();
+        } finally {
+            setAssigningPartnerId(null);
+        }
     };
 
+    // CLOSE ASSIGN MODAL
     const handleCloseAssignModal = () => {
+        if (assigningPartnerId) return;
+
         setShowAssignModal(false);
         setOrderToAssign(null);
+        setDeliveryPartners([]);
+    };
+
+    // GET PARTNER NAME
+    const getPartnerName = (partnerUser) => {
+        if (!partnerUser) return "";
+
+        return (
+            partnerUser.name ||
+            `${partnerUser.firstName || ""} ${partnerUser.lastName || ""}`.trim() ||
+            partnerUser.email ||
+            "Delivery Partner"
+        );
     };
 
     // CHANGE ENTRIES PER PAGE
@@ -229,6 +334,7 @@ const Order = () => {
 
     // PERMISSION CHECK
     if (
+        !isDeliveryPartner &&
         !user?.role?.permissions?.some((permission) =>
             permission.includes("order")
         )
@@ -258,7 +364,9 @@ const Order = () => {
                 </h1>
 
                 <p className="mt-1 text-sm text-slate-500">
-                    Manage customer orders and track their status.
+                    {isDeliveryPartner
+                        ? "View and manage your assigned delivery orders."
+                        : "Manage customer orders and track their status."}
                 </p>
             </div>
 
@@ -400,7 +508,7 @@ const Order = () => {
                         <tbody className="divide-y divide-slate-100">
                             {orders.length > 0 ? (
                                 orders.map((order) => {
-                                    const assignedPartner = assignedPartners[order._id];
+                                    const assignedPartner = order.deliveryPartner;
 
                                     return (
                                         <tr key={order._id} className="transition hover:bg-slate-50">
@@ -410,11 +518,12 @@ const Order = () => {
                                                     <p className="font-semibold text-slate-800">
                                                         #{order.orderNumber || order._id}
                                                     </p>
+
                                                     <p className="mt-1 text-xs text-slate-400">{order._id}</p>
 
                                                     {assignedPartner && (
                                                         <p className="mt-2 text-xs font-medium text-green-700">
-                                                            Assigned to: {assignedPartner.name}
+                                                            Assigned to: {getPartnerName(assignedPartner?.user)}
                                                         </p>
                                                     )}
                                                 </div>
@@ -459,7 +568,7 @@ const Order = () => {
                                                         </span>
                                                     </div>
 
-                                                    {canEditOrders && (
+                                                    {canEditOrders && order.orderStatus !== "delivered" && (
                                                         <div className="group relative">
                                                             <button
                                                                 type="button"
@@ -592,7 +701,8 @@ const Order = () => {
                             <button
                                 type="button"
                                 onClick={handleCloseAssignModal}
-                                className="rounded-lg p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-700"
+                                disabled={!!assigningPartnerId}
+                                className="rounded-lg p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 disabled:opacity-50"
                                 aria-label="Close modal"
                             >
                                 <FiX size={20} />
@@ -600,48 +710,96 @@ const Order = () => {
                         </div>
 
                         <div className="max-h-[60vh] space-y-3 overflow-y-auto p-6">
-                            {deliveryPartners.map((partner) => {
-                                const isAssigned =
-                                    assignedPartners[orderToAssign._id]?._id === partner._id;
 
-                                return (
-                                    <div
-                                        key={partner._id}
-                                        className="flex flex-col gap-4 rounded-xl border border-slate-200 p-4 transition hover:border-[#003963]/30 hover:bg-slate-50 sm:flex-row sm:items-center sm:justify-between"
-                                    >
-                                        <div className="flex min-w-0 items-center gap-3">
-                                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-blue-50 text-[#003963]">
-                                                <FiTruck size={20} />
-                                            </div>
+                            {partnersLoading ? (
+                                <div className="flex flex-col items-center justify-center py-12">
+                                    <div className="h-9 w-9 animate-spin rounded-full border-4 border-slate-200 border-t-[#003963]" />
+                                    <p className="mt-3 text-sm font-medium text-slate-500">
+                                        Fetching available delivery partners...
+                                    </p>
+                                </div>
+                            ) : deliveryPartners.length > 0 ? (
+                                deliveryPartners.map((partner) => {
+                                    const isAssigned =
+                                        orderToAssign.deliveryPartner?._id ===
+                                        partner._id;
 
-                                            <div className="min-w-0">
-                                                <p className="font-semibold text-slate-800">{partner.name}</p>
-                                                <p className="mt-1 text-sm text-slate-500">{partner.phone}</p>
-                                                <p className="mt-0.5 truncate text-xs text-slate-400">{partner.email}</p>
-                                            </div>
-                                        </div>
+                                    const partnerUser = partner.user;
 
-                                        <button
-                                            type="button"
-                                            onClick={() => handleAssignPartner(partner)}
-                                            disabled={isAssigned}
-                                            className={`shrink-0 rounded-lg px-5 py-2.5 text-sm font-semibold transition ${isAssigned
-                                                ? "cursor-not-allowed bg-green-50 text-green-700"
-                                                : "bg-[#003963] text-white hover:bg-[#002b4a]"
-                                                }`}
+                                    return (
+                                        <div
+                                            key={partner._id}
+                                            className="flex flex-col gap-4 rounded-xl border border-slate-200 p-4 transition hover:border-[#003963]/30 hover:bg-slate-50 sm:flex-row sm:items-center sm:justify-between"
                                         >
-                                            {isAssigned ? "Assigned" : "Assign"}
-                                        </button>
-                                    </div>
-                                );
-                            })}
+                                            <div className="flex min-w-0 items-center gap-3">
+                                                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-blue-50 text-[#003963]">
+                                                    <FiTruck size={20} />
+                                                </div>
+
+                                                <div className="min-w-0">
+                                                    <p className="font-semibold text-slate-800">
+                                                        {getPartnerName(partnerUser)}
+                                                    </p>
+                                                    <p className="mt-1 text-sm text-slate-500">
+                                                        {partnerUser?.phone || "No phone"}
+                                                    </p>
+                                                    <p className="mt-0.5 truncate text-xs text-slate-400">
+                                                        {partnerUser?.email || "No email"}
+                                                    </p>
+                                                    <p className="mt-1 text-xs font-medium capitalize text-green-600">
+                                                        {partner.vehicleType || "Vehicle"} · Online & Available
+                                                    </p>
+                                                </div>
+                                            </div>
+
+                                            <button
+                                                type="button"
+                                                onClick={() => handleAssignPartner(partner)}
+                                                disabled={!!assigningPartnerId || isAssigned}
+                                                className={`shrink-0 rounded-lg px-5 py-2.5 text-sm font-semibold transition ${isAssigned
+                                                    ? "cursor-not-allowed bg-green-50 text-green-700"
+                                                    : assigningPartnerId === partner._id
+                                                        ? "cursor-wait bg-[#003963]/70 text-white"
+                                                        : "bg-[#003963] text-white hover:bg-[#002b4a] disabled:cursor-not-allowed disabled:opacity-50"
+                                                    }`}
+                                            >
+                                                {isAssigned
+                                                    ? "Assigned"
+                                                    : assigningPartnerId === partner._id
+                                                        ? "Assigning..."
+                                                        : "Assign"}
+                                            </button>
+                                        </div>
+                                    );
+                                })
+                            ) : (
+                                <div className="py-12 text-center">
+                                    <FiTruck size={40} className="mx-auto text-slate-300" />
+                                    <p className="mt-3 font-semibold text-slate-600">
+                                        No available delivery partners
+                                    </p>
+                                    <p className="mt-1 text-sm text-slate-400">
+                                        There are currently no active, online and available delivery partners.
+                                    </p>
+
+                                    <button
+                                        type="button"
+                                        onClick={getAvailableDeliveryPartners}
+                                        className="mt-4 rounded-lg border border-[#003963] px-5 py-2 text-sm font-semibold text-[#003963] transition hover:bg-blue-50"
+                                    >
+                                        Try Again
+                                    </button>
+                                </div>
+                            )}
+
                         </div>
 
                         <div className="flex justify-end border-t border-slate-200 px-6 py-4">
                             <button
                                 type="button"
                                 onClick={handleCloseAssignModal}
-                                className="rounded-lg border border-slate-200 px-5 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
+                                disabled={!!assigningPartnerId}
+                                className="rounded-lg border border-slate-200 px-5 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
                             >
                                 Close
                             </button>
