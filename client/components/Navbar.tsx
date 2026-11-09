@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useRef, Suspense } from "react";
@@ -58,6 +57,9 @@ function Navbar() {
 
     const storeId = nearestStore?._id;
 
+    // Store availability
+    const isStoreAvailable = !storeLoading && Boolean(storeId);
+
     // Total quantity in cart
     const cartCount = cartItems?.reduce(
         (total, item) => total + item.quantity,
@@ -87,8 +89,11 @@ function Navbar() {
         e: React.MouseEvent<HTMLAnchorElement>,
         label: string
     ) => {
+        e.preventDefault();
+
+        if (!isStoreAvailable) return;
+
         if (label === "Login") {
-            e.preventDefault();
             setLoginOpen(true);
             setMobileMenuOpen(false);
         }
@@ -176,6 +181,10 @@ function Navbar() {
         </>
     );
 
+    // Disabled button styling
+    const disabledButtonClass =
+        "cursor-not-allowed opacity-40 pointer-events-none";
+
     return (
         <>
             <header className="sticky top-0 z-100 border-b border-gray-100 bg-white shadow-sm">
@@ -255,19 +264,30 @@ function Navbar() {
                                     )}
                                 </div>
                             ) : (
-                                <Link
-                                    href="#login"
-                                    onClick={(e) => handleAccountClick(e, "Login")}
-                                    className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-bold text-gray-700 transition hover:bg-gray-100"
+                                <button
+                                    type="button"
+                                    disabled={!isStoreAvailable}
+                                    onClick={() => setLoginOpen(true)}
+                                    className={`flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-bold text-gray-700 transition hover:bg-gray-100 disabled:hover:bg-transparent ${!isStoreAvailable ? disabledButtonClass : ""
+                                        }`}
                                 >
                                     <FiUser size={20} />
                                     <span>Login</span>
-                                </Link>
+                                </button>
                             )}
 
+                            {/* Desktop Cart */}
                             <Link
-                                href="/cart"
-                                className="flex items-center gap-2 rounded-xl bg-green-50 px-3 py-2.5 text-sm font-bold text-[#0c831f] transition hover:bg-green-100"
+                                href={isStoreAvailable ? "/cart" : "#"}
+                                aria-disabled={!isStoreAvailable}
+                                tabIndex={isStoreAvailable ? 0 : -1}
+                                onClick={(e) => {
+                                    if (!isStoreAvailable) {
+                                        e.preventDefault();
+                                    }
+                                }}
+                                className={`flex items-center gap-2 rounded-xl bg-green-50 px-3 py-2.5 text-sm font-bold text-[#0c831f] transition hover:bg-green-100 ${!isStoreAvailable ? disabledButtonClass : ""
+                                    }`}
                             >
                                 <span className="relative inline-flex">
                                     <FiShoppingCart size={20} />
@@ -285,10 +305,20 @@ function Navbar() {
 
                         {/* Mobile Actions */}
                         <div className="flex shrink-0 items-center gap-2 md:hidden">
+
+                            {/* Mobile Cart */}
                             <Link
-                                href="/cart"
+                                href={isStoreAvailable ? "/cart" : "#"}
                                 aria-label="My Cart"
-                                className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-green-50 text-[#0c831f]"
+                                aria-disabled={!isStoreAvailable}
+                                tabIndex={isStoreAvailable ? 0 : -1}
+                                onClick={(e) => {
+                                    if (!isStoreAvailable) {
+                                        e.preventDefault();
+                                    }
+                                }}
+                                className={`relative flex h-10 w-10 items-center justify-center rounded-xl bg-green-50 text-[#0c831f] ${!isStoreAvailable ? disabledButtonClass : ""
+                                    }`}
                             >
                                 <FiShoppingCart size={21} />
 
@@ -328,8 +358,8 @@ function Navbar() {
                                         key={item.href}
                                         href={item.href}
                                         className={`whitespace-nowrap text-sm font-bold transition ${active
-                                                ? "text-[#0c831f]"
-                                                : "text-gray-700 hover:text-[#0c831f]"
+                                            ? "text-[#0c831f]"
+                                            : "text-gray-700 hover:text-[#0c831f]"
                                             }`}
                                     >
                                         {item.label}
@@ -365,8 +395,8 @@ function Navbar() {
                                         href={item.href}
                                         onClick={() => setMobileMenuOpen(false)}
                                         className={`rounded-xl px-4 py-3 text-sm font-bold transition ${active
-                                                ? "bg-green-50 text-[#0c831f]"
-                                                : "text-gray-700 hover:bg-gray-50"
+                                            ? "bg-green-50 text-[#0c831f]"
+                                            : "text-gray-700 hover:bg-gray-50"
                                             }`}
                                     >
                                         {item.label}
@@ -425,20 +455,36 @@ function Navbar() {
                                     )}
                                 </>
                             ) : (
-                                <Link
-                                    href="#login"
-                                    onClick={(e) => handleAccountClick(e, "Login")}
-                                    className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold text-gray-700 transition hover:bg-gray-50"
+                                <button
+                                    type="button"
+                                    disabled={!isStoreAvailable}
+                                    onClick={() => {
+                                        setLoginOpen(true);
+                                        setMobileMenuOpen(false);
+                                    }}
+                                    className={`flex items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-bold text-gray-700 transition hover:bg-gray-50 disabled:hover:bg-transparent ${!isStoreAvailable ? disabledButtonClass : ""
+                                        }`}
                                 >
                                     <FiUser size={19} />
                                     Login
-                                </Link>
+                                </button>
                             )}
 
+                            {/* Mobile Menu Cart */}
                             <Link
-                                href="/cart"
-                                onClick={() => setMobileMenuOpen(false)}
-                                className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold text-gray-700 transition hover:bg-gray-50"
+                                href={isStoreAvailable ? "/cart" : "#"}
+                                aria-disabled={!isStoreAvailable}
+                                tabIndex={isStoreAvailable ? 0 : -1}
+                                onClick={(e) => {
+                                    if (!isStoreAvailable) {
+                                        e.preventDefault();
+                                        return;
+                                    }
+
+                                    setMobileMenuOpen(false);
+                                }}
+                                className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold text-gray-700 transition hover:bg-gray-50 ${!isStoreAvailable ? disabledButtonClass : ""
+                                    }`}
                             >
                                 <span className="relative inline-flex">
                                     <FiShoppingCart size={19} />
@@ -458,7 +504,7 @@ function Navbar() {
             </header>
 
             {/* Login Modal */}
-            {loginOpen && (
+            {loginOpen && isStoreAvailable && (
                 <LoginModal
                     setLoginOpen={setLoginOpen}
                     setIsSignupOpen={setIsSignupOpen}
