@@ -1,27 +1,22 @@
 
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+
 import {
     FiArrowRight,
     FiClock,
-    FiPlus,
     FiStar,
     FiShield,
     FiTruck,
     FiHeadphones,
-    FiLoader
 } from "react-icons/fi";
+
 import { API } from "@/axios/axios.js";
-import {
-    addToCart,
-    fetchCart,
-    setCart,
-} from "@/redux/cartSlice";
 import Image from "next/image";
-import { useDispatch, useSelector } from "react-redux";
-import type { RootState, AppDispatch } from "@/redux/store";
+import { useSelector } from "react-redux";
+import type { RootState } from "@/redux/store";
 
 interface Category {
     name: string;
@@ -36,21 +31,15 @@ interface Product {
     _id: string;
     slug: string;
     name: string;
-    unit: string;
-    sellingPrice: number;
-    mrp: number;
-    images: [
-        {
-            url: string;
-            public_url: string;
-        }
-    ];
-    rating: number;
-    product: {
-        _id: string;
-        name: string;
+    category: {
+        slug: string;
+        name?: string;
     };
-    unitValue?: string;
+    images: {
+        url: string;
+        public_url?: string;
+    }[];
+    startingPrice: number;
 }
 
 interface Offer {
@@ -89,7 +78,8 @@ const offers: Offer[] = [
         description: "Atta, rice, dal & cooking oils",
         discount: "BIG SAVINGS",
         emoji: "🛒",
-        linear: "from-blue-500/10 via-sky-100 to-blue-50 border-blue-200/60",
+        linear:
+            "from-blue-500/10 via-sky-100 to-blue-50 border-blue-200/60",
         badgeBg: "bg-blue-600 text-white",
         href: "/products",
     },
@@ -126,31 +116,20 @@ function CategorySkeleton() {
 
 function ProductSkeleton() {
     return (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-            {Array.from({ length: 8 }).map((_, index) => (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+            {Array.from({ length: 10 }).map((_, index) => (
                 <article
                     key={index}
-                    className="flex flex-col justify-between overflow-hidden rounded-2xl border border-gray-200/80 bg-white"
+                    className="overflow-hidden rounded-2xl border border-gray-200/80 bg-white"
                 >
-                    <div>
-                        <div className="relative aspect-square w-full p-4">
-                            <Skeleton className="h-full w-full rounded-xl" />
-                            <Skeleton className="absolute right-6 top-6 h-5 w-14 rounded-md" />
-                        </div>
-
-                        <div className="space-y-2 p-3.5">
-                            <Skeleton className="h-4 w-4/5" />
-                            <Skeleton className="h-3 w-1/3" />
-                            <Skeleton className="h-3 w-1/4" />
-                        </div>
+                    <div className="relative aspect-square w-full p-4">
+                        <Skeleton className="h-full w-full rounded-xl" />
                     </div>
 
-                    <div className="flex items-center justify-between gap-2 p-3.5 pt-0">
-                        <div className="space-y-2">
-                            <Skeleton className="h-4 w-16" />
-                            <Skeleton className="h-3 w-12" />
-                        </div>
-                        <Skeleton className="h-9 w-16 rounded-xl" />
+                    <div className="space-y-2 p-3.5">
+                        <Skeleton className="h-4 w-4/5" />
+                        <Skeleton className="h-3 w-1/3" />
+                        <Skeleton className="h-3 w-1/4" />
                     </div>
                 </article>
             ))}
@@ -159,26 +138,17 @@ function ProductSkeleton() {
 }
 
 export default function ShopPage() {
-    const user = useSelector(
-        (store: RootState) => store.auth.user
-    );
-
     const {
         store: nearestStore,
-        loading: storeLoading
+        loading: storeLoading,
     } = useSelector(
         (state: RootState) => state.store
     );
 
     const storeId = nearestStore?._id;
 
-    const dispatch = useDispatch<AppDispatch>();
-
     const [categories, setCategories] = useState<Category[]>([]);
     const [products, setProducts] = useState<Product[]>([]);
-
-    const [addingItems, setAddingItems] = useState<string[]>([]);
-    const addingItemsRef = useRef(new Set<string>());
 
     // Skeleton loading states
     const [categoriesLoading, setCategoriesLoading] = useState(true);
@@ -204,20 +174,20 @@ export default function ShopPage() {
         }
     };
 
-    // Fetch available products according to current store
+    // Fetch featured products according to current store
     const fetchProducts = async (currentStoreId: string) => {
         try {
             setProductsLoading(true);
 
             const res = await API.get(
-                `/inventory/store/${currentStoreId}/available`
+                `/inventory/store/${currentStoreId}/featured`
             );
 
-            console.log("products res", res.data);
-
-            setProducts(res.data.variants || []);
+            setProducts(
+                (res.data.products || []).slice(0, 10)
+            );
         } catch (error) {
-            console.error("Failed to fetch store products:", error);
+            console.error("Failed to fetch featured products:", error);
             setProducts([]);
         } finally {
             setProductsLoading(false);
@@ -237,66 +207,7 @@ export default function ShopPage() {
         }
     };
 
-    // Add product to cart
-    const handleAddToCart = async (product: Product) => {
-        // Guest user: Redux cart
-        if (!user) {
-            dispatch(
-                addToCart({
-                    productId: product.product?._id,
-                    productName: product.product?.name || product.name,
-                    _id: product._id,
-                    name: product.name,
-                    unitValue: product.unitValue,
-                    unit: product.unit,
-                    image: product.images?.[0]?.url || "",
-                    sellingPrice: product.sellingPrice,
-                    mrp: product.mrp,
-                    quantity: 1,
-                })
-            );
-
-            return;
-        }
-
-        // Logged-in user: Store-specific cart
-        if (!storeId) {
-            console.error("Store not found");
-            return;
-        }
-
-        const productId = product._id;
-
-        // Prevent repeated clicks while API request is running
-        if (addingItemsRef.current.has(productId)) {
-            return;
-        }
-
-        addingItemsRef.current.add(productId);
-
-        setAddingItems((prev) => [...prev, productId]);
-
-        try {
-            await API.post("/cart/add", {
-                product: product.product._id,
-                variant: product._id,
-                quantity: 1,
-                storeId,
-            });
-
-            // Refresh current store cart
-            await dispatch(fetchCart(storeId));
-        } catch (error: any) {
-            console.error("Failed to add product to cart:", error);
-        } finally {
-            addingItemsRef.current.delete(productId);
-
-            setAddingItems((prev) =>
-                prev.filter((id) => id !== productId)
-            );
-        }
-    };
-
+    // Existing banner HTML formatter
     const formatBannerHtml = (html = "") => {
         const cleanedHtml = html.replace(/<\/?p>/g, "");
 
@@ -311,7 +222,7 @@ export default function ShopPage() {
         getBanners();
     }, []);
 
-    // Fetch categories and products whenever store changes
+    // Fetch categories and featured products whenever store changes
     useEffect(() => {
         if (storeLoading) {
             setCategoriesLoading(true);
@@ -325,29 +236,56 @@ export default function ShopPage() {
         } else {
             setCategories([]);
             setProducts([]);
+
             setCategoriesLoading(false);
             setProductsLoading(false);
         }
     }, [storeId, storeLoading]);
 
-    // Fetch cart for the currently selected store
-    useEffect(() => {
-        if (storeLoading) return;
+    // Store is still loading
+    if (storeLoading) {
+        return (
+            <main className="flex min-h-screen items-center justify-center bg-[#F8FAF9] px-4">
+                <div className="text-center">
+                    <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-gray-200 border-t-[#0c831f]" />
 
-        if (!user || !storeId) {
-            if (user) {
-                dispatch(setCart([]));
-            }
+                    <h2 className="mt-4 text-lg font-bold text-gray-800">
+                        Finding your store...
+                    </h2>
 
-            return;
-        }
+                    <p className="mt-1 text-sm text-gray-500">
+                        Please wait while we check availability in your area.
+                    </p>
+                </div>
+            </main>
+        );
+    }
 
-        // Remove previous store's items immediately
-        dispatch(setCart([]));
+    // No store available
+    if (!storeId) {
+        return (
+            <main className="flex min-h-screen items-center justify-center bg-[#F8FAF9] px-4">
+                <div className="w-full max-w-md rounded-3xl border border-gray-100 bg-white px-6 py-12 text-center shadow-sm">
+                    <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-red-50 text-4xl">
+                        📍
+                    </div>
 
-        // Fetch cart belonging to current store
-        dispatch(fetchCart(storeId));
-    }, [user, storeId, storeLoading, dispatch]);
+                    <h2 className="mt-5 text-xl font-black text-gray-900">
+                        No Store Available
+                    </h2>
+
+                    <p className="mt-2 text-sm leading-6 text-gray-500">
+                        Sorry, QUICK KART is currently not available in your area.
+                        We are working hard to expand our delivery locations.
+                    </p>
+
+                    <p className="mt-4 text-xs font-semibold text-[#0c831f]">
+                        Please try another delivery location.
+                    </p>
+                </div>
+            </main>
+        );
+    }
 
     return (
         <main className="min-h-screen bg-[#F8FAF9] pb-20 text-gray-900">
@@ -356,6 +294,7 @@ export default function ShopPage() {
             <section className="mx-auto max-w-7xl px-4 pt-4 sm:px-6 sm:pt-6 lg:px-8">
                 <div className="relative overflow-hidden rounded-3xl bg-linear-to-br from-[#0c831f] via-emerald-800 to-green-950 p-6 shadow-2xl shadow-green-900/20 sm:p-10 lg:p-12">
                     <div className="absolute -right-12 -top-12 h-80 w-80 rounded-full bg-lime-400/20 blur-3xl" />
+
                     <div className="absolute bottom-0 right-1/3 h-64 w-64 rounded-full bg-emerald-400/10 blur-2xl" />
 
                     <div className="relative z-10 grid items-center gap-8 lg:grid-cols-12">
@@ -367,6 +306,7 @@ export default function ShopPage() {
 
                             <h1 className="mt-4 text-3xl font-black leading-[1.15] tracking-tight text-white sm:text-5xl lg:text-6xl">
                                 Groceries delivered <br className="hidden sm:block" />
+
                                 <span className="bg-linear-to-r from-lime-300 via-emerald-200 to-white bg-clip-text text-transparent">
                                     in just 10 minutes.
                                 </span>
@@ -387,10 +327,12 @@ export default function ShopPage() {
 
                                 <div className="flex items-center gap-2.5 rounded-xl border border-white/15 bg-white/10 px-4 py-3 backdrop-blur-md">
                                     <span className="text-2xl">⚡</span>
+
                                     <div>
                                         <p className="text-xs font-black uppercase tracking-wider text-white">
                                             Superfast
                                         </p>
+
                                         <p className="text-[11px] text-emerald-200">
                                             Live order tracking
                                         </p>
@@ -434,9 +376,11 @@ export default function ShopPage() {
                                         <span className="text-4xl drop-shadow-md sm:text-5xl">
                                             {item.emoji}
                                         </span>
+
                                         <span className="mt-2 text-xs font-black text-gray-800">
                                             {item.title}
                                         </span>
+
                                         <span className="text-[10px] font-medium text-gray-500">
                                             {item.sub}
                                         </span>
@@ -512,6 +456,7 @@ export default function ShopPage() {
                         <h2 className="text-xl font-black tracking-tight text-gray-900 sm:text-2xl">
                             Shop by Category
                         </h2>
+
                         <p className="mt-0.5 text-xs text-gray-500">
                             Explore our wide range of essentials
                         </p>
@@ -580,16 +525,20 @@ export default function ShopPage() {
                                 >
                                     {offer.discount}
                                 </span>
+
                                 <h3 className="mt-2 text-lg font-black leading-snug text-gray-900">
                                     {offer.title}
                                 </h3>
+
                                 <p className="mt-1 line-clamp-2 text-xs text-gray-600">
                                     {offer.description}
                                 </p>
+
                                 <span className="mt-3 inline-flex items-center gap-1 text-xs font-extrabold text-[#0c831f] group-hover:underline">
                                     Shop Now <FiArrowRight size={14} />
                                 </span>
                             </div>
+
                             <span className="absolute -bottom-2 -right-2 text-7xl transition duration-300 group-hover:rotate-6 group-hover:scale-110">
                                 {offer.emoji}
                             </span>
@@ -598,13 +547,14 @@ export default function ShopPage() {
                 </div>
             </section>
 
-            {/* POPULAR PRODUCTS */}
+            {/* FEATURED PRODUCTS */}
             <section className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
                 <div className="mb-5 flex items-center justify-between">
                     <div>
                         <h2 className="text-xl font-black tracking-tight text-gray-900 sm:text-2xl">
                             Featured Products
                         </h2>
+
                         <p className="mt-0.5 text-xs text-gray-500">
                             Most ordered item in your area
                         </p>
@@ -624,111 +574,68 @@ export default function ShopPage() {
 
                 {productsLoading ? (
                     <ProductSkeleton />
+                ) : products.length === 0 ? (
+                    <div className="rounded-2xl border border-gray-100 bg-white px-5 py-12 text-center">
+                        <span className="text-4xl">🛍️</span>
+
+                        <h3 className="mt-3 text-base font-bold text-gray-800">
+                            No featured products available
+                        </h3>
+
+                        <p className="mt-1 text-sm text-gray-500">
+                            Featured products will appear here when available in your store.
+                        </p>
+                    </div>
                 ) : (
-                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-                        {products.map((product) => {
-                            const isAdding = addingItems.includes(product._id);
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+                        {products.slice(0, 10).map((product) => (
+                            <Link
+                                key={product._id}
+                                href={`/products?category=${encodeURIComponent(
+                                    product.category.slug
+                                )}&product=${encodeURIComponent(
+                                    product.slug
+                                )}`}
+                                className="group relative flex flex-col overflow-hidden rounded-2xl border border-gray-200/80 bg-white transition duration-200 hover:border-emerald-200 hover:shadow-lg"
+                            >
+                                <div className="relative flex aspect-square w-full items-center justify-center bg-linear-to-b p-4">
+                                    {product.images?.[0]?.url ? (
+                                        <Image
+                                            loading="eager"
+                                            alt={product.name}
+                                            src={product.images[0].url}
+                                            fill
+                                            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
+                                            className="h-full w-full object-contain transition duration-300 group-hover:scale-105"
+                                        />
+                                    ) : (
+                                        <span className="flex h-full w-full items-center justify-center text-4xl">
+                                            🛍️
+                                        </span>
+                                    )}
+                                </div>
 
-                            const discount =
-                                product.mrp > product.sellingPrice
-                                    ? Math.round(
-                                        (1 - product.sellingPrice / product.mrp) * 100
-                                    )
-                                    : 0;
+                                <div className="flex flex-1 flex-col p-3.5">
+                                    <h3 className="line-clamp-2 text-xs font-bold text-gray-800 transition-colors group-hover:text-[#0c831f] sm:text-sm">
+                                        {product.name}
+                                    </h3>
 
-                            return (
-                                <article
-                                    key={product.slug}
-                                    className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-gray-200/80 bg-white transition duration-200 hover:border-emerald-200 hover:shadow-lg"
-                                >
-                                    <div>
-                                        <Link
-                                            href={`/products/${product.slug}`}
-                                            className="relative flex aspect-square h-50 w-full items-center justify-center bg-linear-to-b p-4"
-                                        >
-                                            {discount > 0 && (
-                                                <span className="z-99 absolute right-2.5 top-2.5 rounded-md bg-emerald-600 px-1.5 py-0.5 text-[9px] font-black text-white shadow-sm">
-                                                    {discount}% OFF
-                                                </span>
-                                            )}
+                                    <div className="mt-auto pt-3">
+                                        <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                                            Starts from
+                                        </p>
 
-                                            {product.images?.[0]?.url ? (
-                                                <Image
-                                                    loading="eager"
-                                                    alt={product.name}
-                                                    src={product.images[0].url}
-                                                    fill
-                                                    sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-                                                    className="h-full w-full object-contain"
-                                                />
-                                            ) : (
-                                                <span className="flex h-full w-full items-center justify-center text-4xl">
-                                                    🛍️
-                                                </span>
-                                            )}
-                                        </Link>
-
-                                        <div className="p-3.5">
-                                            <Link href={`/products/${product.slug}`}>
-                                                <h3 className="mt-2 line-clamp-1 text-xs font-bold text-gray-800 hover:text-[#0c831f] sm:text-sm">
-                                                    {product.name}
-                                                </h3>
-                                            </Link>
-
-                                            <p className="mt-0.5 text-[11px] font-medium text-gray-400">
-                                                {product.unit}
-                                            </p>
-
-                                            <div className="mt-1.5 flex items-center gap-1 text-[11px] text-amber-500">
-                                                <FiStar size={12} fill="currentColor" />
-                                                <span className="font-bold text-gray-700">
-                                                    {product.rating}
-                                                </span>
-                                            </div>
-                                        </div>
+                                        <span className="text-base font-black text-gray-900 sm:text-lg">
+                                            ₹{product.startingPrice}
+                                        </span>
                                     </div>
-
-                                    <div className="flex items-center justify-between gap-2 p-3.5 pt-0">
-                                        <div>
-                                            <span className="text-sm font-black text-gray-900 sm:text-base">
-                                                ₹{product.sellingPrice}
-                                            </span>
-
-                                            {discount > 0 && (
-                                                <span className="ml-1 text-xs text-gray-400 line-through">
-                                                    ₹{product.mrp}
-                                                </span>
-                                            )}
-                                        </div>
-
-                                        <button
-                                            type="button"
-                                            disabled={isAdding || !storeId || storeLoading}
-                                            onClick={(e) => {
-                                                e.preventDefault();
-                                                e.stopPropagation();
-                                                handleAddToCart(product);
-                                            }}
-                                            className="flex items-center gap-1 rounded-lg border border-[#0c831f] bg-green-50 px-3 py-2 text-sm font-extrabold text-[#0c831f] transition hover:bg-[#0c831f] hover:text-white disabled:cursor-not-allowed disabled:opacity-70"
-                                        >
-                                            {isAdding ? (
-                                                <>
-                                                    <FiLoader className="animate-spin" size={15} />
-                                                    <span>Adding...</span>
-                                                </>
-                                            ) : (
-                                                <>
-                                                    ADD <FiPlus />
-                                                </>
-                                            )}
-                                        </button>
-                                    </div>
-                                </article>
-                            );
-                        })}
+                                </div>
+                            </Link>
+                        ))}
                     </div>
                 )}
             </section>
+
         </main>
     );
 }

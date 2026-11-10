@@ -1,7 +1,12 @@
-
 "use client";
 
-import { useState, useEffect, Suspense, useRef } from "react";
+import {
+    useState,
+    useEffect,
+    Suspense,
+    useRef,
+    useCallback,
+} from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { API } from "@/axios/axios.js";
@@ -9,7 +14,7 @@ import {
     FiSearch,
     FiPlus,
     FiArrowRight,
-    FiLoader
+    FiLoader,
 } from "react-icons/fi";
 import { useRouter, useSearchParams } from "next/navigation";
 import { addToCart, fetchCart, setCart } from "@/redux/cartSlice";
@@ -55,12 +60,23 @@ interface Variant {
     inventoryId: string;
 }
 
+interface Pagination {
+    currentPage: number;
+    limit: number;
+    totalVariants: number;
+    totalPages: number;
+    hasNextPage: boolean;
+    hasPreviousPage: boolean;
+}
+
+const PAGE_LIMIT = 20;
+
 function ProductsPage() {
     const user = useSelector((state: RootState) => state.auth.user);
 
     const {
         store: nearestStore,
-        loading: storeLoading
+        loading: storeLoading,
     } = useSelector((state: RootState) => state.store);
 
     const dispatch = useDispatch<AppDispatch>();
@@ -78,116 +94,353 @@ function ProductsPage() {
 
     const [categories, setCategories] = useState<Category[]>([]);
     const [selectedCategory, setSelectedCategory] = useState("All");
+
+    // Only ProductVariants are stored and rendered here.
     const [products, setProducts] = useState<Variant[]>([]);
+
     const [loading, setLoading] = useState(true);
     const [categoriesLoading, setCategoriesLoading] = useState(true);
+    const [loadingMore, setLoadingMore] = useState(false);
+    const [hasMore, setHasMore] = useState(false);
+    const [totalVariants, setTotalVariants] = useState(0);
 
-    // Fetch categories and available inventory of selected store
+    // Pagination and request handling refs
+    const pageRef = useRef(1);
+    const hasMoreRef = useRef(false);
+    const loadingMoreRef = useRef(false);
+    const requestVersionRef = useRef(0);
+
+    const observerRef = useRef<IntersectionObserver | null>(null);
+    const loadMoreRef = useRef<HTMLDivElement | null>(null);
+
+    // --------------------------------------------------
+    // FETCH CATEGORIES
+    // --------------------------------------------------
+
     useEffect(() => {
         if (storeLoading) {
-            setLoading(true);
             setCategoriesLoading(true);
             return;
         }
 
         if (!storeId) {
             setCategories([]);
-            setProducts([]);
-            setLoading(false);
             setCategoriesLoading(false);
             return;
         }
 
         let isActive = true;
 
-        const fetchStoreData = async () => {
-            setLoading(true);
+        const fetchCategories = async () => {
             setCategoriesLoading(true);
 
             try {
-                const [categoryRes, inventoryRes] = await Promise.all([
-                    API.get(
-                        `/category/store/${storeId}/available`
-                    ),
-                    API.get(
-                        `/inventory/store/${storeId}/available`
-                    )
-                ]);
+                const response = await API.get(
+                    `/category/store/${storeId}/available`
+                );
 
                 if (!isActive) return;
 
-                setCategories(categoryRes.data.categories || []);
-                setProducts(inventoryRes.data.variants || []);
-
+                setCategories(response.data.categories || []);
             } catch (error) {
-                console.error("Store products fetch error:", error);
+                console.error("Categories fetch error:", error);
 
                 if (isActive) {
                     setCategories([]);
-                    setProducts([]);
                 }
             } finally {
                 if (isActive) {
-                    setLoading(false);
                     setCategoriesLoading(false);
                 }
             }
         };
 
-        fetchStoreData();
+        fetchCategories();
 
         return () => {
             isActive = false;
         };
-
     }, [storeId, storeLoading]);
 
-    // Fetch cart for the currently selected store
+    // --------------------------------------------------
+    // FETCH FIRST PAGE
+    // --------------------------------------------------
+
+    useEffect(() => {
+        // A new request version invalidates previous pagination requests.
+        const requestVersion = ++requestVersionRef.current;
+
+        let isActive = true;
+
+        pageRef.current = 1;
+        hasMoreRef.current = false;
+        loadingMoreRef.current = false;
+
+        setProducts([]);
+        setHasMore(false);
+        setLoadingMore(false);
+        setTotalVariants(0);
+
+        if (storeLoading) {
+            setLoading(true);
+
+            return () => {
+                isActive = false;
+            };
+        }
+
+        if (!storeId) {
+            setProducts([]);
+            setLoading(false);
+
+            return () => {
+                isActive = false;
+            };
+        }
+
+        const fetchFirstPage = async () => {
+            setLoading(true);
+
+            try {
+                const params = new URLSearchParams();
+
+                params.set("page", "1");
+                params.set("limit", String(PAGE_LIMIT));
+
+                if (categorySlug) {
+                    params.set("category", categorySlug);
+                }
+
+                if (productSlug) {
+                    params.set("product", productSlug);
+                }
+
+                const response = await API.get(
+                    `/inventory/store/${storeId}/available?${params.toString()}`
+                );
+
+                if (
+                    !isActive ||
+                    requestVersion !== requestVersionRef.current
+                ) {
+                    return;
+                }
+
+                const variants: Variant[] =
+                    response.data.variants || [];
+
+                const pagination: Pagination =
+                    response.data.pagination;
+
+                setProducts(variants);
+
+                pageRef.current = 1;
+
+                const nextPageAvailable = Boolean(
+                    pagination?.hasNextPage
+                );
+
+                hasMoreRef.current = nextPageAvailable;
+                setHasMore(nextPageAvailable);
+
+                setTotalVariants(
+                    pagination?.totalVariants ?? variants.length
+                );
+            } catch (error) {
+                console.error("Store variants fetch error:", error);
+
+                if (
+                    isActive &&
+                    requestVersion === requestVersionRef.current
+                ) {
+                    setProducts([]);
+                    setHasMore(false);
+                    hasMoreRef.current = false;
+                    setTotalVariants(0);
+                }
+            } finally {
+                if (
+                    isActive &&
+                    requestVersion === requestVersionRef.current
+                ) {
+                    setLoading(false);
+                }
+            }
+        };
+
+        fetchFirstPage();
+
+        return () => {
+            isActive = false;
+        };
+    }, [
+        storeId,
+        storeLoading,
+        categorySlug,
+        productSlug,
+    ]);
+
+    // --------------------------------------------------
+    // FETCH NEXT PAGE
+    // --------------------------------------------------
+
+    const fetchNextPage = useCallback(async () => {
+        if (
+            !storeId ||
+            storeLoading ||
+            loading ||
+            loadingMoreRef.current ||
+            !hasMoreRef.current
+        ) {
+            return;
+        }
+
+        const requestVersion = requestVersionRef.current;
+        const nextPage = pageRef.current + 1;
+
+        loadingMoreRef.current = true;
+        setLoadingMore(true);
+
+        try {
+            const params = new URLSearchParams();
+
+            params.set("page", String(nextPage));
+            params.set("limit", String(PAGE_LIMIT));
+
+            if (categorySlug) {
+                params.set("category", categorySlug);
+            }
+
+            if (productSlug) {
+                params.set("product", productSlug);
+            }
+
+            const response = await API.get(
+                `/inventory/store/${storeId}/available?${params.toString()}`
+            );
+
+            // Ignore stale responses after store/filter changes.
+            if (requestVersion !== requestVersionRef.current) {
+                return;
+            }
+
+            const variants: Variant[] =
+                response.data.variants || [];
+
+            const pagination: Pagination =
+                response.data.pagination;
+
+            // Append only the next page's variants.
+            setProducts((prev) => [
+                ...prev,
+                ...variants,
+            ]);
+
+            pageRef.current = nextPage;
+
+            const nextPageAvailable = Boolean(
+                pagination?.hasNextPage
+            );
+
+            hasMoreRef.current = nextPageAvailable;
+            setHasMore(nextPageAvailable);
+
+            if (pagination?.totalVariants !== undefined) {
+                setTotalVariants(pagination.totalVariants);
+            }
+        } catch (error) {
+            console.error("Next variants page fetch error:", error);
+        } finally {
+            if (requestVersion === requestVersionRef.current) {
+                loadingMoreRef.current = false;
+                setLoadingMore(false);
+            }
+        }
+    }, [
+        storeId,
+        storeLoading,
+        loading,
+        categorySlug,
+        productSlug,
+    ]);
+
+    // --------------------------------------------------
+    // INFINITE SCROLL OBSERVER
+    // --------------------------------------------------
+
+    useEffect(() => {
+        const target = loadMoreRef.current;
+
+        if (!target || loading || !hasMore) {
+            observerRef.current?.disconnect();
+            return;
+        }
+
+        observerRef.current?.disconnect();
+
+        const observer = new IntersectionObserver(
+            (entries) => {
+                const entry = entries[0];
+
+                if (entry?.isIntersecting) {
+                    fetchNextPage();
+                }
+            },
+            {
+                root: null,
+                rootMargin: "300px",
+                threshold: 0,
+            }
+        );
+
+        observer.observe(target);
+        observerRef.current = observer;
+
+        return () => {
+            observer.disconnect();
+        };
+    }, [
+        loading,
+        loadingMore,
+        hasMore,
+        fetchNextPage,
+        products.length,
+    ]);
+
+    // --------------------------------------------------
+    // FETCH CART FOR SELECTED STORE
+    // --------------------------------------------------
+
     useEffect(() => {
         if (storeLoading) return;
 
-        // Guest cart Redux mein hi rahega
+        // Guest cart Redux mein hi rahega.
         if (!user) return;
 
-        // Previous store cart clear karo
+        // Previous store cart clear karo.
         dispatch(setCart([]));
 
         if (storeId) {
             dispatch(fetchCart(storeId));
         }
+    }, [
+        user,
+        storeId,
+        storeLoading,
+        dispatch,
+    ]);
 
-    }, [user, storeId, storeLoading, dispatch]);
+    // --------------------------------------------------
+    // KEEP SELECTED CATEGORY IN SYNC WITH URL
+    // --------------------------------------------------
 
-    // Keep selected category in sync with URL
     useEffect(() => {
         setSelectedCategory(categorySlug || "All");
     }, [categorySlug]);
 
-    // Filter available variants by product or category
-    const filteredProducts = products.filter((variant) => {
-        if (productSlug) {
-            return variant.product?.slug === productSlug;
-        }
-
-        if (categorySlug) {
-            const selectedCategoryData = categories.find(
-                (category) => category.slug === categorySlug
-            );
-
-            if (!selectedCategoryData) return false;
-
-            const productCategory = variant.product?.category;
-
-            const productCategoryId =
-                typeof productCategory === "object"
-                    ? productCategory?._id
-                    : productCategory;
-
-            return String(productCategoryId) === selectedCategoryData._id;
-        }
-
-        return true;
-    });
+    // --------------------------------------------------
+    // CATEGORY CLICK
+    // --------------------------------------------------
 
     const handleCategoryClick = (slug: string) => {
         if (slug === "All") {
@@ -197,8 +450,12 @@ function ProductsPage() {
         }
     };
 
+    // --------------------------------------------------
+    // ADD TO CART
+    // --------------------------------------------------
+
     const handleAddToCart = async (product: Variant) => {
-        // Store select hona zaroori hai
+        // Store select hona zaroori hai.
         if (!storeId || storeLoading) {
             return;
         }
@@ -223,14 +480,14 @@ function ProductsPage() {
             return;
         }
 
-        // Prevent duplicate requests
+        // Prevent duplicate requests.
         if (addingItemsRef.current.has(variantId)) return;
 
         addingItemsRef.current.add(variantId);
 
         setAddingItems((prev) => [
             ...prev,
-            variantId
+            variantId,
         ]);
 
         try {
@@ -241,12 +498,10 @@ function ProductsPage() {
                 storeId,
             });
 
-            // Fetch cart of the same store
+            // Fetch cart of the same store.
             await dispatch(fetchCart(storeId));
-
         } catch (error) {
             console.error("Failed to add product to cart:", error);
-
         } finally {
             addingItemsRef.current.delete(variantId);
 
@@ -257,8 +512,9 @@ function ProductsPage() {
     };
 
     const selectedCategoryName =
-        categories.find((category) => category.slug === selectedCategory)?.name
-        || selectedCategory;
+        categories.find(
+            (category) => category.slug === selectedCategory
+        )?.name || selectedCategory;
 
     return (
         <main className="min-h-screen bg-[#f7f8f7] text-gray-900">
@@ -334,7 +590,7 @@ function ProductsPage() {
                     </div>
                 </section>
 
-                {/* Products */}
+                {/* Products / Variants */}
                 <section id="products" className="scroll-mt-40">
                     <div className="mb-5 flex items-end justify-between gap-3">
                         <div>
@@ -350,8 +606,8 @@ function ProductsPage() {
 
                             <p className="mt-1 text-sm text-gray-500">
                                 {loading
-                                    ? "Loading products..."
-                                    : `${filteredProducts.length} products available`}
+                                    ? "Loading variants..."
+                                    : `${totalVariants} variants available`}
                             </p>
                         </div>
                     </div>
@@ -382,110 +638,136 @@ function ProductsPage() {
                                 </div>
                             ))}
                         </div>
-                    ) : filteredProducts.length > 0 ? (
-                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-5 lg:grid-cols-4 xl:grid-cols-5">
-                            {filteredProducts.map((product) => {
-                                const isAdding = addingItems.includes(product._id);
+                    ) : products.length > 0 ? (
+                        <>
+                            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-5 lg:grid-cols-4 xl:grid-cols-5">
+                                {products.map((product) => {
+                                    const isAdding = addingItems.includes(
+                                        product._id
+                                    );
 
-                                const discount = product.mrp > 0
-                                    ? Math.round(
-                                        ((product.mrp - product.sellingPrice) /
-                                            product.mrp) * 100
-                                    )
-                                    : 0;
+                                    const discount = product.mrp > 0
+                                        ? Math.round(
+                                            ((product.mrp - product.sellingPrice) /
+                                                product.mrp) * 100
+                                        )
+                                        : 0;
 
-                                return (
-                                    <Link
-                                        href={`/products/${product.slug}`}
-                                        key={product._id}
-                                        className="group overflow-hidden rounded-2xl border border-gray-100 bg-white transition duration-200 hover:-translate-y-1 hover:border-green-100 hover:shadow-lg"
-                                    >
-                                        <div className="relative m-2 overflow-hidden rounded-xl bg-gray-50">
-                                            <div className="relative aspect-square">
-                                                {product.images?.[0]?.url ? (
-                                                    <Image
-                                                        src={product.images[0].url}
-                                                        alt={product.name}
-                                                        fill
-                                                        sizes="(max-width: 640px) 45vw, (max-width: 1024px) 30vw, 220px"
-                                                        className="object-cover transition duration-300 group-hover:scale-105"
-                                                    />
-                                                ) : (
-                                                    <div className="flex h-full items-center justify-center">
-                                                        <span className="text-3xl">
-                                                            🛍️
-                                                        </span>
-                                                    </div>
+                                    return (
+                                        <Link
+                                            href={`/products/${product.slug}`}
+                                            key={product._id}
+                                            className="group overflow-hidden rounded-2xl border border-gray-100 bg-white transition duration-200 hover:-translate-y-1 hover:border-green-100 hover:shadow-lg"
+                                        >
+                                            <div className="relative m-2 overflow-hidden rounded-xl bg-gray-50">
+                                                <div className="relative aspect-square">
+                                                    {product.images?.[0]?.url ? (
+                                                        <Image
+                                                            src={product.images[0].url}
+                                                            alt={product.name}
+                                                            fill
+                                                            sizes="(max-width: 640px) 45vw, (max-width: 1024px) 30vw, 220px"
+                                                            className="object-cover transition duration-300 group-hover:scale-105"
+                                                        />
+                                                    ) : (
+                                                        <div className="flex h-full items-center justify-center">
+                                                            <span className="text-3xl">
+                                                                🛍️
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                {discount > 0 && (
+                                                    <span className="absolute left-2 top-2 rounded-md bg-[#0c831f] px-2 py-1 text-[10px] font-extrabold text-white sm:text-xs">
+                                                        {discount}% OFF
+                                                    </span>
                                                 )}
                                             </div>
 
-                                            {discount > 0 && (
-                                                <span className="absolute left-2 top-2 rounded-md bg-[#0c831f] px-2 py-1 text-[10px] font-extrabold text-white sm:text-xs">
-                                                    {discount}% OFF
-                                                </span>
-                                            )}
-                                        </div>
+                                            <div className="p-3 pt-1 sm:p-4 sm:pt-2">
+                                                <h3 className="line-clamp-2 min-h-10 text-sm font-bold leading-5 text-gray-900 sm:text-base">
+                                                    {product.name}
+                                                </h3>
 
-                                        <div className="p-3 pt-1 sm:p-4 sm:pt-2">
-                                            <h3 className="line-clamp-2 min-h-10 text-sm font-bold leading-5 text-gray-900 sm:text-base">
-                                                {product.name}
-                                            </h3>
+                                                <p className="mt-1 text-xs text-gray-500">
+                                                    {`${product.unitValue} ${product.unit}`}
+                                                </p>
 
-                                            <p className="mt-1 text-xs text-gray-500">
-                                                {`${product.unitValue} ${product.unit}`}
-                                            </p>
+                                                <div className="mt-4 flex items-center justify-between gap-2">
+                                                    <div className="min-w-0">
+                                                        <p className="text-base font-extrabold sm:text-lg">
+                                                            ₹{product.sellingPrice}
+                                                        </p>
 
-                                            <div className="mt-4 flex items-center justify-between gap-2">
-                                                <div className="min-w-0">
-                                                    <p className="text-base font-extrabold sm:text-lg">
-                                                        ₹{product.sellingPrice}
-                                                    </p>
+                                                        <p className="text-xs text-gray-400 line-through">
+                                                            ₹{product.mrp}
+                                                        </p>
+                                                    </div>
 
-                                                    <p className="text-xs text-gray-400 line-through">
-                                                        ₹{product.mrp}
-                                                    </p>
+                                                    <button
+                                                        type="button"
+                                                        disabled={isAdding}
+                                                        onClick={(e) => {
+                                                            e.preventDefault();
+                                                            e.stopPropagation();
+                                                            handleAddToCart(product);
+                                                        }}
+                                                        className="flex items-center gap-1 rounded-lg border border-[#0c831f] bg-green-50 px-3 py-2 text-sm font-extrabold text-[#0c831f] transition hover:bg-[#0c831f] hover:text-white disabled:cursor-not-allowed disabled:opacity-70"
+                                                    >
+                                                        {isAdding ? (
+                                                            <>
+                                                                <FiLoader
+                                                                    className="animate-spin"
+                                                                    size={15}
+                                                                />
+                                                                <span>Adding...</span>
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                ADD <FiPlus />
+                                                            </>
+                                                        )}
+                                                    </button>
                                                 </div>
-
-                                                <button
-                                                    type="button"
-                                                    disabled={isAdding}
-                                                    onClick={(e) => {
-                                                        e.preventDefault();
-                                                        e.stopPropagation();
-                                                        handleAddToCart(product);
-                                                    }}
-                                                    className="flex items-center gap-1 rounded-lg border border-[#0c831f] bg-green-50 px-3 py-2 text-sm font-extrabold text-[#0c831f] transition hover:bg-[#0c831f] hover:text-white disabled:cursor-not-allowed disabled:opacity-70"
-                                                >
-                                                    {isAdding ? (
-                                                        <>
-                                                            <FiLoader
-                                                                className="animate-spin"
-                                                                size={15}
-                                                            />
-                                                            <span>Adding...</span>
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                            ADD <FiPlus />
-                                                        </>
-                                                    )}
-                                                </button>
                                             </div>
-                                        </div>
-                                    </Link>
-                                );
-                            })}
-                        </div>
+                                        </Link>
+                                    );
+                                })}
+                            </div>
+
+                            {/* Infinite Scroll Trigger */}
+                            <div
+                                ref={loadMoreRef}
+                                className="flex min-h-16 items-center justify-center py-6"
+                            >
+                                {loadingMore && (
+                                    <div className="flex items-center gap-2 text-sm font-medium text-[#0c831f]">
+                                        <FiLoader
+                                            className="animate-spin"
+                                            size={20}
+                                        />
+                                        Loading more variants...
+                                    </div>
+                                )}
+
+                                {!hasMore && products.length > 0 && (
+                                    <p className="text-sm text-gray-400">
+                                        You have viewed all available variants.
+                                    </p>
+                                )}
+                            </div>
+                        </>
                     ) : (
                         <div className="rounded-2xl border border-dashed border-gray-300 bg-white px-4 py-16 text-center">
                             <FiSearch className="mx-auto h-10 w-10 text-gray-300" />
 
                             <h3 className="mt-4 text-lg font-bold">
-                                No products found
+                                No variants found
                             </h3>
 
                             <p className="mt-2 text-sm text-gray-500">
-                                No products are currently available at your selected store.
+                                No variants are currently available at your selected store.
                             </p>
                         </div>
                     )}

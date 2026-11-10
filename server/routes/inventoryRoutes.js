@@ -7,7 +7,8 @@ import {
     updateInventory,
     deleteInventory,
     changeStatus,
-    getAvailableStoreInventory
+    getAvailableStoreInventory,
+    getFeaturedStoreProducts,
 } from "../controllers/inventoryController.js";
 
 import { Auth } from "../middlewares/Auth.js";
@@ -39,6 +40,11 @@ router.delete("/delete/:id", Auth, Permission("inventory:delete"), deleteInvento
 router.get(
     "/store/:storeId/available",
     getAvailableStoreInventory
+);
+// Get featured products of a particular store
+router.get(
+    "/store/:storeId/featured",
+    getFeaturedStoreProducts
 );
 
 export default router;

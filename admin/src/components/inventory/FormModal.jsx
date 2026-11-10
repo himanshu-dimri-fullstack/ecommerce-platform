@@ -1,7 +1,16 @@
+
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { FiX } from "react-icons/fi";
+import {
+    FiX,
+    FiPackage,
+    FiSearch,
+    FiChevronDown,
+    FiChevronLeft,
+    FiChevronRight,
+    FiCheckCircle,
+} from "react-icons/fi";
 import { API } from "../../api/axios";
 
 const FormModal = ({
@@ -13,341 +22,669 @@ const FormModal = ({
     formData,
     handleChange,
     inputClass,
+    store,
+    initialProduct,
+    initialVariant,
 }) => {
-    const [stores, setStores] = useState([]);
+    // Dropdown states
+    const [showProductDropdown, setShowProductDropdown] = useState(false);
+    const [showVariantDropdown, setShowVariantDropdown] = useState(false);
+
+    // Product states
     const [products, setProducts] = useState([]);
+    const [productSearch, setProductSearch] = useState("");
+    const [debouncedProductSearch, setDebouncedProductSearch] = useState("");
+    const [productPage, setProductPage] = useState(1);
+    const [productTotalPages, setProductTotalPages] = useState(1);
+    const [productLoading, setProductLoading] = useState(false);
+    const [selectedProduct, setSelectedProduct] = useState(
+        initialProduct || null
+    );
+
+    // Variant states
     const [variants, setVariants] = useState([]);
+    const [variantSearch, setVariantSearch] = useState("");
+    const [debouncedVariantSearch, setDebouncedVariantSearch] = useState("");
+    const [variantPage, setVariantPage] = useState(1);
+    const [variantTotalPages, setVariantTotalPages] = useState(1);
+    const [variantLoading, setVariantLoading] = useState(false);
+    const [selectedVariant, setSelectedVariant] = useState(
+        initialVariant || null
+    );
 
-    const [loadingStores, setLoadingStores] = useState(false);
-    const [loadingProducts, setLoadingProducts] = useState(false);
-    const [loadingVariants, setLoadingVariants] = useState(false);
-
-    // Fetch stores and products
+    // Search debounce
     useEffect(() => {
-        const fetchOptions = async () => {
+        const timer = setTimeout(() => {
+            setDebouncedProductSearch(productSearch);
+            setProductPage(1);
+        }, 400);
+
+        return () => clearTimeout(timer);
+    }, [productSearch]);
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedVariantSearch(variantSearch);
+            setVariantPage(1);
+        }, 400);
+
+        return () => clearTimeout(timer);
+    }, [variantSearch]);
+
+    // Fetch products with server-side pagination
+    useEffect(() => {
+        let isMounted = true;
+
+        const getProducts = async () => {
             try {
-                setLoadingStores(true);
-                setLoadingProducts(true);
+                setProductLoading(true);
 
-                const [storeRes, productRes] = await Promise.all([
-                    API.get("/store/get"),
-                    API.get("/product/get"),
-                ]);
+                const res = await API.get("/product/get", {
+                    params: {
+                        page: productPage,
+                        limit: 10,
+                        search: debouncedProductSearch,
+                    },
+                });
 
-                setStores(
-                    storeRes.data.stores ||
-                    storeRes.data.data ||
-                    []
-                );
+                if (!isMounted) return;
 
-                setProducts(
-                    productRes.data.products ||
-                    productRes.data.data ||
-                    []
-                );
+                const data = res.data;
+
+                setProducts(data.products || []);
+                setProductTotalPages(data.totalPages || 1);
+
+                if (data.currentPage && data.currentPage !== productPage) {
+                    setProductPage(data.currentPage);
+                }
             } catch (error) {
-                console.error("Failed to fetch inventory options:", error);
+                if (isMounted) {
+                    console.error("Products fetch error:", error);
+                    setProducts([]);
+                    setProductTotalPages(1);
+                }
             } finally {
-                setLoadingStores(false);
-                setLoadingProducts(false);
+                if (isMounted) {
+                    setProductLoading(false);
+                }
             }
         };
 
-        fetchOptions();
-    }, []);
+        getProducts();
 
-    // Fetch variants when product changes
+        return () => {
+            isMounted = false;
+        };
+    }, [productPage, debouncedProductSearch]);
+
+    // Fetch variants according to selected product
     useEffect(() => {
-        const fetchVariants = async () => {
+        let isMounted = true;
+
+        const getVariants = async () => {
             if (!formData.product) {
                 setVariants([]);
+                setVariantTotalPages(1);
                 return;
             }
 
             try {
-                setLoadingVariants(true);
+                setVariantLoading(true);
 
-                const res = await API.get(
-                    `/variant/get?product=${formData.product}`
+                const res = await API.get("/variant/get", {
+                    params: {
+                        product: formData.product,
+                        page: variantPage,
+                        limit: 10,
+                        search: debouncedVariantSearch,
+                    },
+                });
+
+                if (!isMounted) return;
+
+                const data = res.data;
+
+                setVariants(
+                    data.variants ||
+                    data.productVariants ||
+                    data.data ||
+                    []
                 );
 
-                const data =
-                    res.data.variants ||
-                    res.data.productVariants ||
-                    res.data.data ||
-                    [];
+                setVariantTotalPages(data.totalPages || 1);
 
-                setVariants(data);
+                if (data.currentPage && data.currentPage !== variantPage) {
+                    setVariantPage(data.currentPage);
+                }
             } catch (error) {
-                console.error("Failed to fetch variants:", error);
-                setVariants([]);
+                if (isMounted) {
+                    console.error("Variants fetch error:", error);
+                    setVariants([]);
+                    setVariantTotalPages(1);
+                }
             } finally {
-                setLoadingVariants(false);
+                if (isMounted) {
+                    setVariantLoading(false);
+                }
             }
         };
 
-        fetchVariants();
-    }, [formData.product]);
+        getVariants();
 
-    // Generic select handler
-    const handleSelectChange = (e) => {
-        const { name, value } = e.target;
+        return () => {
+            isMounted = false;
+        };
+    }, [formData.product, variantPage, debouncedVariantSearch]);
 
-        handleChange(e);
+    // Current selected product
+    const currentSelectedProduct =
+        products.find(
+            (item) => item._id === formData.product
+        ) ||
+        (selectedProduct?._id === formData.product
+            ? selectedProduct
+            : initialProduct?._id === formData.product
+                ? initialProduct
+                : null);
 
-        // Reset variant whenever product changes
-        if (name === "product") {
-            handleChange({
-                target: {
-                    name: "variant",
-                    value: "",
-                },
-            });
-        }
+    // Current selected variant
+    const currentSelectedVariant =
+        variants.find(
+            (item) => item._id === formData.variant
+        ) ||
+        (selectedVariant?._id === formData.variant
+            ? selectedVariant
+            : initialVariant?._id === formData.variant
+                ? initialVariant
+                : null);
+
+    // Product selection
+    const selectProduct = (product) => {
+        setSelectedProduct(product);
+        setSelectedVariant(null);
+
+        handleChange({
+            target: {
+                name: "product",
+                value: product._id,
+            },
+        });
+
+        handleChange({
+            target: {
+                name: "variant",
+                value: "",
+            },
+        });
+
+        setVariantSearch("");
+        setDebouncedVariantSearch("");
+        setVariantPage(1);
+        setVariants([]);
+        setVariantTotalPages(1);
+
+        setShowProductDropdown(false);
+        setShowVariantDropdown(false);
     };
 
-    const getId = (item) => item._id || item.id;
+    // Variant selection
+    const selectVariant = (variant) => {
+        setSelectedVariant(variant);
 
-    const getStoreName = (store) =>
-        store.name ||
-        store.storeName ||
-        store.code ||
-        "Unnamed Store";
+        handleChange({
+            target: {
+                name: "variant",
+                value: variant._id,
+            },
+        });
 
-    const getProductName = (product) =>
-        product.name ||
-        product.productName ||
-        "Unnamed Product";
+        setShowVariantDropdown(false);
+    };
 
-    const getVariantName = (variant) => {
-        const attributes = variant.attributes
-            ? Object.values(variant.attributes).join(" / ")
-            : "";
+    // Close modal
+    const closeModal = () => {
+        setShowProductDropdown(false);
+        setShowVariantDropdown(false);
+        setShowModal(false);
+        resetForm();
+    };
+
+    // Variant display label
+    const getVariantLabel = (variant) => {
+        if (!variant) return "";
 
         return [
             variant.name,
             variant.sku,
             variant.title,
             variant.unit,
-            attributes,
+            variant.attributes
+                ? Object.entries(variant.attributes)
+                    .map(([key, value]) => `${key}: ${value}`)
+                    .join(", ")
+                : null,
         ]
             .filter(Boolean)
-            .join(" - ") || "Unnamed Variant";
+            .join(" | ");
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
-            <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
-                <div className="sticky top-0 flex items-center justify-between border-b border-slate-200 bg-white px-6 py-4">
-                    <div>
-                        <h2 className="text-xl font-bold text-slate-800">
-                            {isEdit ? "Edit Inventory" : "Add Inventory"}
-                        </h2>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+            <div className="bg-white w-full max-w-3xl max-h-[92vh] overflow-y-auto rounded-2xl shadow-2xl">
 
-                        <p className="mt-1 text-sm text-slate-500">
-                            Manage store stock and inventory levels.
-                        </p>
+                {/* Header */}
+                <div className="sticky top-0 z-20 bg-white border-b border-gray-200 px-6 py-5 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <div className="w-11 h-11 rounded-xl bg-blue-50 text-[#003963] flex items-center justify-center">
+                            <FiPackage size={22} />
+                        </div>
+
+                        <div>
+                            <h2 className="text-xl font-bold text-gray-800">
+                                {isEdit ? "Update Inventory" : "Add Inventory"}
+                            </h2>
+
+                            <p className="text-sm text-gray-500">
+                                {isEdit
+                                    ? "Update store inventory details"
+                                    : "Add a new product to store inventory"}
+                            </p>
+                        </div>
                     </div>
 
                     <button
                         type="button"
-                        onClick={() => {
-                            setShowModal(false);
-                            resetForm();
-                        }}
-                        className="rounded-lg p-2 text-slate-500 transition hover:bg-slate-100"
+                        onClick={closeModal}
+                        className="w-9 h-9 flex items-center justify-center rounded-lg text-gray-500 hover:bg-red-50 hover:text-red-500 transition"
                     >
                         <FiX size={21} />
                     </button>
                 </div>
 
+                {/* Form */}
                 <form
-                    onSubmit={
-                        isEdit
-                            ? handleEditInventory
-                            : handleAddInventory
-                    }
-                    className="space-y-5 p-6"
-                >
-                    {/* STORE, PRODUCT AND VARIANT */}
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                        <div className="sm:col-span-2">
-                            <label className="mb-2 block text-sm font-semibold text-slate-700">
-                                Store *
-                            </label>
+                    onSubmit={(e) => {
+                        e.preventDefault();
 
+                        if (isEdit) {
+                            handleEditInventory(e);
+                        } else {
+                            handleAddInventory(e);
+                        }
+                    }}
+                    className="p-6 space-y-6"
+                >
+
+                    {/* Store */}
+                    <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                            Store
+                        </label>
+
+                        <div className="relative">
                             <select
                                 name="store"
-                                value={formData.store}
-                                onChange={handleSelectChange}
-                                className={inputClass}
+                                value={formData.store || store?._id || ""}
+                                disabled
+                                className={`${inputClass} w-full cursor-not-allowed bg-gray-100 text-gray-700 opacity-100`}
                             >
-                                <option value="">
-                                    {loadingStores
-                                        ? "Loading stores..."
-                                        : "Select Store"}
+                                <option value={store?._id || formData.store || ""}>
+                                    {store?.name
+                                        ? `${store.name}${store.code ? ` (${store.code})` : ""}`
+                                        : "Current Store"}
                                 </option>
-
-                                {stores.map((store) => (
-                                    <option
-                                        key={getId(store)}
-                                        value={getId(store)}
-                                    >
-                                        {getStoreName(store)}
-                                        {store.code
-                                            ? ` (${store.code})`
-                                            : ""}
-                                    </option>
-                                ))}
                             </select>
                         </div>
 
-                        <div>
-                            <label className="mb-2 block text-sm font-semibold text-slate-700">
-                                Product *
-                            </label>
-
-                            <select
-                                name="product"
-                                value={formData.product}
-                                onChange={handleSelectChange}
-                                className={inputClass}
-                            >
-                                <option value="">
-                                    {loadingProducts
-                                        ? "Loading products..."
-                                        : "Select Product"}
-                                </option>
-
-                                {products.map((product) => (
-                                    <option
-                                        key={getId(product)}
-                                        value={getId(product)}
-                                    >
-                                        {getProductName(product)}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-
-                        <div>
-                            <label className="mb-2 block text-sm font-semibold text-slate-700">
-                                Variant *
-                            </label>
-
-                            <select
-                                name="variant"
-                                value={formData.variant}
-                                onChange={handleChange}
-                                className={inputClass}
-                                disabled={!formData.product || loadingVariants}
-                            >
-                                <option value="">
-                                    {!formData.product
-                                        ? "Select product first"
-                                        : loadingVariants
-                                            ? "Loading variants..."
-                                            : "Select Variant"}
-                                </option>
-
-                                {variants.map((variant) => (
-                                    <option
-                                        key={getId(variant)}
-                                        value={getId(variant)}
-                                    >
-                                        {getVariantName(variant)}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
+                        <p className="text-xs text-gray-500 mt-1">
+                            Inventory will be managed for this store only.
+                        </p>
                     </div>
 
-                    {/* STOCK INFORMATION */}
-                    <div>
-                        <h3 className="mb-3 text-sm font-bold uppercase tracking-wide text-slate-500">
-                            Stock Information
-                        </h3>
+                    {/* Product */}
+                    <div className="relative">
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                            Product <span className="text-red-500">*</span>
+                        </label>
 
-                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                            <div>
-                                <label className="mb-2 block text-sm font-semibold text-slate-700">
-                                    Total Quantity *
-                                </label>
-
-                                <input
-                                    type="number"
-                                    name="quantity"
-                                    step="1"
-                                    value={formData.quantity}
-                                    onChange={handleChange}
-                                    className={inputClass}
-                                />
-                            </div>
-
-                            <div>
-                                <label className="mb-2 block text-sm font-semibold text-slate-700">
-                                    Reserved Quantity*
-                                </label>
-
-                                <input
-                                    type="number"
-                                    name="reservedQuantity"
-                                    step="1"
-                                    value={formData.reservedQuantity}
-                                    onChange={handleChange}
-                                    className={inputClass}
-                                />
-                            </div>
-
-                            <div>
-                                <label className="mb-2 block text-sm font-semibold text-slate-700">
-                                    Reorder Level*
-                                </label>
-
-                                <input
-                                    type="number"
-                                    name="reorderLevel"
-                                    step="1"
-                                    value={formData.reorderLevel}
-                                    onChange={handleChange}
-                                    className={inputClass}
-                                />
-                            </div>
-
-                            <div>
-                                <label className="mb-2 block text-sm font-semibold text-slate-700">
-                                    Maximum Stock Level *
-                                </label>
-
-                                <input
-                                    type="number"
-                                    name="maxStockLevel"
-                                    step="1"
-                                    value={formData.maxStockLevel}
-                                    onChange={handleChange}
-                                    className={inputClass}
-                                />
-                            </div>
-                        </div>
-
-                    </div>
-
-                    {/* ACTIONS */}
-                    <div className="flex flex-col-reverse gap-3 border-t border-slate-100 pt-5 sm:flex-row sm:justify-end">
                         <button
                             type="button"
                             onClick={() => {
-                                setShowModal(false);
-                                resetForm();
+                                setShowProductDropdown(!showProductDropdown);
+                                setShowVariantDropdown(false);
                             }}
-                            className="rounded-xl border border-slate-200 px-5 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
+                            className={`${inputClass} w-full flex items-center justify-between text-left bg-white`}
+                        >
+                            <span className={
+                                currentSelectedProduct
+                                    ? "text-gray-800"
+                                    : "text-gray-400"
+                            }>
+                                {currentSelectedProduct?.name ||
+                                    "Select Product"}
+                            </span>
+
+                            <FiChevronDown
+                                className={`transition-transform ${showProductDropdown ? "rotate-180" : ""
+                                    }`}
+                            />
+                        </button>
+
+                        {showProductDropdown && (
+                            <div className="absolute z-30 mt-2 w-full bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden">
+
+                                {/* Search */}
+                                <div className="p-3 border-b border-gray-100">
+                                    <div className="relative">
+                                        <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+
+                                        <input
+                                            type="text"
+                                            value={productSearch}
+                                            onChange={(e) =>
+                                                setProductSearch(e.target.value)
+                                            }
+                                            placeholder="Search products..."
+                                            className="w-full pl-10 pr-10 py-2.5 text-sm border border-gray-200 rounded-lg outline-none focus:border-[#003963]"
+                                        />
+
+                                        {productSearch && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setProductSearch("")}
+                                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500"
+                                            >
+                                                <FiX />
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Product list */}
+                                <div className="max-h-56 overflow-y-auto">
+                                    {productLoading ? (
+                                        <div className="py-8 flex justify-center">
+                                            <div className="w-6 h-6 border-2 border-gray-200 border-t-[#003963] rounded-full animate-spin" />
+                                        </div>
+                                    ) : products.length > 0 ? (
+                                        products.map((product) => (
+                                            <button
+                                                type="button"
+                                                key={product._id}
+                                                onClick={() => selectProduct(product)}
+                                                className={`w-full px-4 py-3 flex items-center justify-between text-left hover:bg-gray-50 transition ${formData.product === product._id
+                                                    ? "bg-green-50 text-green-700"
+                                                    : "text-gray-700"
+                                                    }`}
+                                            >
+                                                <span className="text-sm font-medium">
+                                                    {product.name}
+                                                </span>
+
+                                                {formData.product === product._id && (
+                                                    <FiCheckCircle className="text-green-600" />
+                                                )}
+                                            </button>
+                                        ))
+                                    ) : (
+                                        <p className="py-8 text-center text-sm text-gray-400">
+                                            No products found
+                                        </p>
+                                    )}
+                                </div>
+
+                                {/* Pagination */}
+                                <div className="px-3 py-3 border-t border-gray-100 flex items-center justify-between">
+                                    <span className="text-xs text-gray-500">
+                                        Page {productPage} of {productTotalPages}
+                                    </span>
+
+                                    <div className="flex gap-2">
+                                        <button
+                                            type="button"
+                                            disabled={productPage <= 1 || productLoading}
+                                            onClick={() =>
+                                                setProductPage((prev) => prev - 1)
+                                            }
+                                            className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 disabled:opacity-40 hover:bg-gray-50"
+                                        >
+                                            <FiChevronLeft />
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            disabled={
+                                                productPage >= productTotalPages ||
+                                                productLoading
+                                            }
+                                            onClick={() =>
+                                                setProductPage((prev) => prev + 1)
+                                            }
+                                            className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 disabled:opacity-40 hover:bg-gray-50"
+                                        >
+                                            <FiChevronRight />
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Variant */}
+                    <div className="relative">
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                            Variant <span className="text-red-500">*</span>
+                        </label>
+
+                        <button
+                            type="button"
+                            disabled={!formData.product}
+                            onClick={() => {
+                                setShowVariantDropdown(!showVariantDropdown);
+                                setShowProductDropdown(false);
+                            }}
+                            className={`${inputClass} w-full flex items-center justify-between text-left bg-white disabled:bg-gray-100 disabled:cursor-not-allowed`}
+                        >
+                            <span className={
+                                currentSelectedVariant
+                                    ? "text-gray-800"
+                                    : "text-gray-400"
+                            }>
+                                {currentSelectedVariant
+                                    ? getVariantLabel(currentSelectedVariant)
+                                    : formData.product
+                                        ? "Select Variant"
+                                        : "Select Product First"}
+                            </span>
+
+                            <FiChevronDown
+                                className={`transition-transform ${showVariantDropdown ? "rotate-180" : ""
+                                    }`}
+                            />
+                        </button>
+
+                        {showVariantDropdown && (
+                            <div className="absolute z-30 mt-2 w-full bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden">
+
+                                {/* Search */}
+                                <div className="p-3 border-b border-gray-100">
+                                    <div className="relative">
+                                        <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+
+                                        <input
+                                            type="text"
+                                            value={variantSearch}
+                                            onChange={(e) =>
+                                                setVariantSearch(e.target.value)
+                                            }
+                                            placeholder="Search variants..."
+                                            className="w-full pl-10 pr-10 py-2.5 text-sm border border-gray-200 rounded-lg outline-none focus:border-[#003963]"
+                                        />
+
+                                        {variantSearch && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setVariantSearch("")}
+                                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500"
+                                            >
+                                                <FiX />
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Variant list */}
+                                <div className="max-h-56 overflow-y-auto">
+                                    {variantLoading ? (
+                                        <div className="py-8 flex justify-center">
+                                            <div className="w-6 h-6 border-2 border-gray-200 border-t-[#003963] rounded-full animate-spin" />
+                                        </div>
+                                    ) : variants.length > 0 ? (
+                                        variants.map((variant) => (
+                                            <button
+                                                type="button"
+                                                key={variant._id}
+                                                onClick={() => selectVariant(variant)}
+                                                className={`w-full px-4 py-3 flex items-center justify-between text-left hover:bg-gray-50 transition ${formData.variant === variant._id
+                                                    ? "bg-green-50 text-green-700"
+                                                    : "text-gray-700"
+                                                    }`}
+                                            >
+                                                <span className="text-sm font-medium">
+                                                    {getVariantLabel(variant)}
+                                                </span>
+
+                                                {formData.variant === variant._id && (
+                                                    <FiCheckCircle className="text-green-600 shrink-0" />
+                                                )}
+                                            </button>
+                                        ))
+                                    ) : (
+                                        <p className="py-8 text-center text-sm text-gray-400">
+                                            No variants found
+                                        </p>
+                                    )}
+                                </div>
+
+                                {/* Pagination */}
+                                <div className="px-3 py-3 border-t border-gray-100 flex items-center justify-between">
+                                    <span className="text-xs text-gray-500">
+                                        Page {variantPage} of {variantTotalPages}
+                                    </span>
+
+                                    <div className="flex gap-2">
+                                        <button
+                                            type="button"
+                                            disabled={variantPage <= 1 || variantLoading}
+                                            onClick={() =>
+                                                setVariantPage((prev) => prev - 1)
+                                            }
+                                            className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 disabled:opacity-40 hover:bg-gray-50"
+                                        >
+                                            <FiChevronLeft />
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            disabled={
+                                                variantPage >= variantTotalPages ||
+                                                variantLoading
+                                            }
+                                            onClick={() =>
+                                                setVariantPage((prev) => prev + 1)
+                                            }
+                                            className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 disabled:opacity-40 hover:bg-gray-50"
+                                        >
+                                            <FiChevronRight />
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Stock fields */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+
+                        <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                Total Quantity <span className="text-red-500">*</span>
+                            </label>
+
+                            <input
+                                type="number"
+                                name="quantity"
+                                value={formData.quantity}
+                                onChange={handleChange}
+                                placeholder="Enter total quantity"
+                                className={inputClass}
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                Reserved Quantity <span className="text-red-500">*</span>
+                            </label>
+
+                            <input
+                                type="number"
+                                name="reservedQuantity"
+                                value={formData.reservedQuantity}
+                                onChange={handleChange}
+                                placeholder="Enter reserved quantity"
+                                className={inputClass}
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                Reorder Level <span className="text-red-500">*</span>
+                            </label>
+
+                            <input
+                                type="number"
+                                name="reorderLevel"
+                                value={formData.reorderLevel}
+                                onChange={handleChange}
+                                placeholder="Enter reorder level"
+                                className={inputClass}
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                Maximum Stock Level <span className="text-red-500">*</span>
+                            </label>
+
+                            <input
+                                type="number"
+                                name="maxStockLevel"
+                                value={formData.maxStockLevel}
+                                onChange={handleChange}
+                                placeholder="Enter maximum stock level"
+                                className={inputClass}
+                            />
+                        </div>
+                    </div>
+
+                    {/* Footer */}
+                    <div className="pt-5 border-t border-gray-200 flex items-center justify-end gap-3">
+                        <button
+                            type="button"
+                            onClick={closeModal}
+                            className="px-5 py-2.5 rounded-lg border border-gray-300 text-gray-700 font-semibold hover:bg-gray-50 transition"
                         >
                             Cancel
                         </button>
 
                         <button
                             type="submit"
-                            className="rounded-xl bg-linear-to-br from-[#064e3b] via-[#047857] to-[#022c22] px-6 py-2.5 text-sm font-semibold text-white transition active:scale-95"
+                            disabled={
+                                !formData.store ||
+                                !formData.product ||
+                                !formData.variant
+                            }
+                            className="px-6 py-2.5 rounded-lg bg-[#003963] text-white font-semibold hover:bg-[#002b4a] disabled:opacity-50 disabled:cursor-not-allowed transition"
                         >
                             {isEdit ? "Update Inventory" : "Create Inventory"}
                         </button>

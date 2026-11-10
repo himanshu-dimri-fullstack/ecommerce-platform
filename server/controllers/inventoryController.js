@@ -1,8 +1,9 @@
-
 import mongoose from "mongoose";
 import Inventory from "../models/Inventory.js";
 import Store from "../models/Store.js";
 import { handleResponseError } from "../utils/errorUtils.js";
+import Product from "../models/Product.js";
+import Category from "../models/Category.js";
 
 // HELPER: VALIDATE NUMBER
 const getNumber = (value, fieldName) => {
@@ -306,10 +307,18 @@ export const getInventories = async (req, res) => {
 };
 
 
-// GET INVENTORY BY STORE ID
+// GET INVENTORY BY STORE ID WITH SEARCH, PAGINATION & STATISTICS
 export const getStoreInventory = async (req, res) => {
     try {
         const { storeId } = req.params;
+
+        const page = Math.max(Number(req.query.page) || 1, 1);
+        const limit = Math.min(
+            Math.max(Number(req.query.limit) || 10, 1),
+            100
+        );
+
+        const search = (req.query.search || "").trim();
 
         if (!mongoose.Types.ObjectId.isValid(storeId)) {
             return res.status(400).json({
@@ -318,6 +327,7 @@ export const getStoreInventory = async (req, res) => {
             });
         }
 
+        // GET STORE
         const store = await Store.findById(storeId)
             .select("name code address status");
 
@@ -328,19 +338,158 @@ export const getStoreInventory = async (req, res) => {
             });
         }
 
-        const inventories = await Inventory.find({ store: storeId })
+        // SEARCH FILTER
+        const filter = {
+            store: storeId
+        };
+
+        if (search) {
+            const escapedSearch = search.replace(
+                /[.*+?^${}()|[\]\\]/g,
+                "\\$&"
+            );
+
+            const searchRegex = new RegExp(escapedSearch, "i");
+
+            const productRef = Inventory.schema
+                .path("product")
+                ?.options?.ref;
+
+            const variantRef = Inventory.schema
+                .path("variant")
+                ?.options?.ref;
+
+            if (!productRef || !variantRef) {
+                throw new Error(
+                    "Product or Variant reference is missing in Inventory schema"
+                );
+            }
+
+            const ProductModel = mongoose.model(productRef);
+            const VariantModel = mongoose.model(variantRef);
+
+            const [productIds, variantIds] = await Promise.all([
+                ProductModel.find({
+                    name: searchRegex
+                }).distinct("_id"),
+
+                VariantModel.find({
+                    $or: [
+                        { name: searchRegex },
+                        { sku: searchRegex }
+                    ]
+                }).distinct("_id")
+            ]);
+
+            if (productIds.length || variantIds.length) {
+                filter.$or = [];
+
+                if (productIds.length) {
+                    filter.$or.push({
+                        product: { $in: productIds }
+                    });
+                }
+
+                if (variantIds.length) {
+                    filter.$or.push({
+                        variant: { $in: variantIds }
+                    });
+                }
+            } else {
+                // No matching product or variant
+                filter._id = { $exists: false };
+            }
+        }
+
+        // ALL STORE STATISTICS
+        // These queries are independent of search and pagination.
+        const [
+            totalInventory,
+            activeInventory,
+            inactiveInventory,
+            lowStockInventory
+        ] = await Promise.all([
+            Inventory.countDocuments({
+                store: storeId
+            }),
+
+            Inventory.countDocuments({
+                store: storeId,
+                status: "active"
+            }),
+
+            Inventory.countDocuments({
+                store: storeId,
+                status: "inactive"
+            }),
+
+            Inventory.countDocuments({
+                store: storeId,
+                status: "active",
+                $expr: {
+                    $lte: [
+                        {
+                            $subtract: [
+                                "$quantity",
+                                "$reservedQuantity"
+                            ]
+                        },
+                        "$reorderLevel"
+                    ]
+                }
+            })
+        ]);
+
+        // SEARCH RESULT COUNT
+        const filteredCount = await Inventory.countDocuments(filter);
+
+        const totalPages = Math.ceil(filteredCount / limit);
+
+        // Prevent invalid page after deleting the last record
+        const currentPage = Math.min(
+            page,
+            Math.max(totalPages, 1)
+        );
+
+        const skip = (currentPage - 1) * limit;
+
+        // PAGINATED INVENTORY
+        const inventories = await Inventory.find(filter)
             .populate("product")
             .populate("variant")
-            .sort({ createdAt: -1 });
+            .sort({ createdAt: -1, _id: -1 })
+            .skip(skip)
+            .limit(limit);
 
         return res.status(200).json({
             success: true,
+            message: "Store inventory fetched successfully",
+
             store,
-            count: inventories.length,
+
+            // ALL STORE COUNTS
+            count: totalInventory,
+            totalInventory,
+
+            statistics: {
+                totalInventory,
+                activeInventory,
+                inactiveInventory,
+                lowStockInventory
+            },
+
+            // SEARCH + PAGINATION COUNTS
+            filteredCount,
+            totalPages,
+            currentPage,
+            limit,
+            search,
+
             inventories
         });
 
     } catch (error) {
+        console.error("Get Store Inventory Error:", error);
         return handleResponseError(error, res);
     }
 };
@@ -647,8 +796,181 @@ export const changeStatus = async (req, res) => {
     }
 };
 
-// GET AVAILABLE PRODUCTS BY STORE ID (CUSTOMER)
+
+
+// GET AVAILABLE STORE INVENTORY (CUSTOMER)
+// Returns ProductVariants, not Product documents.
 export const getAvailableStoreInventory = async (req, res) => {
+    try {
+        const { storeId } = req.params;
+        const {
+            category: categorySlug,
+            product: productSlug,
+        } = req.query;
+
+        // PAGINATION
+        const page = Math.max(Number(req.query.page) || 1, 1);
+        const limit = Math.min(
+            Math.max(Number(req.query.limit) || 20, 1),
+            50
+        );
+        const skip = (page - 1) * limit;
+
+        // VALIDATE STORE ID
+        if (!mongoose.Types.ObjectId.isValid(storeId)) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid store ID",
+            });
+        }
+
+        // CHECK STORE
+        const store = await Store.findById(storeId).select(
+            "_id name status"
+        );
+
+        if (!store || store.status !== "active") {
+            return res.status(404).json({
+                success: false,
+                message: "Store not found or inactive",
+            });
+        }
+
+        // BASE INVENTORY FILTER
+        const inventoryFilter = {
+            store: storeId,
+            status: "active",
+            availableQuantity: { $gt: 0 },
+        };
+
+        /*
+         * CATEGORY + PRODUCT FILTER
+         *
+         * category only:
+         *   all variants belonging to products in that category
+         *
+         * product only:
+         *   all variants belonging to that product
+         *
+         * category + product:
+         *   variants belonging to that product AND category
+         */
+        if (categorySlug || productSlug) {
+            const productFilter = {};
+
+            if (categorySlug) {
+                const category = await Category.findOne({
+                    slug: categorySlug,
+                }).select("_id");
+
+                if (!category) {
+                    return res.status(200).json({
+                        success: true,
+                        message: "No variants found",
+                        store: store.name,
+                        count: 0,
+                        pagination: {
+                            currentPage: page,
+                            limit,
+                            totalVariants: 0,
+                            totalPages: 0,
+                            hasNextPage: false,
+                            hasPreviousPage: page > 1,
+                        },
+                        variants: [],
+                    });
+                }
+
+                productFilter.category = category._id;
+            }
+
+            if (productSlug) {
+                productFilter.slug = productSlug;
+            }
+
+            // Product query combines category and product with AND.
+            const productIds = await Product.find(productFilter)
+                .distinct("_id");
+
+            if (!productIds.length) {
+                return res.status(200).json({
+                    success: true,
+                    message: "No variants found",
+                    store: store.name,
+                    count: 0,
+                    pagination: {
+                        currentPage: page,
+                        limit,
+                        totalVariants: 0,
+                        totalPages: 0,
+                        hasNextPage: false,
+                        hasPreviousPage: page > 1,
+                    },
+                    variants: [],
+                });
+            }
+
+            inventoryFilter.product = {
+                $in: productIds,
+            };
+        }
+
+        // COUNT MATCHING INVENTORY VARIANTS BEFORE PAGINATION
+        const totalVariants = await Inventory.countDocuments(
+            inventoryFilter
+        );
+
+        // FETCH ONLY THE REQUESTED PAGE
+        const inventories = await Inventory.find(inventoryFilter)
+            .populate("product")
+            .populate("variant")
+            .sort({ createdAt: -1, _id: -1 })
+            .skip(skip)
+            .limit(limit)
+            .lean();
+
+        // RETURN VARIANT DATA WITH PRODUCT + STORE INVENTORY DETAILS
+        const variants = inventories
+            .filter((item) => item.product && item.variant)
+            .map((item) => ({
+                ...item.variant,
+                product: item.product,
+                availableQuantity: item.availableQuantity,
+                inventoryId: item._id,
+            }));
+
+        const totalPages = Math.ceil(totalVariants / limit);
+
+        return res.status(200).json({
+            success: true,
+            message: "Available store variants fetched successfully",
+            store: store.name,
+            count: variants.length,
+            pagination: {
+                currentPage: page,
+                limit,
+                totalVariants,
+                totalPages,
+                hasNextPage: page < totalPages,
+                hasPreviousPage: page > 1,
+            },
+            variants,
+        });
+    } catch (error) {
+        console.error("Get available store inventory error:", error);
+
+        return res.status(500).json({
+            success: false,
+            message: "Failed to fetch available store variants",
+            error: error.message,
+        });
+    }
+};
+
+
+
+// GET FEATURED PRODUCTS BY STORE ID (CUSTOMER)
+export const getFeaturedStoreProducts = async (req, res) => {
     try {
         const { storeId } = req.params;
 
@@ -656,7 +978,7 @@ export const getAvailableStoreInventory = async (req, res) => {
         if (!mongoose.Types.ObjectId.isValid(storeId)) {
             return res.status(400).json({
                 success: false,
-                message: "Invalid store ID"
+                message: "Invalid store ID",
             });
         }
 
@@ -667,14 +989,14 @@ export const getAvailableStoreInventory = async (req, res) => {
         if (!store) {
             return res.status(404).json({
                 success: false,
-                message: "Store not found"
+                message: "Store not found",
             });
         }
 
         if (store.status !== "active") {
             return res.status(404).json({
                 success: false,
-                message: "Store is currently unavailable"
+                message: "Store is currently unavailable",
             });
         }
 
@@ -682,31 +1004,74 @@ export const getAvailableStoreInventory = async (req, res) => {
         const inventories = await Inventory.find({
             store: storeId,
             status: "active",
-            availableQuantity: { $gt: 0 }
+            availableQuantity: { $gt: 0 },
         })
-            .populate("product")
-            .populate("variant")
-            .sort({ createdAt: -1 });
+            .select("product variant")
+            .populate("variant", "sellingPrice")
+            .sort({ createdAt: -1 })
+            .lean();
 
-        // RETURN VARIANTS IN HOMEPAGE-FRIENDLY FORMAT
-        const variants = inventories
-            .filter(item => item.product && item.variant)
-            .map(item => ({
-                ...item.variant.toObject(),
-                product: item.product,
-                availableQuantity: item.availableQuantity,
-                inventoryId: item._id
-            }));
+        // STORE MINIMUM AVAILABLE VARIANT PRICE PER PRODUCT
+        const productPrices = new Map();
+
+        inventories.forEach((item) => {
+            if (!item.product || !item.variant) return;
+
+            const productId = String(item.product);
+            const price = Number(item.variant.sellingPrice);
+
+            if (!Number.isFinite(price) || price < 0) return;
+
+            const existingPrice = productPrices.get(productId);
+
+            if (
+                existingPrice === undefined ||
+                price < existingPrice
+            ) {
+                productPrices.set(productId, price);
+            }
+        });
+
+        const productIds = [...productPrices.keys()];
+
+        if (!productIds.length) {
+            return res.status(200).json({
+                success: true,
+                message: "Featured store products fetched successfully",
+                store,
+                count: 0,
+                products: [],
+            });
+        }
+
+        // GET FEATURED PRODUCTS
+        const products = await Product.find({
+            _id: { $in: productIds },
+            isFeatured: true,
+        })
+            .populate("category")
+            .sort({ createdAt: -1 })
+            .limit(10)
+            .lean();
+
+        // ATTACH STARTING PRICE
+        const featuredProducts = products.map((product) => ({
+            ...product,
+            startingPrice: productPrices.get(
+                String(product._id)
+            ),
+        }));
 
         return res.status(200).json({
             success: true,
-            message: "Available store products fetched successfully",
+            message: "Featured store products fetched successfully",
             store,
-            count: variants.length,
-            variants
+            count: featuredProducts.length,
+            products: featuredProducts,
         });
 
     } catch (error) {
+        console.error("Get Featured Store Products Error:", error);
         return handleResponseError(error, res);
     }
 };

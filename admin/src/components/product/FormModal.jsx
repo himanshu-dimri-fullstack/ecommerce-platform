@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import {
     FiX,
     FiPackage,
@@ -11,7 +12,237 @@ import {
     FiAward,
     FiBox,
     FiStar,
+    FiSearch,
+    FiChevronLeft,
+    FiChevronRight,
 } from "react-icons/fi";
+import { API } from "../../api/axios";
+
+// REUSABLE SEARCH + PAGINATION HOOK
+const usePaginatedDropdown = ({
+    endpoint,
+    responseKey,
+    category = "",
+    selectedOption = null,
+}) => {
+    const [options, setOptions] = useState([]);
+    const [search, setSearch] = useState("");
+    const [debouncedSearch, setDebouncedSearch] = useState("");
+    const [page, setPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(0);
+    const [loading, setLoading] = useState(false);
+
+    // SEARCH DEBOUNCE
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearch(search.trim());
+            setPage(1);
+        }, 400);
+
+        return () => clearTimeout(timer);
+    }, [search]);
+
+    // RESET SUBCATEGORY SEARCH WHEN CATEGORY CHANGES
+    useEffect(() => {
+        if (endpoint === "/subcategory/get") {
+            setSearch("");
+            setDebouncedSearch("");
+            setPage(1);
+        }
+    }, [category, endpoint]);
+
+    // FETCH OPTIONS
+    useEffect(() => {
+        let isMounted = true;
+
+        const fetchOptions = async () => {
+            try {
+                setLoading(true);
+
+                const params = {
+                    page,
+                    limit: 10,
+                    search: debouncedSearch,
+                };
+
+                if (endpoint === "/subcategory/get" && category) {
+                    params.category = category;
+                }
+
+                const res = await API.get(endpoint, { params });
+
+                if (!isMounted) return;
+
+                setOptions(res.data[responseKey] || []);
+                setTotalPages(res.data.totalPages || 0);
+            } catch (error) {
+                if (!isMounted) return;
+
+                console.error(
+                    `Failed to fetch ${responseKey}:`,
+                    error
+                );
+
+                setOptions([]);
+                setTotalPages(0);
+            } finally {
+                if (isMounted) {
+                    setLoading(false);
+                }
+            }
+        };
+
+        fetchOptions();
+
+        return () => {
+            isMounted = false;
+        };
+    }, [
+        endpoint,
+        responseKey,
+        category,
+        page,
+        debouncedSearch,
+    ]);
+
+    // KEEP EDIT MODE SELECTED OPTION VISIBLE
+    const finalOptions = [...options];
+
+    if (
+        selectedOption?._id &&
+        !finalOptions.some(
+            (option) =>
+                String(option._id) === String(selectedOption._id)
+        )
+    ) {
+        finalOptions.unshift(selectedOption);
+    }
+
+    return {
+        options: finalOptions,
+        search,
+        setSearch,
+        page,
+        setPage,
+        totalPages,
+        loading,
+    };
+};
+
+// REUSABLE SEARCHABLE PAGINATED SELECT
+const SearchableDropdown = ({
+    label,
+    icon: Icon,
+    name,
+    value,
+    onChange,
+    options,
+    search,
+    setSearch,
+    page,
+    setPage,
+    totalPages,
+    loading,
+    placeholder,
+    disabled = false,
+}) => {
+    return (
+        <div>
+            <label className="mb-2 block text-sm font-medium text-slate-700">
+                {label}
+            </label>
+
+            <div className="relative">
+                <Icon
+                    size={17}
+                    className="absolute left-3 top-3.5 z-10 text-slate-400"
+                />
+
+                <select
+                    name={name}
+                    value={value || ""}
+                    onChange={onChange}
+                    disabled={disabled}
+                    className="w-full appearance-none rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-3 text-sm text-slate-700 outline-none transition focus:border-[#003963] focus:ring-2 focus:ring-[#003963]/10 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                >
+                    <option value="">
+                        {disabled
+                            ? "Select category first"
+                            : placeholder}
+                    </option>
+
+                    {options.map((option) => (
+                        <option
+                            key={option._id}
+                            value={option._id}
+                        >
+                            {option.name}
+                        </option>
+                    ))}
+                </select>
+            </div>
+
+            {!disabled && (
+                <div className="mt-2 rounded-xl border border-slate-200 bg-slate-50 p-2.5">
+                    <div className="relative">
+                        <FiSearch
+                            size={15}
+                            className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                        />
+
+                        <input
+                            type="text"
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            placeholder={`Search ${label.toLowerCase()}...`}
+                            className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-3 text-xs text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#003963] focus:ring-2 focus:ring-[#003963]/10"
+                        />
+                    </div>
+
+                    <div className="mt-2 flex items-center justify-between gap-2">
+                        <span className="text-xs text-slate-500">
+                            {loading
+                                ? "Loading..."
+                                : `Page ${page} of ${totalPages || 0}`}
+                        </span>
+
+                        <div className="flex items-center gap-1">
+                            <button
+                                type="button"
+                                disabled={page <= 1 || loading}
+                                onClick={() =>
+                                    setPage((prev) => Math.max(1, prev - 1))
+                                }
+                                className="flex h-7 w-7 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 transition hover:border-[#003963] hover:text-[#003963] disabled:cursor-not-allowed disabled:opacity-40"
+                                title="Previous page"
+                            >
+                                <FiChevronLeft size={15} />
+                            </button>
+
+                            <button
+                                type="button"
+                                disabled={
+                                    page >= totalPages ||
+                                    totalPages === 0 ||
+                                    loading
+                                }
+                                onClick={() =>
+                                    setPage((prev) =>
+                                        Math.min(totalPages, prev + 1)
+                                    )
+                                }
+                                className="flex h-7 w-7 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 transition hover:border-[#003963] hover:text-[#003963] disabled:cursor-not-allowed disabled:opacity-40"
+                                title="Next page"
+                            >
+                                <FiChevronRight size={15} />
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
 
 const FormModal = ({
     setShowModal,
@@ -20,25 +251,48 @@ const FormModal = ({
     formData,
     handleChange,
     isEdit,
-    categories,
-    subcategories,
-    brands,
     tagInput,
     setTagInput,
     setFormData,
     existingImages,
-    setExistingImages
+    setExistingImages,
+    selectedOptions,
 }) => {
-    const images = existingImages
+    const images = existingImages || [];
     const selectedImages = formData?.images || [];
 
+    // CATEGORY DROPDOWN
+    const categoryDropdown = usePaginatedDropdown({
+        endpoint: "/category/get",
+        responseKey: "categories",
+        selectedOption: selectedOptions?.category,
+    });
+
+    // SUBCATEGORY DROPDOWN
+    const subcategoryDropdown = usePaginatedDropdown({
+        endpoint: "/subcategory/get",
+        responseKey: "subcategories",
+        category: formData.category || "",
+        selectedOption: selectedOptions?.subcategory,
+    });
+
+    // BRAND DROPDOWN
+    const brandDropdown = usePaginatedDropdown({
+        endpoint: "/brand/get",
+        responseKey: "brands",
+        selectedOption: selectedOptions?.brand,
+    });
+
+    // CLOSE MODAL
+    const closeModal = () => {
+        setShowModal(false);
+    };
+
     return (
-        <div
-            className="fixed inset-0 z-100 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
-        >
+        <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
             <div
                 onClick={(e) => e.stopPropagation()}
-                className="flex w-full max-w-2xl max-h-[90vh] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+                className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
             >
                 {/* HEADER */}
                 <div className="flex shrink-0 items-center justify-between border-b border-slate-200 px-6 py-5">
@@ -56,7 +310,7 @@ const FormModal = ({
 
                     <button
                         type="button"
-                        onClick={() => setShowModal(false)}
+                        onClick={closeModal}
                         className="rounded-lg p-2 text-slate-500 transition hover:bg-slate-100"
                     >
                         <FiX size={22} />
@@ -99,118 +353,38 @@ const FormModal = ({
 
                         {/* CATEGORY & SUBCATEGORY */}
                         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-                            <div>
-                                <label className="mb-2 block text-sm font-medium text-slate-700">
-                                    Category *
-                                </label>
+                            <SearchableDropdown
+                                label="Category *"
+                                icon={FiGrid}
+                                name="category"
+                                value={formData.category}
+                                onChange={handleChange}
+                                placeholder="Select category"
+                                {...categoryDropdown}
+                            />
 
-                                <div className="relative">
-                                    <FiGrid
-                                        size={17}
-                                        className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-                                    />
-
-                                    <select
-                                        name="category"
-                                        value={formData.category || ""}
-                                        onChange={handleChange}
-                                        className="w-full appearance-none rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-3 text-sm text-slate-700 outline-none focus:border-[#003963] focus:ring-2 focus:ring-[#003963]/10"
-                                    >
-                                        <option value="">
-                                            Select category
-                                        </option>
-
-                                        {categories.map((category) => (
-                                            <option
-                                                key={category._id}
-                                                value={category._id}
-                                            >
-                                                {category.name}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className="mb-2 block text-sm font-medium text-slate-700">
-                                    Subcategory
-                                </label>
-
-                                <div className="relative">
-                                    <FiLayers
-                                        size={17}
-                                        className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-                                    />
-
-                                    <select
-                                        name="subcategory"
-                                        value={formData.subcategory || ""}
-                                        onChange={handleChange}
-                                        className="w-full appearance-none rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-3 text-sm text-slate-700 outline-none focus:border-[#003963] focus:ring-2 focus:ring-[#003963]/10"
-                                    >
-                                        <option value="">
-                                            Select subcategory
-                                        </option>
-
-                                        {subcategories
-                                            .filter((subcategory) => {
-                                                const categoryId =
-                                                    subcategory.category?._id ||
-                                                    subcategory.category;
-
-                                                return (
-                                                    !formData.category ||
-                                                    String(categoryId) ===
-                                                    String(formData.category)
-                                                );
-                                            })
-                                            .map((subcategory) => (
-                                                <option
-                                                    key={subcategory._id}
-                                                    value={subcategory._id}
-                                                >
-                                                    {subcategory.name}
-                                                </option>
-                                            ))}
-                                    </select>
-                                </div>
-                            </div>
+                            <SearchableDropdown
+                                label="Subcategory"
+                                icon={FiLayers}
+                                name="subcategory"
+                                value={formData.subcategory}
+                                onChange={handleChange}
+                                placeholder="Select subcategory"
+                                disabled={!formData.category}
+                                {...subcategoryDropdown}
+                            />
                         </div>
 
                         {/* BRAND */}
-                        <div>
-                            <label className="mb-2 block text-sm font-medium text-slate-700">
-                                Brand *
-                            </label>
-
-                            <div className="relative">
-                                <FiAward
-                                    size={17}
-                                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-                                />
-
-                                <select
-                                    name="brand"
-                                    value={formData.brand || ""}
-                                    onChange={handleChange}
-                                    className="w-full appearance-none rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-3 text-sm text-slate-700 outline-none focus:border-[#003963] focus:ring-2 focus:ring-[#003963]/10"
-                                >
-                                    <option value="">
-                                        Select brand
-                                    </option>
-
-                                    {brands.map((brand) => (
-                                        <option
-                                            key={brand._id}
-                                            value={brand._id}
-                                        >
-                                            {brand.name}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-                        </div>
+                        <SearchableDropdown
+                            label="Brand *"
+                            icon={FiAward}
+                            name="brand"
+                            value={formData.brand}
+                            onChange={handleChange}
+                            placeholder="Select brand"
+                            {...brandDropdown}
+                        />
 
                         {/* DESCRIPTION */}
                         <div>
@@ -273,10 +447,14 @@ const FormModal = ({
                                 <input
                                     type="text"
                                     value={tagInput}
-                                    onChange={(e) => setTagInput(e.target.value)}
+                                    onChange={(e) =>
+                                        setTagInput(e.target.value)
+                                    }
                                     onKeyDown={(e) => {
-                                        // Space press karte hi tag create hoga
-                                        if (e.key === " " || e.key === "Enter") {
+                                        if (
+                                            e.key === " " ||
+                                            e.key === "Enter"
+                                        ) {
                                             e.preventDefault();
 
                                             const newTag = tagInput.trim();
@@ -291,14 +469,16 @@ const FormModal = ({
                                             ) {
                                                 setFormData((prev) => ({
                                                     ...prev,
-                                                    tags: [...prev.tags, newTag],
+                                                    tags: [
+                                                        ...prev.tags,
+                                                        newTag,
+                                                    ],
                                                 }));
                                             }
 
                                             setTagInput("");
                                         }
 
-                                        // Empty input par Backspace se last tag remove hoga
                                         if (
                                             e.key === "Backspace" &&
                                             !tagInput &&
@@ -315,7 +495,6 @@ const FormModal = ({
                                 />
                             </div>
 
-                            {/* TAG PREVIEW */}
                             {formData.tags.length > 0 && (
                                 <div className="mt-3 flex flex-wrap gap-2">
                                     {formData.tags.map((tag, index) => (
@@ -386,14 +565,15 @@ const FormModal = ({
                                                         className="h-24 w-full object-contain"
                                                     />
 
-                                                    {/* Delete Button */}
                                                     <button
                                                         type="button"
                                                         onClick={() => {
-                                                            setExistingImages((prevImages) =>
-                                                                prevImages.filter(
-                                                                    (_, i) => i !== index
-                                                                )
+                                                            setExistingImages(
+                                                                (prevImages) =>
+                                                                    prevImages.filter(
+                                                                        (_, i) =>
+                                                                            i !== index
+                                                                    )
                                                             );
                                                         }}
                                                         className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-red-600 text-white shadow-md transition hover:bg-red-700"
@@ -440,22 +620,19 @@ const FormModal = ({
                             </div>
 
                             {/* SELECTED FILES */}
-                            <div className="">
-                                {selectedImages.length > 0 && (
-                                    <div className="mt-3 space-y-2 grid grid-cols-4 gap-3">
-                                        {selectedImages.map((image, index) => (
-                                            <div
-                                                key={`${image.name}-${index}`}
-                                                className=""
-                                            >
-                                                <img src={URL.createObjectURL(image)} className="w-full h-20 object-cover border
-                                                border-[#eee]" />
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-
+                            {selectedImages.length > 0 && (
+                                <div className="mt-3 grid grid-cols-4 gap-3">
+                                    {selectedImages.map((image, index) => (
+                                        <div key={`${image.name}-${index}`}>
+                                            <img
+                                                src={URL.createObjectURL(image)}
+                                                alt={image.name}
+                                                className="h-20 w-full border border-[#eee] object-cover"
+                                            />
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                         </div>
 
                         {/* PRODUCT OPTIONS */}
@@ -492,7 +669,7 @@ const FormModal = ({
                 <div className="flex shrink-0 justify-end gap-3 border-t border-slate-100 bg-white px-6 py-4">
                     <button
                         type="button"
-                        onClick={() => setShowModal(false)}
+                        onClick={closeModal}
                         className="rounded-xl border border-slate-200 px-5 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
                     >
                         Cancel

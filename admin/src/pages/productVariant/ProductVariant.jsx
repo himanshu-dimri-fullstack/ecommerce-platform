@@ -15,6 +15,7 @@ import {
     FiChevronsLeft,
     FiChevronsRight,
 } from "react-icons/fi";
+
 import { useNavigate, Navigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { API } from "../../api/axios";
@@ -50,12 +51,22 @@ const ProductVariant = () => {
 
     const [dataLoading, setDataLoading] = useState(true);
 
-    // SEARCH + PAGINATION
+    // VARIANT SEARCH + PAGINATION
     const [search, setSearch] = useState("");
     const [debouncedSearch, setDebouncedSearch] = useState("");
     const [currentPage, setCurrentPage] = useState(1);
     const [limit, setLimit] = useState(10);
     const [totalPages, setTotalPages] = useState(0);
+
+    // PRODUCT DROPDOWN SEARCH + PAGINATION
+    const [products, setProducts] = useState([]);
+    const [productSearch, setProductSearch] = useState("");
+    const [debouncedProductSearch, setDebouncedProductSearch] =
+        useState("");
+    const [productPage, setProductPage] = useState(1);
+    const [productTotalPages, setProductTotalPages] = useState(0);
+    const [productLoading, setProductLoading] = useState(false);
+    const [selectedProduct, setSelectedProduct] = useState(null);
 
     // DATABASE COUNTS
     const [totalVariantCount, setTotalVariantCount] = useState(0);
@@ -71,7 +82,6 @@ const ProductVariant = () => {
     const [deleteId, setDeleteId] = useState(null);
 
     // DATA
-    const [products, setProducts] = useState([]);
     const [variants, setVariants] = useState([]);
     const [existingImages, setExistingImages] = useState([]);
     const [formData, setFormData] = useState(initialFormData);
@@ -124,11 +134,24 @@ const ProductVariant = () => {
         });
     };
 
-    // FETCH PRODUCTS FOR DROPDOWN
-    const getAllProducts = async () => {
+    // FETCH PRODUCTS FOR FORM DROPDOWN
+    const getAllProducts = async (
+        page = productPage,
+        searchValue = debouncedProductSearch
+    ) => {
         try {
-            const res = await API.get("/product/get");
+            setProductLoading(true);
+
+            const res = await API.get("/product/get", {
+                params: {
+                    page,
+                    limit: 10,
+                    search: searchValue,
+                },
+            });
+
             setProducts(res.data.products || []);
+            setProductTotalPages(res.data.totalPages || 0);
         } catch (error) {
             console.error(error);
 
@@ -136,6 +159,26 @@ const ProductVariant = () => {
                 error?.response?.data?.message ||
                 "Failed to fetch products"
             );
+        } finally {
+            setProductLoading(false);
+        }
+    };
+
+    // HANDLE PRODUCT SELECTION
+    const handleProductChange = (e) => {
+        const productId = e.target.value;
+
+        setFormData((prev) => ({
+            ...prev,
+            product: productId,
+        }));
+
+        const product = products.find(
+            (item) => item._id === productId
+        );
+
+        if (product) {
+            setSelectedProduct(product);
         }
     };
 
@@ -151,7 +194,6 @@ const ProductVariant = () => {
             });
 
             setVariants(res.data.variants || []);
-
             setTotalPages(res.data.totalPages || 0);
 
             setTotalVariantCount(res.data.totalVariants || 0);
@@ -175,6 +217,14 @@ const ProductVariant = () => {
         setExistingImages([]);
         setEditId(null);
         setIsEdit(false);
+
+        // Reset product dropdown
+        setSelectedProduct(null);
+        setProductSearch("");
+        setDebouncedProductSearch("");
+        setProductPage(1);
+        setProducts([]);
+        setProductTotalPages(0);
     };
 
     // OPEN ADD MODAL
@@ -284,7 +334,7 @@ const ProductVariant = () => {
             setShowModal(false);
             resetForm();
 
-            // Newest variant appears on the first page
+            // Newest variant appears on first page
             setCurrentPage(1);
 
             if (currentPage === 1) {
@@ -307,8 +357,21 @@ const ProductVariant = () => {
 
         const dimensions = variant.dimensions || {};
 
+        const product =
+            variant.product && typeof variant.product === "object"
+                ? variant.product
+                : null;
+
+        setSelectedProduct(product);
+
+        setProductSearch("");
+        setDebouncedProductSearch("");
+        setProductPage(1);
+        setProducts([]);
+        setProductTotalPages(0);
+
         setFormData({
-            product: variant.product?._id || variant.product || "",
+            product: product?._id || variant.product || "",
             name: variant.name || "",
             barcode: variant.barcode || "",
             unitValue: String(variant.unitValue ?? 1),
@@ -430,7 +493,7 @@ const ProductVariant = () => {
         }
     };
 
-    // SEARCH DEBOUNCE
+    // VARIANT SEARCH DEBOUNCE
     useEffect(() => {
         const timer = setTimeout(() => {
             setDebouncedSearch(search.trim());
@@ -445,10 +508,22 @@ const ProductVariant = () => {
         getAllVariants(currentPage);
     }, [currentPage, limit, debouncedSearch]);
 
-    // INITIAL FETCH
+    // PRODUCT SEARCH DEBOUNCE
     useEffect(() => {
-        getAllProducts();
-    }, []);
+        const timer = setTimeout(() => {
+            setDebouncedProductSearch(productSearch.trim());
+            setProductPage(1);
+        }, 400);
+
+        return () => clearTimeout(timer);
+    }, [productSearch]);
+
+    // FETCH PRODUCTS ONLY WHEN FORM MODAL IS OPEN
+    useEffect(() => {
+        if (!showModal) return;
+
+        getAllProducts(productPage, debouncedProductSearch);
+    }, [showModal, productPage, debouncedProductSearch]);
 
     // PERMISSION CHECK
     if (
@@ -773,8 +848,8 @@ const ProductVariant = () => {
                                                 type="button"
                                                 onClick={() => changeStatus(variant._id)}
                                                 className={`rounded-lg px-3 py-2 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${variant.status === "active"
-                                                    ? "bg-green-100 text-green-700 hover:bg-green-200"
-                                                    : "bg-red-100 text-red-700 hover:bg-red-200"
+                                                        ? "bg-green-100 text-green-700 hover:bg-green-200"
+                                                        : "bg-red-100 text-red-700 hover:bg-red-200"
                                                     }`}
                                             >
                                                 {variant.status || "inactive"}
@@ -862,7 +937,7 @@ const ProductVariant = () => {
                     </table>
                 </div>
 
-                {/* PAGINATION */}
+                {/* VARIANT PAGINATION */}
                 {totalPages > 0 && (
                     <div className="flex flex-col gap-4 border-t border-slate-200 bg-white px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
 
@@ -879,31 +954,28 @@ const ProductVariant = () => {
 
                         <div className="flex flex-wrap items-center justify-center gap-1.5">
 
-                            {/* FIRST PAGE */}
                             <button
                                 type="button"
                                 disabled={currentPage === 1}
                                 onClick={() => setCurrentPage(1)}
-                                className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:border-[#047857] hover:bg-emerald-50 hover:text-[#047857] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-slate-200 disabled:hover:bg-white disabled:hover:text-slate-600"
+                                className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:border-[#047857] hover:bg-emerald-50 hover:text-[#047857] disabled:cursor-not-allowed disabled:opacity-40"
                                 title="First page"
                             >
                                 <FiChevronsLeft size={17} />
                             </button>
 
-                            {/* PREVIOUS */}
                             <button
                                 type="button"
                                 disabled={currentPage === 1}
                                 onClick={() =>
                                     setCurrentPage((prev) => Math.max(1, prev - 1))
                                 }
-                                className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:border-[#047857] hover:bg-emerald-50 hover:text-[#047857] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-slate-200 disabled:hover:bg-white disabled:hover:text-slate-600"
+                                className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:border-[#047857] hover:bg-emerald-50 hover:text-[#047857] disabled:cursor-not-allowed disabled:opacity-40"
                                 title="Previous page"
                             >
                                 <FiChevronLeft size={17} />
                             </button>
 
-                            {/* FIRST PAGE + ELLIPSIS */}
                             {paginationNumbers.length > 0 &&
                                 paginationNumbers[0] > 1 && (
                                     <>
@@ -923,22 +995,20 @@ const ProductVariant = () => {
                                     </>
                                 )}
 
-                            {/* PAGE NUMBERS */}
                             {paginationNumbers.map((page) => (
                                 <button
                                     key={page}
                                     type="button"
                                     onClick={() => setCurrentPage(page)}
                                     className={`h-9 min-w-9 rounded-lg px-3 text-sm font-semibold transition ${currentPage === page
-                                        ? "bg-linear-to-br from-[#064e3b] via-[#047857] to-[#022c22] text-white shadow-sm"
-                                        : "border border-slate-200 text-slate-600 hover:border-[#047857] hover:bg-emerald-50 hover:text-[#047857]"
+                                            ? "bg-linear-to-br from-[#064e3b] via-[#047857] to-[#022c22] text-white shadow-sm"
+                                            : "border border-slate-200 text-slate-600 hover:border-[#047857] hover:bg-emerald-50 hover:text-[#047857]"
                                         }`}
                                 >
                                     {page}
                                 </button>
                             ))}
 
-                            {/* LAST PAGE + ELLIPSIS */}
                             {paginationNumbers.length > 0 &&
                                 paginationNumbers[paginationNumbers.length - 1] < totalPages && (
                                     <>
@@ -958,7 +1028,6 @@ const ProductVariant = () => {
                                     </>
                                 )}
 
-                            {/* NEXT */}
                             <button
                                 type="button"
                                 disabled={currentPage === totalPages}
@@ -967,18 +1036,17 @@ const ProductVariant = () => {
                                         Math.min(totalPages, prev + 1)
                                     )
                                 }
-                                className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:border-[#047857] hover:bg-emerald-50 hover:text-[#047857] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-slate-200 disabled:hover:bg-white disabled:hover:text-slate-600"
+                                className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:border-[#047857] hover:bg-emerald-50 hover:text-[#047857] disabled:cursor-not-allowed disabled:opacity-40"
                                 title="Next page"
                             >
                                 <FiChevronRight size={17} />
                             </button>
 
-                            {/* LAST */}
                             <button
                                 type="button"
                                 disabled={currentPage === totalPages}
                                 onClick={() => setCurrentPage(totalPages)}
-                                className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:border-[#047857] hover:bg-emerald-50 hover:text-[#047857] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-slate-200 disabled:hover:bg-white disabled:hover:text-slate-600"
+                                className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:border-[#047857] hover:bg-emerald-50 hover:text-[#047857] disabled:cursor-not-allowed disabled:opacity-40"
                                 title="Last page"
                             >
                                 <FiChevronsRight size={17} />
@@ -998,7 +1066,15 @@ const ProductVariant = () => {
                     handleAddVariant={handleAddVariant}
                     formData={formData}
                     handleChange={handleChange}
+                    handleProductChange={handleProductChange}
                     products={products}
+                    productSearch={productSearch}
+                    setProductSearch={setProductSearch}
+                    productPage={productPage}
+                    setProductPage={setProductPage}
+                    productTotalPages={productTotalPages}
+                    productLoading={productLoading}
+                    selectedProduct={selectedProduct}
                     existingImages={existingImages}
                     setExistingImages={setExistingImages}
                     setFormData={setFormData}

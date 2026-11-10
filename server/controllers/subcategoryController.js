@@ -4,6 +4,7 @@ import { uploadFile } from "../config/cloudinary.js"
 import { destroyFile } from "../config/cloudinary.js"
 import Product from "../models/Product.js"
 import { handleResponseError } from "../utils/errorUtils.js"
+import mongoose from "mongoose"
 
 export const createSubcategory = async (req, res) => {
     try {
@@ -102,24 +103,41 @@ export const updateSubcategory = async (req, res) => {
 
 }
 
+
 export const getAllSubcategory = async (req, res) => {
     try {
         const {
             category,
             search = "",
-            page,
-            limit,
+            page = 1,
+            limit = 10,
         } = req.query;
+
+        const currentPage = Math.max(Number(page) || 1, 1);
+
+        const pageLimit = Math.min(
+            100,
+            Math.max(Number(limit) || 10, 1)
+        );
 
         const filter = {};
 
-        // Category filter
+        // CATEGORY FILTER: Accept both MongoDB ID and slug
         if (category) {
-            const getCategory = await Category.findOne({
-                slug: category,
-            });
+            let categoryData = null;
 
-            if (!getCategory) {
+            if (mongoose.Types.ObjectId.isValid(category)) {
+                categoryData = await Category.findById(category)
+                    .select("_id");
+            }
+
+            if (!categoryData) {
+                categoryData = await Category.findOne({
+                    slug: category,
+                }).select("_id");
+            }
+
+            if (!categoryData) {
                 return res.status(200).json({
                     success: true,
                     subcategories: [],
@@ -127,17 +145,19 @@ export const getAllSubcategory = async (req, res) => {
                     activeSubcategories: 0,
                     inactiveSubcategories: 0,
                     totalPages: 0,
-                    currentPage: Number(page) || 1,
-                    limit: Number(limit) || 10,
+                    currentPage,
+                    limit: pageLimit,
                 });
             }
 
-            filter.category = getCategory._id;
+            filter.category = categoryData._id;
         }
 
-        // Search only by subcategory name
-        if (search.trim()) {
-            const escapedSearch = search.trim().replace(
+        // SEARCH FILTER
+        const trimmedSearch = search.trim();
+
+        if (trimmedSearch) {
+            const escapedSearch = trimmedSearch.replace(
                 /[.*+?^${}()|[\]\\]/g,
                 "\\$&"
             );
@@ -148,18 +168,6 @@ export const getAllSubcategory = async (req, res) => {
             };
         }
 
-        // Pagination is optional to preserve existing API usage
-        const shouldPaginate =
-            page !== undefined || limit !== undefined;
-
-        const currentPage = Math.max(1, Number(page) || 1);
-        const pageLimit = Math.min(
-            100,
-            Math.max(1, Number(limit) || 10)
-        );
-
-        const skip = (currentPage - 1) * pageLimit;
-
         const [
             subcategories,
             totalSubcategories,
@@ -169,8 +177,8 @@ export const getAllSubcategory = async (req, res) => {
             Subcategory.find(filter)
                 .populate("category", "name slug")
                 .sort({ createdAt: -1 })
-                .skip(shouldPaginate ? skip : 0)
-                .limit(shouldPaginate ? pageLimit : 0),
+                .skip((currentPage - 1) * pageLimit)
+                .limit(pageLimit),
 
             Subcategory.countDocuments(filter),
 
@@ -192,18 +200,20 @@ export const getAllSubcategory = async (req, res) => {
             totalSubcategories,
             activeSubcategories,
             inactiveSubcategories,
-            currentPage,
-            limit: pageLimit,
             totalPages: Math.ceil(
                 totalSubcategories / pageLimit
             ),
+            currentPage,
+            limit: pageLimit,
         });
 
     } catch (error) {
         console.error("Get All Subcategories Error:", error);
+
         return handleResponseError(error, res);
     }
 };
+
 
 export const getSubcategoryById = async (req, res) => {
     try {

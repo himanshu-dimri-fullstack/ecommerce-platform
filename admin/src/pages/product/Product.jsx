@@ -28,6 +28,7 @@ const inputClass =
 
 const Product = () => {
     const navigate = useNavigate();
+
     const user = useSelector((store) => store.auth.user);
     const permissions = user?.role?.permissions || [];
 
@@ -44,10 +45,12 @@ const Product = () => {
     const [editId, setEditId] = useState(null);
     const [deleteId, setDeleteId] = useState(null);
 
-    // DROPDOWN DATA
-    const [categories, setCategories] = useState([]);
-    const [subcategories, setSubcategories] = useState([]);
-    const [brands, setBrands] = useState([]);
+    // SELECTED DROPDOWN OPTIONS FOR EDIT MODE
+    const [selectedOptions, setSelectedOptions] = useState({
+        category: null,
+        subcategory: null,
+        brand: null,
+    });
 
     // PRODUCT DATA
     const [products, setProducts] = useState([]);
@@ -87,12 +90,29 @@ const Product = () => {
                 ...prev,
                 images: Array.from(files || []),
             }));
-        } else {
+
+            return;
+        }
+
+        if (name === "category") {
             setFormData((prev) => ({
                 ...prev,
-                [name]: type === "checkbox" ? checked : value,
+                category: value,
+                subcategory: "",
             }));
+
+            setSelectedOptions((prev) => ({
+                ...prev,
+                subcategory: null,
+            }));
+
+            return;
         }
+
+        setFormData((prev) => ({
+            ...prev,
+            [name]: type === "checkbox" ? checked : value,
+        }));
     };
 
     // GET ALL PRODUCTS
@@ -140,6 +160,12 @@ const Product = () => {
 
         setExistingImages([]);
         setTagInput("");
+
+        setSelectedOptions({
+            category: null,
+            subcategory: null,
+            brand: null,
+        });
     };
 
     // OPEN ADD MODAL
@@ -196,9 +222,9 @@ const Product = () => {
             setShowModal(false);
             resetForm();
 
-            setCurrentPage(1);
-
-            if (currentPage === 1) {
+            if (currentPage !== 1) {
+                setCurrentPage(1);
+            } else {
                 await getAllProducts(1);
             }
         } catch (error) {
@@ -295,6 +321,13 @@ const Product = () => {
             isFeatured: product.isFeatured,
         });
 
+        // PRESERVE SELECTED DROPDOWN OPTIONS
+        setSelectedOptions({
+            category: product.category || null,
+            subcategory: product.subcategory || null,
+            brand: product.brand || null,
+        });
+
         setExistingImages(product.images || []);
         setShowModal(true);
     };
@@ -333,43 +366,6 @@ const Product = () => {
             setDataLoading(false);
         }
     };
-
-    // GET ALL CATEGORIES
-    const getAllCategories = async () => {
-        try {
-            const res = await API.get("/category/get");
-            setCategories(res.data.categories || []);
-        } catch (error) {
-            console.log(error.message);
-        }
-    };
-
-    // GET ALL SUBCATEGORIES
-    const getAllSubcategories = async () => {
-        try {
-            const res = await API.get("/subcategory/get");
-            setSubcategories(res.data.subcategories || []);
-        } catch (error) {
-            console.log(error.message);
-        }
-    };
-
-    // GET ALL BRANDS
-    const getAllBrands = async () => {
-        try {
-            const res = await API.get("/brand/get");
-            setBrands(res.data.brands || []);
-        } catch (error) {
-            console.log(error.message);
-        }
-    };
-
-    // INITIAL FETCH
-    useEffect(() => {
-        getAllCategories();
-        getAllSubcategories();
-        getAllBrands();
-    }, []);
 
     // SEARCH DEBOUNCE
     useEffect(() => {
@@ -444,14 +440,27 @@ const Product = () => {
         <div className="space-y-6">
 
             {/* PAGE HEADER */}
-            <div>
-                <h1 className="text-2xl font-bold text-slate-800">
-                    Products
-                </h1>
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                    <h1 className="text-2xl font-bold text-slate-800">
+                        Products
+                    </h1>
 
-                <p className="mt-1 text-sm text-slate-500">
-                    Manage your products, listings and product status.
-                </p>
+                    <p className="mt-1 text-sm text-slate-500">
+                        Manage your products, listings and product status.
+                    </p>
+                </div>
+
+                {permissions.includes("product:add") && (
+                    <button
+                        type="button"
+                        onClick={handleAddProductModal}
+                        className="inline-flex items-center justify-center gap-2 rounded-xl bg-linear-to-br from-[#064e3b] via-[#047857] to-[#022c22] px-5 py-3 text-sm font-semibold text-white shadow-sm transition-all hover:shadow-md hover:brightness-110 active:scale-[0.98]"
+                    >
+                        <FiPlus size={19} />
+                        Add Product
+                    </button>
+                )}
             </div>
 
             {/* STATISTICS */}
@@ -515,7 +524,7 @@ const Product = () => {
                 </div>
             </div>
 
-            {/* SEARCH + ADD */}
+            {/* SEARCH + PAGE LIMIT */}
             <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
 
@@ -695,8 +704,8 @@ const Product = () => {
                                                 type="button"
                                                 onClick={() => changeStatus(product._id)}
                                                 className={`rounded-lg px-3 py-2 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${product.isActive
-                                                    ? "bg-green-100 text-green-700 hover:bg-green-200"
-                                                    : "bg-red-100 text-red-700 hover:bg-red-200"
+                                                        ? "bg-green-100 text-green-700 hover:bg-green-200"
+                                                        : "bg-red-100 text-red-700 hover:bg-red-200"
                                                     }`}
                                             >
                                                 {product.isActive ? "active" : "inactive"}
@@ -833,8 +842,8 @@ const Product = () => {
                                     type="button"
                                     onClick={() => setCurrentPage(page)}
                                     className={`h-9 min-w-9 rounded-lg px-3 text-sm font-semibold transition ${currentPage === page
-                                        ? "bg-linear-to-br from-[#064e3b] via-[#047857] to-[#022c22] text-white shadow-sm"
-                                        : "border border-slate-200 text-slate-600 hover:border-[#047857] hover:bg-emerald-50 hover:text-[#047857]"
+                                            ? "bg-linear-to-br from-[#064e3b] via-[#047857] to-[#022c22] text-white shadow-sm"
+                                            : "border border-slate-200 text-slate-600 hover:border-[#047857] hover:bg-emerald-50 hover:text-[#047857]"
                                         }`}
                                 >
                                     {page}
@@ -901,13 +910,11 @@ const Product = () => {
                     setFormData={setFormData}
                     handleChange={handleChange}
                     isEdit={isEdit}
-                    categories={categories}
-                    subcategories={subcategories}
-                    brands={brands}
                     tagInput={tagInput}
                     setTagInput={setTagInput}
                     existingImages={existingImages}
                     setExistingImages={setExistingImages}
+                    selectedOptions={selectedOptions}
                 />
             )}
 

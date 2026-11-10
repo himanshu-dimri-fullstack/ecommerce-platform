@@ -1,8 +1,10 @@
+
 "use client";
 
 import { useState, useEffect, useRef, Suspense } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+
 import {
     FiZap,
     FiUser,
@@ -12,15 +14,19 @@ import {
     FiChevronDown,
     FiLogOut,
 } from "react-icons/fi";
+
 import { useDispatch, useSelector } from "react-redux";
 import type { RootState, AppDispatch } from "@/redux/store";
+
 import LoginModal from "@/components/auth/LoginModal";
 import SignupModal from "./auth/SignupModal";
 import DeliveryLocation from "@/components/navbar/DeliveryLocation";
 import ProductSearch from "@/components/navbar/ProductSearch";
+
 import { API } from "@/axios/axios";
 import { setUser } from "@/redux/authSlice";
 import { fetchCart, setCart } from "@/redux/cartSlice";
+
 import toast from "react-hot-toast";
 
 // Navbar Skeleton
@@ -52,7 +58,7 @@ function Navbar() {
 
     const {
         store: nearestStore,
-        loading: storeLoading
+        loading: storeLoading,
     } = useSelector((state: RootState) => state.store);
 
     const storeId = nearestStore?._id;
@@ -61,10 +67,11 @@ function Navbar() {
     const isStoreAvailable = !storeLoading && Boolean(storeId);
 
     // Total quantity in cart
-    const cartCount = cartItems?.reduce(
-        (total, item) => total + item.quantity,
-        0
-    ) ?? 0;
+    const cartCount =
+        cartItems?.reduce(
+            (total, item) => total + item.quantity,
+            0
+        ) ?? 0;
 
     const [loginOpen, setLoginOpen] = useState(false);
     const [isSignupOpen, setIsSignupOpen] = useState(false);
@@ -85,23 +92,19 @@ function Navbar() {
     const profileImage = user?.profileImage?.url || "";
     const avatarLetter = userName.trim().charAt(0).toUpperCase() || "U";
 
-    const handleAccountClick = (
-        e: React.MouseEvent<HTMLAnchorElement>,
-        label: string
-    ) => {
-        e.preventDefault();
-
-        if (!isStoreAvailable) return;
-
-        if (label === "Login") {
-            setLoginOpen(true);
+    // Close menus when store becomes unavailable
+    useEffect(() => {
+        if (!isStoreAvailable) {
             setMobileMenuOpen(false);
+            setAccountOpen(false);
+            setLoginOpen(false);
+            setIsSignupOpen(false);
         }
-    };
+    }, [isStoreAvailable]);
 
     // Logout
     const handleLogout = async () => {
-        if (loggingOut) return;
+        if (loggingOut || !isStoreAvailable) return;
 
         setLoggingOut(true);
 
@@ -146,7 +149,6 @@ function Navbar() {
 
     // Fetch store-specific cart
     useEffect(() => {
-        // Wait until store selection is resolved
         if (storeLoading) return;
 
         // Guest cart Redux mein hi rahega
@@ -181,9 +183,9 @@ function Navbar() {
         </>
     );
 
-    // Disabled button styling
+    // Disabled styling
     const disabledButtonClass =
-        "cursor-not-allowed opacity-40 pointer-events-none";
+        "cursor-not-allowed opacity-40 pointer-events-none select-none";
 
     return (
         <>
@@ -192,24 +194,41 @@ function Navbar() {
                     <div className="flex h-20 items-center justify-between gap-5">
 
                         {/* Logo */}
-                        <Link
-                            href="/"
-                            className="flex shrink-0 items-center gap-2"
-                        >
-                            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#0c831f] text-white">
-                                <FiZap size={23} />
-                            </span>
+                        {isStoreAvailable ? (
+                            <Link
+                                href="/"
+                                className="flex shrink-0 items-center gap-2"
+                            >
+                                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#0c831f] text-white">
+                                    <FiZap size={23} />
+                                </span>
 
-                            <span className="text-2xl font-extrabold tracking-tight text-gray-900">
-                                QUICK <span className="text-[#0c831f]">KART</span>
-                            </span>
-                        </Link>
+                                <span className="text-2xl font-extrabold tracking-tight text-gray-900">
+                                    QUICK <span className="text-[#0c831f]">KART</span>
+                                </span>
+                            </Link>
+                        ) : (
+                            <div className={`flex shrink-0 items-center gap-2 ${disabledButtonClass}`}>
+                                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#0c831f] text-white">
+                                    <FiZap size={23} />
+                                </span>
 
-                        {/* Delivery Location */}
+                                <span className="text-2xl font-extrabold tracking-tight text-gray-900">
+                                    QUICK <span className="text-[#0c831f]">KART</span>
+                                </span>
+                            </div>
+                        )}
+
+                        {/* Delivery Location - Always Active */}
                         <DeliveryLocation />
 
                         {/* Desktop Search */}
-                        <div className="hidden min-w-0 flex-1 md:block">
+                        <div
+                            className={`hidden min-w-0 flex-1 md:block ${!isStoreAvailable
+                                    ? "pointer-events-none opacity-40"
+                                    : ""
+                                }`}
+                        >
                             <ProductSearch
                                 value={search}
                                 onChange={setSearch}
@@ -228,8 +247,13 @@ function Navbar() {
                                 <div ref={accountRef} className="relative">
                                     <button
                                         type="button"
-                                        onClick={() => setAccountOpen(!accountOpen)}
-                                        className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-bold text-gray-700 transition hover:bg-gray-100"
+                                        disabled={!isStoreAvailable}
+                                        onClick={() => {
+                                            if (!isStoreAvailable) return;
+                                            setAccountOpen(!accountOpen);
+                                        }}
+                                        className={`flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-bold text-gray-700 transition hover:bg-gray-100 ${!isStoreAvailable ? disabledButtonClass : ""
+                                            }`}
                                     >
                                         <ProfileAvatar />
 
@@ -240,7 +264,7 @@ function Navbar() {
                                         <FiChevronDown size={16} />
                                     </button>
 
-                                    {accountOpen && (
+                                    {accountOpen && isStoreAvailable && (
                                         <div className="absolute right-0 top-full z-50 mt-2 w-48 rounded-xl border border-gray-100 bg-white p-2 shadow-xl">
                                             <Link
                                                 href="/profile"
@@ -253,7 +277,7 @@ function Navbar() {
 
                                             <button
                                                 type="button"
-                                                disabled={loggingOut}
+                                                disabled={loggingOut || !isStoreAvailable}
                                                 onClick={handleLogout}
                                                 className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-50"
                                             >
@@ -267,7 +291,11 @@ function Navbar() {
                                 <button
                                     type="button"
                                     disabled={!isStoreAvailable}
-                                    onClick={() => setLoginOpen(true)}
+                                    onClick={() => {
+                                        if (isStoreAvailable) {
+                                            setLoginOpen(true);
+                                        }
+                                    }}
                                     className={`flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-bold text-gray-700 transition hover:bg-gray-100 disabled:hover:bg-transparent ${!isStoreAvailable ? disabledButtonClass : ""
                                         }`}
                                 >
@@ -329,10 +357,16 @@ function Navbar() {
                                 )}
                             </Link>
 
+                            {/* Mobile Menu Button */}
                             <button
                                 type="button"
-                                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                                className="flex h-10 w-10 items-center justify-center rounded-xl text-gray-800 transition hover:bg-gray-100"
+                                disabled={!isStoreAvailable}
+                                onClick={() => {
+                                    if (!isStoreAvailable) return;
+                                    setMobileMenuOpen(!mobileMenuOpen);
+                                }}
+                                className={`flex h-10 w-10 items-center justify-center rounded-xl text-gray-800 transition hover:bg-gray-100 disabled:hover:bg-transparent ${!isStoreAvailable ? disabledButtonClass : ""
+                                    }`}
                                 aria-label="Toggle menu"
                             >
                                 {mobileMenuOpen ? (
@@ -353,24 +387,37 @@ function Navbar() {
                                     (item.href !== "/" &&
                                         pathname.startsWith(item.href));
 
-                                return (
+                                return isStoreAvailable ? (
                                     <Link
                                         key={item.href}
                                         href={item.href}
                                         className={`whitespace-nowrap text-sm font-bold transition ${active
-                                            ? "text-[#0c831f]"
-                                            : "text-gray-700 hover:text-[#0c831f]"
+                                                ? "text-[#0c831f]"
+                                                : "text-gray-700 hover:text-[#0c831f]"
                                             }`}
                                     >
                                         {item.label}
                                     </Link>
+                                ) : (
+                                    <span
+                                        key={item.href}
+                                        aria-disabled="true"
+                                        className={`whitespace-nowrap text-sm font-bold ${disabledButtonClass}`}
+                                    >
+                                        {item.label}
+                                    </span>
                                 );
                             })}
                         </nav>
                     </div>
 
                     {/* Mobile Search */}
-                    <div className="pb-3 md:hidden">
+                    <div
+                        className={`pb-3 md:hidden ${!isStoreAvailable
+                                ? "pointer-events-none opacity-40"
+                                : ""
+                            }`}
+                    >
                         <ProductSearch
                             value={search}
                             onChange={setSearch}
@@ -380,7 +427,7 @@ function Navbar() {
                 </div>
 
                 {/* Mobile Menu */}
-                {mobileMenuOpen && (
+                {mobileMenuOpen && isStoreAvailable && (
                     <div className="border-t border-gray-100 bg-white px-4 py-4 shadow-lg md:hidden">
                         <nav className="flex flex-col gap-1">
                             {navLinks.map((item) => {
@@ -395,8 +442,8 @@ function Navbar() {
                                         href={item.href}
                                         onClick={() => setMobileMenuOpen(false)}
                                         className={`rounded-xl px-4 py-3 text-sm font-bold transition ${active
-                                            ? "bg-green-50 text-[#0c831f]"
-                                            : "text-gray-700 hover:bg-gray-50"
+                                                ? "bg-green-50 text-[#0c831f]"
+                                                : "text-gray-700 hover:bg-gray-50"
                                             }`}
                                     >
                                         {item.label}
@@ -459,10 +506,12 @@ function Navbar() {
                                     type="button"
                                     disabled={!isStoreAvailable}
                                     onClick={() => {
+                                        if (!isStoreAvailable) return;
+
                                         setLoginOpen(true);
                                         setMobileMenuOpen(false);
                                     }}
-                                    className={`flex items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-bold text-gray-700 transition hover:bg-gray-50 disabled:hover:bg-transparent ${!isStoreAvailable ? disabledButtonClass : ""
+                                    className={`flex items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-bold text-gray-700 transition hover:bg-gray-50 ${!isStoreAvailable ? disabledButtonClass : ""
                                         }`}
                                 >
                                     <FiUser size={19} />
@@ -472,19 +521,9 @@ function Navbar() {
 
                             {/* Mobile Menu Cart */}
                             <Link
-                                href={isStoreAvailable ? "/cart" : "#"}
-                                aria-disabled={!isStoreAvailable}
-                                tabIndex={isStoreAvailable ? 0 : -1}
-                                onClick={(e) => {
-                                    if (!isStoreAvailable) {
-                                        e.preventDefault();
-                                        return;
-                                    }
-
-                                    setMobileMenuOpen(false);
-                                }}
-                                className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold text-gray-700 transition hover:bg-gray-50 ${!isStoreAvailable ? disabledButtonClass : ""
-                                    }`}
+                                href="/cart"
+                                onClick={() => setMobileMenuOpen(false)}
+                                className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold text-gray-700 transition hover:bg-gray-50"
                             >
                                 <span className="relative inline-flex">
                                     <FiShoppingCart size={19} />
@@ -512,7 +551,7 @@ function Navbar() {
             )}
 
             {/* Signup Modal */}
-            {isSignupOpen && (
+            {isSignupOpen && isStoreAvailable && (
                 <SignupModal
                     setIsSignupOpen={setIsSignupOpen}
                 />

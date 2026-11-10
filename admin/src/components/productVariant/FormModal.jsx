@@ -1,9 +1,16 @@
+import { useState } from "react";
+
 import {
     FiX,
     FiPackage,
     FiTag,
     FiDollarSign,
     FiImage,
+    FiSearch,
+    FiChevronDown,
+    FiChevronLeft,
+    FiChevronRight,
+    FiCheckCircle,
 } from "react-icons/fi";
 
 const inputClass =
@@ -20,23 +27,71 @@ const FormModal = ({
     handleAddVariant,
     formData,
     handleChange,
+
+    // PRODUCT DROPDOWN PROPS
+    handleProductChange,
     products,
+    productSearch,
+    setProductSearch,
+    productPage,
+    setProductPage,
+    productTotalPages,
+    productLoading,
+    selectedProduct,
+
+    // IMAGE PROPS
     existingImages,
     setExistingImages,
     setFormData,
 }) => {
+    const [showProductDropdown, setShowProductDropdown] = useState(false);
+
+    // PRESERVE SELECTED PRODUCT EVEN IF IT IS NOT ON CURRENT PAGE
+    const currentSelectedProduct =
+        products.find(
+            (product) => product._id === formData.product
+        ) ||
+        (selectedProduct?._id === formData.product
+            ? selectedProduct
+            : null);
+
+    // CLOSE MODAL
+    const closeModal = () => {
+        setShowModal(false);
+        setShowProductDropdown(false);
+        resetForm();
+    };
+
+    // SELECT PRODUCT
+    const selectProduct = (product) => {
+        handleProductChange({
+            target: {
+                value: product._id,
+            },
+        });
+
+        setShowProductDropdown(false);
+    };
+
     return (
-        <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/50 p-4"
+        <div
+            className="fixed inset-0 z-100 flex items-center justify-center bg-black/50 p-4"
+            onClick={closeModal}
         >
-            <div className="flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
-                onClick={(e) => e.stopPropagation()}>
+            <div
+                className="flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+                onClick={(e) => e.stopPropagation()}
+            >
 
                 {/* MODAL HEADER */}
                 <div className="flex items-center justify-between border-b border-slate-200 px-6 py-5">
                     <div>
                         <h2 className="text-xl font-bold text-slate-800">
-                            {isEdit ? "Edit Product Variant" : "Add Product Variant"}
+                            {isEdit
+                                ? "Edit Product Variant"
+                                : "Add Product Variant"}
                         </h2>
+
                         <p className="mt-1 text-sm text-slate-500">
                             Enter the variant details and pricing.
                         </p>
@@ -44,10 +99,7 @@ const FormModal = ({
 
                     <button
                         type="button"
-                        onClick={() => {
-                            setShowModal(false);
-                            resetForm();
-                        }}
+                        onClick={closeModal}
                         className="rounded-lg p-2 text-slate-500 transition hover:bg-slate-100"
                     >
                         <FiX size={22} />
@@ -56,7 +108,11 @@ const FormModal = ({
 
                 {/* MODAL FORM */}
                 <form
-                    onSubmit={isEdit ? handleEditVariant : handleAddVariant}
+                    onSubmit={
+                        isEdit
+                            ? handleEditVariant
+                            : handleAddVariant
+                    }
                     className="overflow-y-auto"
                 >
                     <div className="space-y-6 p-6">
@@ -64,38 +120,205 @@ const FormModal = ({
                         {/* BASIC INFORMATION */}
                         <section>
                             <h3 className="mb-4 flex items-center gap-2 font-semibold text-slate-800">
-                                <FiPackage className="text-[#003963]" size={19} />
+                                <FiPackage
+                                    className="text-[#003963]"
+                                    size={19}
+                                />
                                 Basic Information
                             </h3>
 
                             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
 
-                                <div className="md:col-span-2">
+                                {/* SEARCHABLE PRODUCT DROPDOWN */}
+                                <div className="relative md:col-span-2">
                                     <label className={labelClass}>
                                         Product *
                                     </label>
 
-                                    <select
-                                        name="product"
-                                        value={formData.product}
-                                        onChange={handleChange}
-                                        className={inputClass}
+                                    {/* SELECTED PRODUCT BUTTON */}
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            setShowProductDropdown((prev) => !prev)
+                                        }
+                                        className={`${inputClass} flex items-center justify-between text-left`}
                                     >
-                                        <option value="">
-                                            Select Product
-                                        </option>
+                                        <span
+                                            className={
+                                                currentSelectedProduct
+                                                    ? "text-slate-800"
+                                                    : "text-slate-400"
+                                            }
+                                        >
+                                            {currentSelectedProduct?.name ||
+                                                "Select Product"}
+                                        </span>
 
-                                        {products.map((product) => (
-                                            <option
-                                                key={product._id}
-                                                value={product._id}
-                                            >
-                                                {product.name}
-                                            </option>
-                                        ))}
-                                    </select>
+                                        <FiChevronDown
+                                            size={18}
+                                            className={`text-slate-400 transition ${showProductDropdown
+                                                    ? "rotate-180"
+                                                    : ""
+                                                }`}
+                                        />
+                                    </button>
+
+                                    {/* DROPDOWN PANEL */}
+                                    {showProductDropdown && (
+                                        <div className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl">
+
+                                            {/* SEARCH INPUT */}
+                                            <div className="border-b border-slate-100 p-3">
+                                                <div className="relative">
+                                                    <FiSearch
+                                                        size={17}
+                                                        className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                                                    />
+
+                                                    <input
+                                                        type="text"
+                                                        value={productSearch}
+                                                        onChange={(e) =>
+                                                            setProductSearch(e.target.value)
+                                                        }
+                                                        placeholder="Search products..."
+                                                        className={`${inputClass} pl-9`}
+                                                        autoComplete="off"
+                                                    />
+
+                                                    {productSearch && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() =>
+                                                                setProductSearch("")
+                                                            }
+                                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-red-500"
+                                                            title="Clear search"
+                                                        >
+                                                            <FiX size={16} />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            {/* PRODUCT LIST */}
+                                            <div className="max-h-64 overflow-y-auto p-2">
+
+                                                {productLoading ? (
+                                                    <div className="py-8 text-center">
+                                                        <div className="mx-auto h-6 w-6 animate-spin rounded-full border-2 border-slate-200 border-t-[#047857]" />
+
+                                                        <p className="mt-3 text-sm text-slate-400">
+                                                            Loading products...
+                                                        </p>
+                                                    </div>
+                                                ) : products.length > 0 ? (
+                                                    products.map((product) => (
+                                                        <button
+                                                            key={product._id}
+                                                            type="button"
+                                                            onClick={() =>
+                                                                selectProduct(product)
+                                                            }
+                                                            className={`flex w-full items-center justify-between gap-3 rounded-lg px-3 py-3 text-left text-sm transition hover:bg-slate-50 ${formData.product === product._id
+                                                                    ? "bg-emerald-50 font-semibold text-[#047857]"
+                                                                    : "text-slate-700"
+                                                                }`}
+                                                        >
+                                                            <span className="min-w-0 truncate">
+                                                                {product.name}
+                                                            </span>
+
+                                                            {formData.product === product._id && (
+                                                                <FiCheckCircle
+                                                                    size={17}
+                                                                    className="shrink-0 text-[#047857]"
+                                                                />
+                                                            )}
+                                                        </button>
+                                                    ))
+                                                ) : (
+                                                    <div className="py-8 text-center">
+                                                        <FiPackage
+                                                            size={28}
+                                                            className="mx-auto text-slate-300"
+                                                        />
+
+                                                        <p className="mt-2 text-sm font-medium text-slate-600">
+                                                            No products found
+                                                        </p>
+
+                                                        <p className="mt-1 text-xs text-slate-400">
+                                                            Try another product name.
+                                                        </p>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* PRODUCT PAGINATION */}
+                                            <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50 px-3 py-3">
+
+                                                <span className="text-xs text-slate-500">
+                                                    Page{" "}
+                                                    <span className="font-semibold text-slate-700">
+                                                        {productTotalPages > 0
+                                                            ? productPage
+                                                            : 0}
+                                                    </span>{" "}
+                                                    of{" "}
+                                                    <span className="font-semibold text-slate-700">
+                                                        {productTotalPages}
+                                                    </span>
+                                                </span>
+
+                                                <div className="flex items-center gap-2">
+
+                                                    {/* PREVIOUS */}
+                                                    <button
+                                                        type="button"
+                                                        disabled={
+                                                            productPage <= 1 ||
+                                                            productLoading
+                                                        }
+                                                        onClick={() =>
+                                                            setProductPage((prev) =>
+                                                                Math.max(1, prev - 1)
+                                                            )
+                                                        }
+                                                        className="rounded-lg border border-slate-200 bg-white p-2 text-slate-600 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
+                                                        title="Previous page"
+                                                    >
+                                                        <FiChevronLeft size={17} />
+                                                    </button>
+
+                                                    {/* NEXT */}
+                                                    <button
+                                                        type="button"
+                                                        disabled={
+                                                            productPage >= productTotalPages ||
+                                                            productLoading ||
+                                                            productTotalPages === 0
+                                                        }
+                                                        onClick={() =>
+                                                            setProductPage((prev) =>
+                                                                Math.min(
+                                                                    productTotalPages,
+                                                                    prev + 1
+                                                                )
+                                                            )
+                                                        }
+                                                        className="rounded-lg border border-slate-200 bg-white p-2 text-slate-600 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
+                                                        title="Next page"
+                                                    >
+                                                        <FiChevronRight size={17} />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
 
+                                {/* VARIANT NAME */}
                                 <div>
                                     <label className={labelClass}>
                                         Variant Name *
@@ -110,6 +333,7 @@ const FormModal = ({
                                     />
                                 </div>
 
+                                {/* BARCODE */}
                                 <div>
                                     <label className={labelClass}>
                                         Barcode
@@ -123,14 +347,16 @@ const FormModal = ({
                                         className={inputClass}
                                     />
                                 </div>
-
                             </div>
                         </section>
 
                         {/* UNIT INFORMATION */}
                         <section>
                             <h3 className="mb-4 flex items-center gap-2 font-semibold text-slate-800">
-                                <FiTag className="text-[#003963]" size={19} />
+                                <FiTag
+                                    className="text-[#003963]"
+                                    size={19}
+                                />
                                 Unit Information
                             </h3>
 
@@ -177,7 +403,10 @@ const FormModal = ({
                                             "cm",
                                             "m",
                                         ].map((unit) => (
-                                            <option key={unit} value={unit}>
+                                            <option
+                                                key={unit}
+                                                value={unit}
+                                            >
                                                 {unit}
                                             </option>
                                         ))}
@@ -189,7 +418,10 @@ const FormModal = ({
                         {/* PRICING */}
                         <section>
                             <h3 className="mb-4 flex items-center gap-2 font-semibold text-slate-800">
-                                <FiDollarSign className="text-[#003963]" size={19} />
+                                <FiDollarSign
+                                    className="text-[#003963]"
+                                    size={19}
+                                />
                                 Pricing
                             </h3>
 
@@ -329,7 +561,10 @@ const FormModal = ({
                         {/* IMAGES */}
                         <section>
                             <h3 className="mb-4 flex items-center gap-2 font-semibold text-slate-800">
-                                <FiImage className="text-[#003963]" size={19} />
+                                <FiImage
+                                    className="text-[#003963]"
+                                    size={19}
+                                />
                                 Variant Images
                             </h3>
 
@@ -451,10 +686,7 @@ const FormModal = ({
                     <div className="flex flex-col-reverse gap-3 border-t border-slate-200 bg-white px-6 py-4 sm:flex-row sm:justify-end">
                         <button
                             type="button"
-                            onClick={() => {
-                                setShowModal(false);
-                                resetForm();
-                            }}
+                            onClick={closeModal}
                             className="rounded-xl border border-slate-200 px-5 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
                         >
                             Cancel
@@ -464,13 +696,15 @@ const FormModal = ({
                             type="submit"
                             className="rounded-xl bg-linear-to-br from-[#064e3b] via-[#047857] to-[#022c22] px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-[#002b4b] active:scale-95"
                         >
-                            {isEdit ? "Update Variant" : "Add Variant"}
+                            {isEdit
+                                ? "Update Variant"
+                                : "Add Variant"}
                         </button>
                     </div>
                 </form>
             </div>
         </div>
-    )
-}
+    );
+};
 
-export default FormModal
+export default FormModal;
