@@ -123,7 +123,7 @@ export const verifyEmail = async (req, res) => {
         // Generate 4-digit OTP
         const otp = Math.floor(1000 + Math.random() * 9000).toString();
 
-        const otpExpiresAt = moment().add(1, "minutes").toDate();
+        const otpExpiresAt = moment().add(2, "minutes").toDate();
 
         // SIGNUP FLOW
         if (type === "signup") {

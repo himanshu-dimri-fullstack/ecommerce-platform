@@ -127,10 +127,9 @@ export default function SignupModal({
             toast.success(res.data.message || "OTP sent successfully.");
 
             setIsOTPSent(true);
-            setTimeLeft(60);
+            setTimeLeft(120);
             setIsOTPExpired(false);
             setOtp("");
-
         } catch (error: any) {
             toast.error(
                 error?.response?.data?.message ||
