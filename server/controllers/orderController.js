@@ -12,6 +12,7 @@ import razorpay from "../config/razorpay.js";
 import User from "../models/User.js";
 import Role from "../models/Role.js";
 import StoreInventory from "../models/Inventory.js";
+import Store from "../models/Store.js";
 
 
 
@@ -1162,6 +1163,7 @@ export const getMyOrders = async (req, res) => {
 // GET ALL ORDERS
 // --------------------------------------------------
 
+
 export const getAllOrders = async (req, res) => {
     try {
         const {
@@ -1192,9 +1194,13 @@ export const getAllOrders = async (req, res) => {
 
         const filter = {};
 
+        // SUPER ADMIN: All orders
         if (fetchRole.name === "super_admin") {
-            // Super admin can access all orders.
-        } else if (fetchRole.name === "delivery_partner") {
+            // No additional filter required.
+        }
+
+        // DELIVERY PARTNER: Only assigned orders
+        else if (fetchRole.name === "delivery_partner") {
             const deliveryPartner = await DeliveryPartner.findOne({
                 user: userId,
             }).select("_id");
@@ -1205,19 +1211,31 @@ export const getAllOrders = async (req, res) => {
                     orders: [],
                     totalOrders: 0,
                     filteredCount: 0,
-                    currentPage: Number(page),
+                    currentPage: Math.max(1, Number(page) || 1),
                     totalPages: 0,
                 });
             }
 
             filter.deliveryPartner = deliveryPartner._id;
-        } else {
-            return res.status(403).json({
-                success: false,
-                message: "You are not authorized to view orders",
-            });
         }
 
+        // MANAGER: Only orders from assigned stores
+        else if (fetchRole.name === "manager") {
+            const assignedStores = await Store.find({
+                manager: userId,
+            }).distinct("_id");
+
+            filter.store = {
+                $in: assignedStores,
+            };
+        }
+
+        // OTHER ROLES: All orders
+        else {
+            // No additional filter required.
+        }
+
+        // SEARCH FILTER
         if (search.trim()) {
             const searchRegex = new RegExp(
                 search.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
@@ -1229,10 +1247,12 @@ export const getAllOrders = async (req, res) => {
             ];
         }
 
+        // STATUS FILTER
         if (status && status !== "all") {
             filter.orderStatus = status;
         }
 
+        // PAGINATION
         const pageNumber = Math.max(1, Number(page) || 1);
         const limitNumber = Math.max(1, Number(limit) || 10);
 
@@ -1266,6 +1286,7 @@ export const getAllOrders = async (req, res) => {
             currentPage: pageNumber,
             totalPages: Math.ceil(totalOrders / limitNumber),
         });
+
     } catch (error) {
         console.error("Get All Orders Error:", error);
 
@@ -1275,6 +1296,7 @@ export const getAllOrders = async (req, res) => {
         });
     }
 };
+
 
 // --------------------------------------------------
 // GET SINGLE ORDER
@@ -1492,6 +1514,7 @@ export const assignDeliveryPartner = async (req, res) => {
 // VERIFY DELIVERY OTP
 // --------------------------------------------------
 
+
 export const verifyDeliveryOtp = async (req, res) => {
     const session = await mongoose.startSession();
 
@@ -1499,6 +1522,7 @@ export const verifyDeliveryOtp = async (req, res) => {
         const userId = req.user.id;
         const { orderId, otp } = req.body;
 
+        // VALIDATE INPUT
         if (
             !orderId ||
             !mongoose.Types.ObjectId.isValid(orderId) ||
@@ -1510,7 +1534,7 @@ export const verifyDeliveryOtp = async (req, res) => {
             });
         }
 
-        // Find logged-in user's delivery partner profile
+        // FIND DELIVERY PARTNER
         const deliveryPartner = await DeliveryPartner.findOne({
             user: userId,
         }).select("_id");
@@ -1522,10 +1546,10 @@ export const verifyDeliveryOtp = async (req, res) => {
             });
         }
 
+        // START TRANSACTION
         session.startTransaction();
 
-        // Find delivery assigned to this logged-in partner
-        // Explicitly select OTP because deliveryOtp has select:false
+        // FIND ASSIGNED DELIVERY
         const delivery = await Delivery.findOne({
             order: orderId,
             deliveryPartner: deliveryPartner._id,
@@ -1543,7 +1567,7 @@ export const verifyDeliveryOtp = async (req, res) => {
             });
         }
 
-        // Verify OTP securely
+        // VERIFY OTP
         const savedOtp = String(delivery.deliveryOtp || "");
         const enteredOtp = String(otp);
 
@@ -1563,7 +1587,7 @@ export const verifyDeliveryOtp = async (req, res) => {
             });
         }
 
-        // Find corresponding order
+        // FIND ORDER
         const order = await Order.findOne({
             _id: orderId,
             deliveryPartner: deliveryPartner._id,
@@ -1573,9 +1597,7 @@ export const verifyDeliveryOtp = async (req, res) => {
             throw new Error("Order not found or not assigned to you");
         }
 
-        if (
-            ["delivered", "cancelled"].includes(order.orderStatus)
-        ) {
+        if (["delivered", "cancelled"].includes(order.orderStatus)) {
             await session.abortTransaction();
 
             return res.status(409).json({
@@ -1586,22 +1608,59 @@ export const verifyDeliveryOtp = async (req, res) => {
 
         const deliveredAt = new Date();
 
-        // Update delivery
+        const paymentMethod = String(
+            order.paymentMethod || ""
+        ).toLowerCase();
+
+        let updatedPayment = null;
+
+        // UPDATE DELIVERY
         delivery.deliveryStatus = "delivered";
         delivery.deliveredAt = deliveredAt;
-
-        // OTP should not be needed again
         delivery.deliveryOtp = undefined;
 
         await delivery.save({ session });
 
-        // Update order
+        // UPDATE ORDER
         order.orderStatus = "delivered";
         order.deliveredAt = deliveredAt;
 
+        // COD PAYMENT HANDLING
+        if (paymentMethod === "cod") {
+            order.paymentStatus = "paid";
+
+            // UPDATE OR CREATE PAYMENT RECORD
+            updatedPayment = await Payment.findOneAndUpdate(
+                {
+                    order: order._id,
+                },
+                {
+                    $set: {
+                        status: "success",
+                        paidAt: deliveredAt,
+                        paymentGateway: "cod",
+                        method: "cod",
+                        amount: order.totalAmount,
+                    },
+                    $setOnInsert: {
+                        order: order._id,
+                        user: order.user,
+                        currency: "INR",
+                    },
+                },
+                {
+                    new: true,
+                    upsert: true,
+                    runValidators: true,
+                    setDefaultsOnInsert: true,
+                    session,
+                }
+            );
+        }
+
         await order.save({ session });
 
-        // Make delivery partner available again
+        // MAKE DELIVERY PARTNER AVAILABLE AGAIN
         await DeliveryPartner.updateOne(
             {
                 _id: deliveryPartner._id,
@@ -1614,22 +1673,36 @@ export const verifyDeliveryOtp = async (req, res) => {
             { session }
         );
 
+        // COMMIT TRANSACTION
         await session.commitTransaction();
 
         return res.status(200).json({
             success: true,
             message: "Delivery verified successfully",
+
             order: {
                 _id: order._id,
                 orderNumber: order.orderNumber,
                 orderStatus: order.orderStatus,
+                paymentMethod: order.paymentMethod,
+                paymentStatus: order.paymentStatus,
                 deliveredAt: order.deliveredAt,
             },
+
             delivery: {
                 deliveryStatus: delivery.deliveryStatus,
                 deliveredAt: delivery.deliveredAt,
             },
+
+            payment: updatedPayment
+                ? {
+                    status: updatedPayment.status,
+                    paidAt: updatedPayment.paidAt,
+                    amount: updatedPayment.amount,
+                }
+                : null,
         });
+
     } catch (error) {
         if (session.inTransaction()) {
             await session.abortTransaction();
@@ -1641,6 +1714,7 @@ export const verifyDeliveryOtp = async (req, res) => {
             success: false,
             message: error.message || "OTP verification failed",
         });
+
     } finally {
         await session.endSession();
     }

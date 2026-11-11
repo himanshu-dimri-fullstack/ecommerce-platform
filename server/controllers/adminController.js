@@ -13,9 +13,6 @@ export const createUser = async (req, res) => {
         if (!firstName) {
             return res.status(400).json({ message: "First Name is required" })
         }
-        if (!lastName) {
-            return res.status(400).json({ message: "Last Name is required" })
-        }
         if (!email) {
             return res.status(400).json({ message: "Email is required" })
         }

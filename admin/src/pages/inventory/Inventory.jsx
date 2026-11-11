@@ -1,15 +1,17 @@
+
 import React, { useEffect, useState } from "react";
+
 import {
     FiSearch,
     FiRefreshCw,
     FiLayers,
     FiPackage,
     FiCheckCircle,
-    FiXCircle,
     FiAlertTriangle,
     FiArrowRight,
     FiBox,
 } from "react-icons/fi";
+
 import { toast } from "react-toastify";
 import { API } from "../../api/axios";
 import DataLoader from "../../components/DataLoader";
@@ -27,13 +29,27 @@ const Inventory = () => {
     const [stores, setStores] = useState([]);
     const [search, setSearch] = useState("");
 
+    // USER ROLE
+    const roleName = (
+        user?.role?.name ||
+        user?.role?.roleName ||
+        (typeof user?.role === "string" ? user.role : "")
+    ).toLowerCase();
+
+    const isManager = roleName === "manager";
+
+    // USER ID
+    const userId = user?._id || user?.id;
+
     // FETCH STORES WITH INVENTORY SUMMARY
     const getAllStores = async () => {
         try {
             const res = await API.get("/inventory/get");
+
             setStores(res.data.stores || []);
         } catch (error) {
             console.error(error);
+
             toast.error(
                 error?.response?.data?.message ||
                 "Failed to fetch store inventory"
@@ -49,8 +65,20 @@ const Inventory = () => {
         await getAllStores();
     };
 
+    // ROLE-BASED STORE FILTER
+    // Backend also filters stores for managers.
+    // This is an additional frontend safeguard.
+    const visibleStores = isManager
+        ? stores.filter((store) => {
+            const managerId =
+                store.manager?._id || store.manager;
+
+            return String(managerId) === String(userId);
+        })
+        : stores;
+
     // SEARCH
-    const filteredStores = stores.filter((store) => {
+    const filteredStores = visibleStores.filter((store) => {
         const searchValue = search.toLowerCase();
 
         return (
@@ -61,21 +89,21 @@ const Inventory = () => {
     });
 
     // STATISTICS
-    const totalStores = stores.length;
+    const totalStores = visibleStores.length;
 
-    const totalProducts = stores.reduce(
+    const totalProducts = visibleStores.reduce(
         (total, store) =>
             total + Number(store.summary?.totalProducts || 0),
         0
     );
 
-    const activeProducts = stores.reduce(
+    const activeProducts = visibleStores.reduce(
         (total, store) =>
             total + Number(store.summary?.activeProducts || 0),
         0
     );
 
-    const lowStockItems = stores.reduce(
+    const lowStockItems = visibleStores.reduce(
         (total, store) =>
             total + Number(store.summary?.lowStockItems || 0),
         0
@@ -274,8 +302,8 @@ const Inventory = () => {
 
                                     <span
                                         className={`rounded-full px-2.5 py-1 text-xs font-semibold ${store.status === "active"
-                                            ? "bg-green-50 text-green-700"
-                                            : "bg-red-50 text-red-600"
+                                                ? "bg-green-50 text-green-700"
+                                                : "bg-red-50 text-red-600"
                                             }`}
                                     >
                                         {store.status || "inactive"}
@@ -356,7 +384,11 @@ const Inventory = () => {
                         </p>
 
                         <p className="mt-1 text-sm text-slate-400">
-                            Try changing your search.
+                            {search
+                                ? "Try changing your search."
+                                : isManager
+                                    ? "No stores are assigned to you."
+                                    : "No stores are available."}
                         </p>
                     </div>
                 )}

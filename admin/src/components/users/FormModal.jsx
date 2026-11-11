@@ -131,7 +131,7 @@ const FormModal = ({
 
                         <div>
                             <label className="mb-2 block text-sm font-medium text-slate-700">
-                                Last Name*
+                                Last Name
                             </label>
 
                             <div className="relative">

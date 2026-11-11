@@ -4,6 +4,7 @@ import Store from "../models/Store.js";
 import { handleResponseError } from "../utils/errorUtils.js";
 import Product from "../models/Product.js";
 import Category from "../models/Category.js";
+import User from "../models/User.js";
 
 // HELPER: VALIDATE NUMBER
 const getNumber = (value, fieldName) => {
@@ -196,25 +197,55 @@ export const createInventory = async (req, res) => {
     }
 };
 
-
-
 // GET ALL STORES WITH INVENTORY SUMMARY
 export const getInventories = async (req, res) => {
     try {
-        // FETCH ALL STORES
-        const stores = await Store.find()
-            .select("name code address status")
+        // FETCH LOGGED-IN USER AND ROLE
+        const loggedInUser = await User.findById(req.user.id)
+            .select("role")
+            .populate("role", "name");
+
+        if (!loggedInUser) {
+            return res.status(401).json({
+                success: false,
+                message: "User not found",
+            });
+        }
+
+        const roleName = (
+            loggedInUser.role?.name || ""
+        ).toLowerCase();
+
+        // STORE FILTER
+        const storeFilter = {};
+
+        // MANAGER CAN ONLY ACCESS ASSIGNED STORES
+        if (roleName === "manager") {
+            storeFilter.manager = req.user.id;
+        }
+
+        // FETCH STORES
+        const stores = await Store.find(storeFilter)
+            .select("name code address status manager")
             .sort({ createdAt: -1 });
+
+        // GET STORE IDS
+        const storeIds = stores.map((store) => store._id);
 
         // INVENTORY SUMMARY
         const inventorySummary = await Inventory.aggregate([
+            {
+                $match: {
+                    store: { $in: storeIds },
+                },
+            },
             {
                 $group: {
                     _id: "$store",
 
                     // UNIQUE PRODUCTS
                     totalProducts: {
-                        $addToSet: "$product"
+                        $addToSet: "$product",
                     },
 
                     // UNIQUE ACTIVE PRODUCTS
@@ -223,9 +254,9 @@ export const getInventories = async (req, res) => {
                             $cond: [
                                 { $eq: ["$status", "active"] },
                                 "$product",
-                                null
-                            ]
-                        }
+                                null,
+                            ],
+                        },
                     },
 
                     // UNIQUE INACTIVE PRODUCTS
@@ -234,9 +265,9 @@ export const getInventories = async (req, res) => {
                             $cond: [
                                 { $eq: ["$status", "inactive"] },
                                 "$product",
-                                null
-                            ]
-                        }
+                                null,
+                            ],
+                        },
                     },
 
                     // LOW STOCK INVENTORY RECORDS
@@ -249,23 +280,23 @@ export const getInventories = async (req, res) => {
                                         {
                                             $lte: [
                                                 "$availableQuantity",
-                                                "$reorderLevel"
-                                            ]
-                                        }
-                                    ]
+                                                "$reorderLevel",
+                                            ],
+                                        },
+                                    ],
                                 },
                                 1,
-                                0
-                            ]
-                        }
+                                0,
+                            ],
+                        },
                     },
 
                     // TOTAL INVENTORY RECORDS
                     totalRecords: {
-                        $sum: 1
-                    }
-                }
-            }
+                        $sum: 1,
+                    },
+                },
+            },
         ]);
 
         // CREATE SUMMARY MAP
@@ -277,12 +308,12 @@ export const getInventories = async (req, res) => {
                     activeProducts: item.activeProducts.filter(Boolean).length,
                     inactiveProducts: item.inactiveProducts.filter(Boolean).length,
                     lowStockItems: item.lowStockItems,
-                    totalRecords: item.totalRecords
-                }
+                    totalRecords: item.totalRecords,
+                },
             ])
         );
 
-        // RETURN ALL STORES, INCLUDING STORES WITHOUT INVENTORY
+        // RETURN STORES WITH INVENTORY SUMMARY
         const result = stores.map((store) => ({
             ...store.toObject(),
 
@@ -291,21 +322,20 @@ export const getInventories = async (req, res) => {
                 activeProducts: 0,
                 inactiveProducts: 0,
                 lowStockItems: 0,
-                totalRecords: 0
-            }
+                totalRecords: 0,
+            },
         }));
 
         return res.status(200).json({
             success: true,
             count: result.length,
-            stores: result
+            stores: result,
         });
 
     } catch (error) {
         return handleResponseError(error, res);
     }
 };
-
 
 // GET INVENTORY BY STORE ID WITH SEARCH, PAGINATION & STATISTICS
 export const getStoreInventory = async (req, res) => {
