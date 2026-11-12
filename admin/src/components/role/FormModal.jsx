@@ -28,6 +28,7 @@ const FormModal = ({
         "productVariant",
         "order",
         "deliveryPartner",
+        "deliveryPayout",
     ];
 
     // Module-wise permissions
@@ -42,6 +43,11 @@ const FormModal = ({
             "update",
             "delete",
             "status",
+        ],
+
+        deliveryPayout: [
+            "read",
+            "update",
         ],
     };
 
@@ -72,6 +78,7 @@ const FormModal = ({
         const names = {
             productVariant: "Product Variant",
             deliveryPartner: "Delivery Partner",
+            deliveryPayout: "Delivery Payout",
         };
 
         return names[module] ||

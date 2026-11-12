@@ -32,6 +32,7 @@ import OrderDetail from "./pages/order/OrderDetail"
 import StoreInventory from "./pages/inventory/StoreInventory"
 import DeliveryPartners from "./pages/delivery_partner/DeliveryPartners"
 import DeliveryPartnerDetail from "./pages/delivery_partner/DeliveryPartnerDetail"
+import DeliveryPayout from "./pages/order/DeliveryPayout"
 
 const App = () => {
   return (
@@ -71,6 +72,10 @@ const App = () => {
           <Route
             path="/admin/inventory/store/:storeId"
             element={<StoreInventory />}
+          />
+          <Route
+            path="/admin/delivery-payouts"
+            element={<DeliveryPayout />}
           />
         </Route>
       </Routes>

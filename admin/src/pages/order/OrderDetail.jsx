@@ -185,6 +185,35 @@ const OrderDetail = () => {
         order.orderStatus !== "delivered" &&
         order.orderStatus !== "cancelled";
 
+    // PRICE CALCULATION
+    // Calculate subtotal from ordered products instead of order.subtotal.
+    const subtotalAmount = Array.isArray(order.items)
+        ? order.items.reduce((total, item) => {
+            const itemTotal =
+                item.totalPrice != null
+                    ? Number(item.totalPrice)
+                    : Number(item.price || 0) * Number(item.quantity || 0);
+
+            return total + itemTotal;
+        }, 0)
+        : Number(order.subtotal || 0);
+
+    const discountAmount = Number(order.discount || 0);
+    const taxAmount = Number(order.tax || 0);
+    const totalAmount = Number(order.totalAmount || 0);
+
+    // If deliveryFee is not saved correctly, derive it from the order total.
+    const deliveryFeeAmount =
+        order.deliveryFee != null && Number(order.deliveryFee) > 0
+            ? Number(order.deliveryFee)
+            : Math.max(
+                totalAmount -
+                subtotalAmount +
+                discountAmount -
+                taxAmount,
+                0
+            );
+
     return (
         <div className="space-y-6">
             {/* PAGE HEADER */}
@@ -221,7 +250,7 @@ const OrderDetail = () => {
                         <button
                             type="button"
                             onClick={() => setShowOtpModal(true)}
-                            className="flex items-center gap-2 rounded-lg bg-[#003963] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#002b4a]"
+                            className="flex items-center gap-2 rounded-lg bg-linear-to-br from-[#064e3b] via-[#047857] to-[#022c22] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#002b4a]"
                         >
                             <FiShield size={17} />
                             Verify OTP
@@ -405,6 +434,7 @@ const OrderDetail = () => {
                     </div>
                 </div>
 
+                {/* PRICE SUMMARY */}
                 <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
                     <h3 className="mb-4 font-bold text-slate-800">
                         Price Summary
@@ -414,28 +444,28 @@ const OrderDetail = () => {
                         <div className="flex justify-between gap-3">
                             <span className="text-slate-500">Subtotal</span>
                             <span className="font-medium text-slate-700">
-                                {formatCurrency(order.subtotal)}
+                                {formatCurrency(subtotalAmount)}
                             </span>
                         </div>
 
                         <div className="flex justify-between gap-3">
                             <span className="text-slate-500">Discount</span>
                             <span className="font-medium text-green-600">
-                                - {formatCurrency(order.discount)}
+                                - {formatCurrency(discountAmount)}
                             </span>
                         </div>
 
                         <div className="flex justify-between gap-3">
                             <span className="text-slate-500">Delivery Fee</span>
                             <span className="font-medium text-slate-700">
-                                {formatCurrency(order.deliveryFee)}
+                                {formatCurrency(deliveryFeeAmount)}
                             </span>
                         </div>
 
                         <div className="flex justify-between gap-3">
                             <span className="text-slate-500">Tax</span>
                             <span className="font-medium text-slate-700">
-                                {formatCurrency(order.tax)}
+                                {formatCurrency(taxAmount)}
                             </span>
                         </div>
 
@@ -445,7 +475,7 @@ const OrderDetail = () => {
                                     Total Amount
                                 </span>
                                 <span className="text-lg font-bold text-[#003963]">
-                                    {formatCurrency(order.totalAmount)}
+                                    {formatCurrency(totalAmount)}
                                 </span>
                             </div>
                         </div>
@@ -596,7 +626,7 @@ const OrderDetail = () => {
                                 <button
                                     type="submit"
                                     disabled={otpLoading || otp.length !== 4}
-                                    className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#003963] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#002b4a] disabled:cursor-not-allowed disabled:opacity-50"
+                                    className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-linear-to-br from-[#064e3b] via-[#047857] to-[#022c22] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#002b4a] disabled:cursor-not-allowed disabled:opacity-50"
                                 >
                                     <FiCheckCircle size={17} />
                                     {otpLoading ? "Verifying..." : "Verify & Complete"}

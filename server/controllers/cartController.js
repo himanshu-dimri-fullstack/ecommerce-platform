@@ -4,10 +4,12 @@ import mongoose from "mongoose";
 import Cart from "../models/Cart.js";
 import CartItem from "../models/CartItem.js";
 import ProductVariant from "../models/ProductVariant.js";
+import calculateDeliveryFee from "../utils/deliveryFee.js";
 
 // ============================================
 // RECALCULATE CART TOTALS
 // ============================================
+
 
 const recalculateCart = async (cartId) => {
     const items = await CartItem.find({
@@ -15,7 +17,7 @@ const recalculateCart = async (cartId) => {
     });
 
     const subtotal = items.reduce(
-        (sum, item) => sum + item.totalPrice,
+        (sum, item) => sum + Number(item.totalPrice || 0),
         0
     );
 
@@ -25,18 +27,26 @@ const recalculateCart = async (cartId) => {
         throw new Error("Cart not found");
     }
 
-    cart.subtotal = subtotal;
+    // Calculate delivery fee from product subtotal
+    const deliveryFee = calculateDeliveryFee(subtotal);
 
-    cart.totalAmount =
-        subtotal -
-        (cart.discount || 0) +
-        (cart.deliveryFee || 0) +
-        (cart.tax || 0);
+    // No coupon or separate tax calculation for now
+    cart.subtotal = subtotal;
+    cart.discount = 0;
+    cart.deliveryFee = deliveryFee;
+    cart.tax = 0;
+    cart.coupon = null;
+
+    // Final payable amount
+    cart.totalAmount = Number(
+        (subtotal + deliveryFee).toFixed(2)
+    );
 
     await cart.save();
 
     return cart;
 };
+
 
 // ============================================
 // GET USER CART FOR CURRENT STORE

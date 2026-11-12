@@ -72,8 +72,6 @@ interface AddressForm {
     state: string;
     country: string;
     pincode: string;
-    longitude: string;
-    latitude: string;
     isDefault: boolean;
 }
 
@@ -86,8 +84,6 @@ const initialAddressForm: AddressForm = {
     state: "",
     country: "India",
     pincode: "",
-    longitude: "",
-    latitude: "",
     isDefault: false,
 };
 
@@ -95,7 +91,6 @@ export default function ProfilePage() {
     const router = useRouter();
     const dispatch = useDispatch<AppDispatch>();
 
-    // const user = useSelector((store: RootState) => store.auth.user);
     const { user, loading: authLoading } = useSelector(
         (store: RootState) => store.auth
     );
@@ -174,12 +169,6 @@ export default function ProfilePage() {
     useEffect(() => {
         fetchAddresses().finally(() => setLoading(false));
     }, []);
-
-    // useEffect(() => {
-    //     if (!loading && user === null) {
-    //         router.replace("/");
-    //     }
-    // }, [user, loading, router]);
 
     useEffect(() => {
         if (!authLoading && user === null) {
@@ -317,8 +306,6 @@ export default function ProfilePage() {
             state: address.state ?? "",
             country: address.country ?? "India",
             pincode: address.pincode ?? "",
-            longitude: String(address.location?.coordinates?.[0] ?? ""),
-            latitude: String(address.location?.coordinates?.[1] ?? ""),
             isDefault: Boolean(address.isDefault),
         });
 
@@ -329,37 +316,42 @@ export default function ProfilePage() {
     const handleSaveAddress = async (e: FormEvent<HTMLFormElement>) => {
         e.preventDefault();
 
-        const longitude = addressForm.longitude.trim()
-            ? Number(addressForm.longitude)
-            : 0;
+        const houseNumber = addressForm.houseNumber.trim();
+        const street = addressForm.street.trim();
+        const landmark = addressForm.landmark.trim();
+        const city = addressForm.city.trim();
+        const state = addressForm.state.trim();
+        const country = addressForm.country.trim();
+        const pincode = addressForm.pincode.trim();
 
-        const latitude = addressForm.latitude.trim()
-            ? Number(addressForm.latitude)
-            : 0;
-
-        if (!Number.isFinite(longitude) || longitude < -180 || longitude > 180) {
-            toast.error("Longitude must be between -180 and 180");
+        if (
+            !houseNumber ||
+            !street ||
+            !city ||
+            !state ||
+            !country ||
+            !pincode
+        ) {
+            toast.error("Please fill all required address fields");
             return;
         }
 
-        if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90) {
-            toast.error("Latitude must be between -90 and 90");
+        if (!/^\d{6}$/.test(pincode)) {
+            toast.error("Please enter a valid 6-digit pincode");
             return;
         }
 
+        // Coordinates are generated automatically by the backend using Photon.
+        // Frontend only sends the actual address details.
         const payload = {
             type: addressForm.type,
-            houseNumber: addressForm.houseNumber,
-            street: addressForm.street,
-            landmark: addressForm.landmark,
-            city: addressForm.city,
-            state: addressForm.state,
-            country: addressForm.country,
-            pincode: addressForm.pincode,
-            location: {
-                type: "Point",
-                coordinates: [longitude, latitude],
-            },
+            houseNumber,
+            street,
+            landmark,
+            city,
+            state,
+            country,
+            pincode,
             isDefault: addressForm.isDefault,
         };
 
@@ -1081,7 +1073,7 @@ export default function ProfilePage() {
 
             {/* ADD / EDIT ADDRESS MODAL */}
             {isAddressModalOpen && (
-                <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+                <div className="fixed inset-0 z-200 bg-black/50 flex items-center justify-center p-4">
                     <div className="bg-white w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl shadow-xl">
 
                         <div className="flex items-center justify-between p-6 border-b border-gray-100 sticky top-0 bg-white z-10">
@@ -1145,9 +1137,10 @@ export default function ProfilePage() {
                                     <input
                                         type="text"
                                         name="houseNumber"
-                                        value={addressForm.houseNumber ?? ""}
+                                        value={addressForm.houseNumber}
                                         onChange={handleAddressChange}
                                         placeholder="House / Flat number"
+                                        required
                                         className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-[#1c9d36]"
                                     />
                                 </div>
@@ -1160,9 +1153,10 @@ export default function ProfilePage() {
                                     <input
                                         type="text"
                                         name="street"
-                                        value={addressForm.street ?? ""}
+                                        value={addressForm.street}
                                         onChange={handleAddressChange}
                                         placeholder="Street / Area"
+                                        required
                                         className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-[#1c9d36]"
                                     />
                                 </div>
@@ -1177,7 +1171,7 @@ export default function ProfilePage() {
                                 <input
                                     type="text"
                                     name="landmark"
-                                    value={addressForm.landmark ?? ""}
+                                    value={addressForm.landmark}
                                     onChange={handleAddressChange}
                                     placeholder="Nearby landmark (optional)"
                                     className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-[#1c9d36]"
@@ -1194,9 +1188,10 @@ export default function ProfilePage() {
                                     <input
                                         type="text"
                                         name="city"
-                                        value={addressForm.city ?? ""}
+                                        value={addressForm.city}
                                         onChange={handleAddressChange}
                                         placeholder="City"
+                                        required
                                         className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-[#1c9d36]"
                                     />
                                 </div>
@@ -1209,9 +1204,10 @@ export default function ProfilePage() {
                                     <input
                                         type="text"
                                         name="state"
-                                        value={addressForm.state ?? ""}
+                                        value={addressForm.state}
                                         onChange={handleAddressChange}
                                         placeholder="State"
+                                        required
                                         className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-[#1c9d36]"
                                     />
                                 </div>
@@ -1227,8 +1223,9 @@ export default function ProfilePage() {
                                     <input
                                         type="text"
                                         name="country"
-                                        value={addressForm.country ?? ""}
+                                        value={addressForm.country}
                                         onChange={handleAddressChange}
+                                        required
                                         className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-[#1c9d36]"
                                     />
                                 </div>
@@ -1241,52 +1238,34 @@ export default function ProfilePage() {
                                     <input
                                         type="text"
                                         name="pincode"
-                                        value={addressForm.pincode ?? ""}
+                                        value={addressForm.pincode}
                                         onChange={handleAddressChange}
-                                        placeholder="Pincode"
+                                        placeholder="6-digit pincode"
+                                        maxLength={6}
+                                        inputMode="numeric"
+                                        pattern="[0-9]{6}"
+                                        required
                                         className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-[#1c9d36]"
                                     />
                                 </div>
                             </div>
 
-                            {/* COORDINATES */}
-                            <div>
-                                <h4 className="text-sm font-semibold text-gray-800 mb-3">
-                                    Location Coordinates
-                                </h4>
+                            {/* AUTOMATIC LOCATION DETECTION */}
+                            <div className="flex items-start gap-3 p-4 rounded-xl border border-green-100 bg-green-50">
+                                <div className="w-10 h-10 shrink-0 rounded-lg bg-white text-[#1c9d36] flex items-center justify-center">
+                                    <FiMapPin size={20} />
+                                </div>
 
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Longitude
-                                        </label>
+                                <div>
+                                    <h4 className="text-sm font-semibold text-gray-800">
+                                        Automatic Location Detection
+                                    </h4>
 
-                                        <input
-                                            type="number"
-                                            step="any"
-                                            name="longitude"
-                                            value={addressForm.longitude ?? ""}
-                                            onChange={handleAddressChange}
-                                            placeholder="e.g. 75.7873"
-                                            className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-[#1c9d36]"
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Latitude
-                                        </label>
-
-                                        <input
-                                            type="number"
-                                            step="any"
-                                            name="latitude"
-                                            value={addressForm.latitude ?? ""}
-                                            onChange={handleAddressChange}
-                                            placeholder="e.g. 26.9124"
-                                            className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-[#1c9d36]"
-                                        />
-                                    </div>
+                                    <p className="text-xs text-gray-600 mt-1 leading-5">
+                                        Your location coordinates will be detected automatically
+                                        from the address you provide. You do not need to enter
+                                        longitude or latitude.
+                                    </p>
                                 </div>
                             </div>
 
@@ -1311,7 +1290,7 @@ export default function ProfilePage() {
                                     type="button"
                                     onClick={closeAddressModal}
                                     disabled={savingAddress}
-                                    className="px-5 py-3 rounded-xl border border-gray-200 text-gray-700 font-semibold hover:bg-gray-50"
+                                    className="px-5 py-3 rounded-xl border border-gray-200 text-gray-700 font-semibold hover:bg-gray-50 disabled:opacity-60"
                                 >
                                     Cancel
                                 </button>

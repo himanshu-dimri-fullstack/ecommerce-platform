@@ -1,5 +1,7 @@
+
 import mongoose from "mongoose";
 import crypto from "crypto";
+
 import Order from "../models/Order.js";
 import OrderItem from "../models/OrderItem.js";
 import Cart from "../models/Cart.js";
@@ -13,7 +15,87 @@ import User from "../models/User.js";
 import Role from "../models/Role.js";
 import StoreInventory from "../models/Inventory.js";
 import Store from "../models/Store.js";
+import DeliveryPayout from "../models/DeliveryPayout.js";
 
+import calculateRoadDistance from "../utils/routeDistance.js";
+import calculateDeliveryEarning from "../utils/deliveryEarning.js";
+
+import calculateDeliveryFee from "../utils/deliveryFee.js";
+
+
+// --------------------------------------------------
+// CALCULATE ORDER TOTALS
+// Calculate directly from cart items.
+// Do not trust frontend or old cart totals.
+// --------------------------------------------------
+
+const calculateOrderTotals = (cartItems) => {
+    if (!Array.isArray(cartItems) || !cartItems.length) {
+        throw new Error("Your cart is empty");
+    }
+
+    const subtotal = Number(
+        cartItems.reduce((sum, item) => {
+            const itemTotal = Number(item.totalPrice);
+
+            if (!Number.isFinite(itemTotal) || itemTotal < 0) {
+                throw new Error("Invalid cart item price");
+            }
+
+            return sum + itemTotal;
+        }, 0).toFixed(2)
+    );
+
+    const deliveryFee = calculateDeliveryFee(subtotal);
+
+    const totalAmount = Number(
+        (subtotal + deliveryFee).toFixed(2)
+    );
+
+    if (
+        !Number.isFinite(totalAmount) ||
+        totalAmount <= 0
+    ) {
+        throw new Error("Invalid order amount");
+    }
+
+    return {
+        subtotal,
+        discount: 0,
+        deliveryFee,
+        tax: 0,
+        totalAmount,
+        coupon: null,
+    };
+};
+
+
+// --------------------------------------------------
+// CREATE CART SNAPSHOT
+// Used to detect cart changes during online checkout.
+// --------------------------------------------------
+
+const createCartSnapshot = (cartItems) => {
+    return cartItems
+        .map((item) => ({
+            product: String(item.product?._id || item.product),
+            variant: String(item.variant?._id || item.variant),
+            quantity: Number(item.quantity),
+            price: Number(item.price),
+            totalPrice: Number(item.totalPrice),
+        }))
+        .sort((a, b) => {
+            const first = `${a.product}-${a.variant}`;
+            const second = `${b.product}-${b.variant}`;
+
+            return first.localeCompare(second);
+        });
+};
+
+
+const isSameCartSnapshot = (first, second) => {
+    return JSON.stringify(first) === JSON.stringify(second);
+};
 
 
 // --------------------------------------------------
@@ -73,6 +155,7 @@ const reserveAvailableInventory = async (
     }
 };
 
+
 // --------------------------------------------------
 // RELEASE AVAILABLE INVENTORY
 // Used when an unpaid online order is cancelled.
@@ -124,9 +207,10 @@ const releaseAvailableInventory = async (
     }
 };
 
+
 // --------------------------------------------------
 // CREATE DELIVERY RECORD
-// Used by both COD and Online orders
+// Used by both COD and Online orders.
 // --------------------------------------------------
 
 const createOrderDelivery = async (
@@ -178,6 +262,7 @@ const createOrderDelivery = async (
 
     return delivery;
 };
+
 
 // --------------------------------------------------
 // PLACE COD ORDER
@@ -249,6 +334,9 @@ export const placeOrder = async (req, res) => {
             throw new Error("Your cart is empty");
         }
 
+        // Calculate fresh order totals
+        const orderTotals = calculateOrderTotals(cartItems);
+
         // CHECK AND DECREASE AVAILABLE INVENTORY
         await reserveAvailableInventory(
             cart.store,
@@ -270,13 +358,7 @@ export const placeOrder = async (req, res) => {
                     store: cart.store,
                     address: address._id,
 
-                    subtotal: cart.subtotal,
-                    discount: cart.discount || 0,
-                    deliveryFee: cart.deliveryFee || 0,
-                    tax: cart.tax || 0,
-                    totalAmount: cart.totalAmount,
-
-                    coupon: cart.coupon || null,
+                    ...orderTotals,
 
                     paymentMethod: "cod",
                     paymentStatus: "pending",
@@ -307,7 +389,7 @@ export const placeOrder = async (req, res) => {
             quantity: item.quantity,
             price: item.price,
             discount: item.discount || 0,
-            tax: item.tax || 0,
+            tax: 0,
             totalPrice: item.totalPrice,
         }));
 
@@ -386,6 +468,7 @@ export const placeOrder = async (req, res) => {
                 paidAt: payment.paidAt,
             },
         });
+
     } catch (error) {
         if (session.inTransaction()) {
             await session.abortTransaction();
@@ -397,14 +480,16 @@ export const placeOrder = async (req, res) => {
             success: false,
             message: error.message || "Failed to place order",
         });
+
     } finally {
         await session.endSession();
     }
 };
 
+
 // --------------------------------------------------
 // CREATE ONLINE ORDER
-// Creates Order + OrderItems + Delivery
+// Creates Order + OrderItems + Delivery.
 // Does not create Payment document.
 // Does not clear cart.
 // --------------------------------------------------
@@ -473,17 +558,15 @@ export const createOnlineOrder = async (req, res) => {
             });
         }
 
-        // Validate amount
-        const totalAmount = Number(cart.totalAmount);
+        // Calculate fresh order totals
+        const orderTotals = calculateOrderTotals(cartItems);
 
-        if (!Number.isFinite(totalAmount) || totalAmount <= 0) {
-            return res.status(400).json({
-                success: false,
-                message: "Invalid order amount",
-            });
-        }
+        // Store initial cart snapshot
+        const initialSnapshot = createCartSnapshot(cartItems);
 
-        const amountInPaise = Math.round(totalAmount * 100);
+        const amountInPaise = Math.round(
+            orderTotals.totalAmount * 100
+        );
 
         if (amountInPaise <= 0) {
             return res.status(400).json({
@@ -497,7 +580,7 @@ export const createOnlineOrder = async (req, res) => {
             1000 + Math.random() * 9000
         )}`;
 
-        // Create Razorpay order
+        // Create Razorpay order using calculated amount
         const razorpayOrder = await razorpay.orders.create({
             amount: amountInPaise,
             currency: "INR",
@@ -541,6 +624,34 @@ export const createOnlineOrder = async (req, res) => {
             throw new Error("Your cart is empty");
         }
 
+        // Check whether cart changed after Razorpay order creation
+        const currentSnapshot = createCartSnapshot(currentCartItems);
+
+        if (
+            !isSameCartSnapshot(
+                initialSnapshot,
+                currentSnapshot
+            )
+        ) {
+            throw new Error(
+                "Your cart has changed. Please try placing the order again."
+            );
+        }
+
+        // Recalculate totals from transaction cart items
+        const currentOrderTotals = calculateOrderTotals(
+            currentCartItems
+        );
+
+        if (
+            currentOrderTotals.totalAmount !==
+            orderTotals.totalAmount
+        ) {
+            throw new Error(
+                "Order amount changed. Please try again."
+            );
+        }
+
         // DECREASE AVAILABLE INVENTORY
         await reserveAvailableInventory(
             currentCart.store,
@@ -557,13 +668,7 @@ export const createOnlineOrder = async (req, res) => {
                     store: currentCart.store,
                     address: address._id,
 
-                    subtotal: currentCart.subtotal,
-                    discount: currentCart.discount || 0,
-                    deliveryFee: currentCart.deliveryFee || 0,
-                    tax: currentCart.tax || 0,
-                    totalAmount,
-
-                    coupon: currentCart.coupon || null,
+                    ...currentOrderTotals,
 
                     paymentMethod: "online",
                     paymentStatus: "pending",
@@ -596,7 +701,7 @@ export const createOnlineOrder = async (req, res) => {
             quantity: item.quantity,
             price: item.price,
             discount: item.discount || 0,
-            tax: item.tax || 0,
+            tax: 0,
             totalPrice: item.totalPrice,
         }));
 
@@ -619,7 +724,13 @@ export const createOnlineOrder = async (req, res) => {
                 _id: createdOrder._id,
                 orderNumber: createdOrder.orderNumber,
                 store: createdOrder.store,
+
+                subtotal: createdOrder.subtotal,
+                discount: createdOrder.discount,
+                deliveryFee: createdOrder.deliveryFee,
+                tax: createdOrder.tax,
                 totalAmount: createdOrder.totalAmount,
+
                 paymentMethod: createdOrder.paymentMethod,
                 paymentStatus: createdOrder.paymentStatus,
                 orderStatus: createdOrder.orderStatus,
@@ -632,6 +743,7 @@ export const createOnlineOrder = async (req, res) => {
                 currency: razorpayOrder.currency,
             },
         });
+
     } catch (error) {
         if (session.inTransaction()) {
             await session.abortTransaction();
@@ -643,10 +755,12 @@ export const createOnlineOrder = async (req, res) => {
             success: false,
             message: error.message || "Unable to create online order",
         });
+
     } finally {
         await session.endSession();
     }
 };
+
 
 // --------------------------------------------------
 // VERIFY ONLINE PAYMENT
@@ -893,6 +1007,7 @@ export const verifyOnlinePayment = async (req, res) => {
                 paidAt: payment.paidAt,
             },
         });
+
     } catch (error) {
         console.error("Verify Online Payment Error:", error);
 
@@ -902,6 +1017,7 @@ export const verifyOnlinePayment = async (req, res) => {
         });
     }
 };
+
 
 // --------------------------------------------------
 // CANCEL ONLINE ORDER
@@ -1043,6 +1159,7 @@ export const cancelOnlineOrder = async (req, res) => {
             success: true,
             message: "Unpaid order cancelled successfully",
         });
+
     } catch (error) {
         if (session.inTransaction()) {
             await session.abortTransaction();
@@ -1054,10 +1171,12 @@ export const cancelOnlineOrder = async (req, res) => {
             success: false,
             message: error.message || "Unable to cancel online order",
         });
+
     } finally {
         await session.endSession();
     }
 };
+
 
 // --------------------------------------------------
 // GET MY ORDERS
@@ -1149,6 +1268,7 @@ export const getMyOrders = async (req, res) => {
             message: "Orders fetched successfully",
             orders: formattedOrders,
         });
+
     } catch (error) {
         console.error("Get My Orders Error:", error);
 
@@ -1159,9 +1279,11 @@ export const getMyOrders = async (req, res) => {
     }
 };
 
+
 // --------------------------------------------------
 // GET ALL ORDERS
 // --------------------------------------------------
+
 
 
 export const getAllOrders = async (req, res) => {
@@ -1192,15 +1314,13 @@ export const getAllOrders = async (req, res) => {
             });
         }
 
-        const filter = {};
+        const roleName = fetchRole.name;
 
-        // SUPER ADMIN: All orders
-        if (fetchRole.name === "super_admin") {
-            // No additional filter required.
-        }
+        // ROLE-BASED FILTER
+        const baseFilter = {};
+        let deliveryPartnerId = null;
 
-        // DELIVERY PARTNER: Only assigned orders
-        else if (fetchRole.name === "delivery_partner") {
+        if (roleName === "delivery_partner") {
             const deliveryPartner = await DeliveryPartner.findOne({
                 user: userId,
             }).select("_id");
@@ -1210,40 +1330,57 @@ export const getAllOrders = async (req, res) => {
                     success: true,
                     orders: [],
                     totalOrders: 0,
+                    pendingOrders: 0,
+                    deliveredOrders: 0,
+                    cancelledOrders: 0,
                     filteredCount: 0,
                     currentPage: Math.max(1, Number(page) || 1),
                     totalPages: 0,
+                    revenueSummary: {
+                        role: roleName,
+                        totalEarnings: 0,
+                        payableAmount: 0,
+                        paidAmount: 0,
+                        pendingAmount: 0,
+                        completedDeliveries: 0,
+                    },
                 });
             }
 
-            filter.deliveryPartner = deliveryPartner._id;
+            deliveryPartnerId = deliveryPartner._id;
+
+            baseFilter.deliveryPartner = deliveryPartnerId;
         }
 
-        // MANAGER: Only orders from assigned stores
-        else if (fetchRole.name === "manager") {
+        else if (roleName === "manager") {
             const assignedStores = await Store.find({
                 manager: userId,
             }).distinct("_id");
 
-            filter.store = {
+            baseFilter.store = {
                 $in: assignedStores,
             };
         }
 
-        // OTHER ROLES: All orders
-        else {
-            // No additional filter required.
-        }
+        // SUPER ADMIN AND OTHER AUTHORIZED ROLES
+        // No additional filter required.
 
         // SEARCH FILTER
+        const filter = { ...baseFilter };
+
         if (search.trim()) {
-            const searchRegex = new RegExp(
-                search.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
-                "i"
+            const escapedSearch = search.trim().replace(
+                /[.*+?^${}()|[\]\\]/g,
+                "\\$&"
             );
 
             filter.$or = [
-                { orderNumber: searchRegex },
+                {
+                    orderNumber: {
+                        $regex: escapedSearch,
+                        $options: "i",
+                    },
+                },
             ];
         }
 
@@ -1255,10 +1392,212 @@ export const getAllOrders = async (req, res) => {
         // PAGINATION
         const pageNumber = Math.max(1, Number(page) || 1);
         const limitNumber = Math.max(1, Number(limit) || 10);
-
         const skip = (pageNumber - 1) * limitNumber;
 
-        const [orders, totalOrders] = await Promise.all([
+        // REVENUE SUMMARY
+        let revenueSummary = {
+            role: roleName,
+        };
+
+        // DELIVERY PARTNER PAYOUT SUMMARY
+        if (roleName === "delivery_partner") {
+            const payoutSummary = await DeliveryPayout.aggregate([
+                {
+                    $match: {
+                        deliveryPartner: deliveryPartnerId,
+                    },
+                },
+                {
+                    $group: {
+                        _id: null,
+
+                        totalEarned: {
+                            $sum: {
+                                $cond: [
+                                    {
+                                        $in: [
+                                            "$payoutStatus",
+                                            ["payable", "paid"],
+                                        ],
+                                    },
+                                    "$totalEarning",
+                                    0,
+                                ],
+                            },
+                        },
+
+                        payableAmount: {
+                            $sum: {
+                                $cond: [
+                                    {
+                                        $eq: [
+                                            "$payoutStatus",
+                                            "payable",
+                                        ],
+                                    },
+                                    "$totalEarning",
+                                    0,
+                                ],
+                            },
+                        },
+
+                        paidAmount: {
+                            $sum: {
+                                $cond: [
+                                    {
+                                        $eq: [
+                                            "$payoutStatus",
+                                            "paid",
+                                        ],
+                                    },
+                                    "$totalEarning",
+                                    0,
+                                ],
+                            },
+                        },
+
+                        pendingAmount: {
+                            $sum: {
+                                $cond: [
+                                    {
+                                        $eq: [
+                                            "$payoutStatus",
+                                            "pending",
+                                        ],
+                                    },
+                                    "$totalEarning",
+                                    0,
+                                ],
+                            },
+                        },
+
+                        completedDeliveries: {
+                            $sum: {
+                                $cond: [
+                                    {
+                                        $in: [
+                                            "$payoutStatus",
+                                            ["payable", "paid"],
+                                        ],
+                                    },
+                                    1,
+                                    0,
+                                ],
+                            },
+                        },
+                    },
+                },
+            ]);
+
+            const summary = payoutSummary[0] || {};
+
+            revenueSummary = {
+                role: roleName,
+                totalEarnings: summary.totalEarned || 0,
+                payableAmount: summary.payableAmount || 0,
+                paidAmount: summary.paidAmount || 0,
+                pendingAmount: summary.pendingAmount || 0,
+                completedDeliveries:
+                    summary.completedDeliveries || 0,
+            };
+        }
+
+        // MANAGER AND SUPER ADMIN REVENUE
+        else if (
+            roleName === "manager" ||
+            roleName === "super_admin"
+        ) {
+            const revenueResult = await Order.aggregate([
+                {
+                    $match: {
+                        ...baseFilter,
+                        orderStatus: "delivered",
+                    },
+                },
+                {
+                    $group: {
+                        _id: null,
+
+                        // PRODUCT REVENUE AFTER DISCOUNT
+                        productRevenue: {
+                            $sum: {
+                                $max: [
+                                    0,
+                                    {
+                                        $subtract: [
+                                            {
+                                                $ifNull: [
+                                                    "$subtotal",
+                                                    0,
+                                                ],
+                                            },
+                                            {
+                                                $ifNull: [
+                                                    "$discount",
+                                                    0,
+                                                ],
+                                            },
+                                        ],
+                                    },
+                                ],
+                            },
+                        },
+
+                        // DELIVERY CHARGES COLLECTED FROM CUSTOMERS
+                        deliveryCharges: {
+                            $sum: {
+                                $ifNull: [
+                                    "$deliveryFee",
+                                    0,
+                                ],
+                            },
+                        },
+
+                        // TOTAL DELIVERED ORDERS
+                        deliveredOrders: {
+                            $sum: 1,
+                        },
+                    },
+                },
+                {
+                    $project: {
+                        _id: 0,
+                        productRevenue: 1,
+                        deliveryCharges: 1,
+
+                        // TOTAL REVENUE
+                        totalRevenue: {
+                            $add: [
+                                "$productRevenue",
+                                "$deliveryCharges",
+                            ],
+                        },
+
+                        deliveredOrders: 1,
+                    },
+                },
+            ]);
+
+            const summary = revenueResult[0] || {};
+
+            revenueSummary = {
+                role: roleName,
+                productRevenue: summary.productRevenue || 0,
+                deliveryCharges: summary.deliveryCharges || 0,
+                totalRevenue: summary.totalRevenue || 0,
+                deliveredOrders: summary.deliveredOrders || 0,
+            };
+        }
+
+        // FETCH ORDERS + COUNTS
+        const [
+            orders,
+            totalOrders,
+            filteredCount,
+            pendingOrders,
+            deliveredOrders,
+            cancelledOrders,
+        ] = await Promise.all([
             Order.find(filter)
                 .populate({
                     path: "deliveryPartner",
@@ -1272,19 +1611,56 @@ export const getAllOrders = async (req, res) => {
                 .skip(skip)
                 .limit(limitNumber),
 
+            Order.countDocuments(baseFilter),
+
             Order.countDocuments(filter),
+
+            Order.countDocuments({
+                ...baseFilter,
+                orderStatus: {
+                    $in: [
+                        "placed",
+                        "confirmed",
+                        "processing",
+                        "packed",
+                        "shipped",
+                        "out_for_delivery",
+                    ],
+                },
+            }),
+
+            Order.countDocuments({
+                ...baseFilter,
+                orderStatus: "delivered",
+            }),
+
+            Order.countDocuments({
+                ...baseFilter,
+                orderStatus: "cancelled",
+            }),
         ]);
 
-        console.log("Logged-in role:", fetchRole.name);
-        console.log("Orders found:", totalOrders);
+        console.log("Logged-in role:", roleName);
+        console.log("Total orders:", totalOrders);
+        console.log("Revenue summary:", revenueSummary);
 
         return res.status(200).json({
             success: true,
+
             orders,
+
             totalOrders,
-            filteredCount: totalOrders,
+            pendingOrders,
+            deliveredOrders,
+            cancelledOrders,
+
+            filteredCount,
             currentPage: pageNumber,
-            totalPages: Math.ceil(totalOrders / limitNumber),
+            totalPages: Math.ceil(
+                filteredCount / limitNumber
+            ),
+
+            revenueSummary,
         });
 
     } catch (error) {
@@ -1292,7 +1668,7 @@ export const getAllOrders = async (req, res) => {
 
         return res.status(500).json({
             success: false,
-            message: error.message,
+            message: error.message || "Failed to fetch orders",
         });
     }
 };
@@ -1340,6 +1716,7 @@ export const getSingleOrder = async (req, res) => {
                 items: orderItems,
             },
         });
+
     } catch (error) {
         console.error("Get Single Order Error:", error);
 
@@ -1351,12 +1728,16 @@ export const getSingleOrder = async (req, res) => {
     }
 };
 
+
 // --------------------------------------------------
 // ASSIGN DELIVERY PARTNER TO ORDER
 // --------------------------------------------------
 
+
+
 export const assignDeliveryPartner = async (req, res) => {
     let reservedPartner = null;
+    let assignmentCompleted = false;
 
     try {
         const { orderId, deliveryPartnerId } = req.body;
@@ -1387,6 +1768,70 @@ export const assignDeliveryPartner = async (req, res) => {
             });
         }
 
+        const delivery = await Delivery.findOne({
+            order: order._id,
+        });
+
+        if (!delivery) {
+            return res.status(404).json({
+                success: false,
+                message: "Delivery record not found for this order.",
+            });
+        }
+
+        const store = await Store.findById(order.store).select(
+            "location name"
+        );
+
+        if (!store) {
+            return res.status(404).json({
+                success: false,
+                message: "Store not found.",
+            });
+        }
+
+        // CHECK WHETHER THIS ORDER ALREADY HAS A PAYOUT
+        const existingPayout = await DeliveryPayout.findOne({
+            order: order._id,
+        });
+
+        if (
+            existingPayout &&
+            existingPayout.payoutStatus !== "pending"
+        ) {
+            return res.status(409).json({
+                success: false,
+                message: "This order already has a processed delivery payout.",
+            });
+        }
+
+        // GET ACTUAL ROAD DISTANCE
+        const route = await calculateRoadDistance(
+            store.location,
+            delivery.customerLocation
+        );
+
+        // CALCULATE DELIVERY PARTNER EARNING
+        const earning = calculateDeliveryEarning(
+            route.distanceMeters / 1000
+        );
+
+        const totalEarning = Number(earning.totalEarning);
+        const distanceKm = Number(route.distanceKm);
+        const distanceMeters = Number(route.distanceMeters);
+        const durationSeconds = Number(route.durationSeconds);
+
+        if (
+            !Number.isFinite(totalEarning) ||
+            totalEarning < 0 ||
+            !Number.isFinite(distanceKm) ||
+            !Number.isFinite(distanceMeters) ||
+            !Number.isFinite(durationSeconds)
+        ) {
+            throw new Error("Invalid delivery route or earning calculation.");
+        }
+
+        // SELECTED DELIVERY PARTNER
         const selectedPartner = await DeliveryPartner.findById(
             deliveryPartnerId
         ).populate("user", "firstName lastName email phone");
@@ -1398,6 +1843,7 @@ export const assignDeliveryPartner = async (req, res) => {
             });
         }
 
+        // ALREADY ASSIGNED TO THE SAME PARTNER
         if (
             order.deliveryPartner &&
             order.deliveryPartner.toString() ===
@@ -1408,9 +1854,21 @@ export const assignDeliveryPartner = async (req, res) => {
                 message: "This delivery partner is already assigned.",
                 order,
                 deliveryPartner: selectedPartner,
+                route,
+                earning: {
+                    distanceKm,
+                    baseEarning: totalEarning,
+                    extraKm: 0,
+                    extraKmRate: 0,
+                    extraDistanceEarning: 0,
+                    incentive: 0,
+                    deduction: 0,
+                    totalEarning,
+                },
             });
         }
 
+        // RESERVE NEW DELIVERY PARTNER
         reservedPartner = await DeliveryPartner.findOneAndUpdate(
             {
                 _id: deliveryPartnerId,
@@ -1435,22 +1893,61 @@ export const assignDeliveryPartner = async (req, res) => {
             });
         }
 
-        const delivery = await Delivery.findOne({
-            order: order._id,
-        });
-
-        if (!delivery) {
-            throw new Error("Delivery record not found for this order.");
-        }
-
         const previousPartnerId = order.deliveryPartner;
 
+        // UPDATE ORDER
         order.deliveryPartner = reservedPartner._id;
         await order.save();
 
+        // UPDATE DELIVERY
         delivery.deliveryPartner = reservedPartner._id;
         await delivery.save();
 
+        // CREATE OR UPDATE DELIVERY PAYOUT
+        // NEW SIMPLIFIED EARNING STRUCTURE
+        const payoutData = {
+            order: order._id,
+            delivery: delivery._id,
+            deliveryPartner: reservedPartner._id,
+            store: store._id,
+
+            distanceMeters,
+            distanceKm,
+            durationSeconds,
+
+            // TOTAL EARNING IS NOW THE BASE EARNING
+            baseEarning: totalEarning,
+
+            // NO EXTRA DISTANCE PAYMENT
+            extraKm: 0,
+            extraKmRate: 0,
+            extraDistanceEarning: 0,
+
+            // NO INCENTIVE OR DEDUCTION
+            incentive: 0,
+            deduction: 0,
+
+            totalEarning,
+
+            payoutStatus: "pending",
+        };
+
+        const payout = await DeliveryPayout.findOneAndUpdate(
+            {
+                order: order._id,
+            },
+            {
+                $set: payoutData,
+            },
+            {
+                new: true,
+                upsert: true,
+                runValidators: true,
+                setDefaultsOnInsert: true,
+            }
+        );
+
+        // RELEASE PREVIOUS PARTNER
         if (
             previousPartnerId &&
             previousPartnerId.toString() !== reservedPartner._id.toString()
@@ -1467,6 +1964,8 @@ export const assignDeliveryPartner = async (req, res) => {
             );
         }
 
+        assignmentCompleted = true;
+
         const updatedOrder = await Order.findById(orderId)
             .populate("user", "firstName lastName email phone")
             .populate("address")
@@ -1482,11 +1981,31 @@ export const assignDeliveryPartner = async (req, res) => {
         return res.status(200).json({
             success: true,
             message: "Delivery partner assigned successfully.",
+
             order: updatedOrder,
             deliveryPartner: reservedPartner,
+
+            route: {
+                distanceMeters: route.distanceMeters,
+                distanceKm: route.distanceKm,
+                durationSeconds: route.durationSeconds,
+                durationMinutes: route.durationMinutes,
+            },
+
+            earning: {
+                baseEarning: payout.baseEarning,
+                extraKm: payout.extraKm,
+                extraKmRate: payout.extraKmRate,
+                extraDistanceEarning: payout.extraDistanceEarning,
+                incentive: payout.incentive,
+                deduction: payout.deduction,
+                totalEarning: payout.totalEarning,
+                payoutStatus: payout.payoutStatus,
+            },
         });
+
     } catch (error) {
-        if (reservedPartner) {
+        if (reservedPartner && !assignmentCompleted) {
             await DeliveryPartner.updateOne(
                 {
                     _id: reservedPartner._id,
@@ -1510,9 +2029,11 @@ export const assignDeliveryPartner = async (req, res) => {
     }
 };
 
+
 // --------------------------------------------------
 // VERIFY DELIVERY OTP
 // --------------------------------------------------
+
 
 
 export const verifyDeliveryOtp = async (req, res) => {
@@ -1546,7 +2067,6 @@ export const verifyDeliveryOtp = async (req, res) => {
             });
         }
 
-        // START TRANSACTION
         session.startTransaction();
 
         // FIND ASSIGNED DELIVERY
@@ -1606,6 +2126,20 @@ export const verifyDeliveryOtp = async (req, res) => {
             });
         }
 
+        // FIND PENDING PAYOUT
+        const payout = await DeliveryPayout.findOne({
+            order: order._id,
+            delivery: delivery._id,
+            deliveryPartner: deliveryPartner._id,
+            payoutStatus: "pending",
+        }).session(session);
+
+        if (!payout) {
+            throw new Error(
+                "Pending delivery payout not found. Please contact admin."
+            );
+        }
+
         const deliveredAt = new Date();
 
         const paymentMethod = String(
@@ -1629,7 +2163,6 @@ export const verifyDeliveryOtp = async (req, res) => {
         if (paymentMethod === "cod") {
             order.paymentStatus = "paid";
 
-            // UPDATE OR CREATE PAYMENT RECORD
             updatedPayment = await Payment.findOneAndUpdate(
                 {
                     order: order._id,
@@ -1660,6 +2193,26 @@ export const verifyDeliveryOtp = async (req, res) => {
 
         await order.save({ session });
 
+        // MAKE PAYOUT PAYABLE
+        const totalEarning = Number(payout.totalEarning);
+
+        if (!Number.isFinite(totalEarning) || totalEarning < 0) {
+            throw new Error("Invalid delivery payout amount");
+        }
+
+        // COMPATIBILITY WITH SIMPLIFIED EARNING STRUCTURE
+        payout.baseEarning = totalEarning;
+        payout.extraKm = 0;
+        payout.extraKmRate = 0;
+        payout.extraDistanceEarning = 0;
+        payout.incentive = 0;
+        payout.deduction = 0;
+
+        payout.payoutStatus = "payable";
+        payout.payableAt = deliveredAt;
+
+        await payout.save({ session });
+
         // MAKE DELIVERY PARTNER AVAILABLE AGAIN
         await DeliveryPartner.updateOne(
             {
@@ -1668,6 +2221,9 @@ export const verifyDeliveryOtp = async (req, res) => {
             {
                 $set: {
                     isAvailable: true,
+                },
+                $inc: {
+                    totalDeliveries: 1,
                 },
             },
             { session }
@@ -1701,6 +2257,13 @@ export const verifyDeliveryOtp = async (req, res) => {
                     amount: updatedPayment.amount,
                 }
                 : null,
+
+            payout: {
+                totalEarning: payout.totalEarning,
+                distanceKm: payout.distanceKm,
+                payoutStatus: payout.payoutStatus,
+                payableAt: payout.payableAt,
+            },
         });
 
     } catch (error) {

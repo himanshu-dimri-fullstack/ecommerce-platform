@@ -20,6 +20,7 @@ import bannerRoutes from "./routes/bannerRoutes.js"
 import addressRoutes from "./routes/addressRoutes.js"
 import orderRoutes from "./routes/orderRoutes.js"
 import deliveryPartnerRoutes from "./routes/deliveryPartnerRoutes.js";
+import deliveryPayoutRoutes from "./routes/deliveryPayoutRoutes.js";
 
 dotenv.config()
 
@@ -58,6 +59,7 @@ app.use("/banner", bannerRoutes)
 app.use("/address", addressRoutes)
 app.use("/order", orderRoutes)
 app.use("/delivery-partner", deliveryPartnerRoutes);
+app.use("/delivery-payout", deliveryPayoutRoutes);
 
 app.listen(8000, () => {
     console.log("server running on port 8000")

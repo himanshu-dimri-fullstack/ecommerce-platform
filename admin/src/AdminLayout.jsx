@@ -27,7 +27,8 @@ import {
     FiImage,
     FiTruck,
     FiPower,
-    FiLoader
+    FiLoader,
+    FiDollarSign
 } from "react-icons/fi";
 
 import { API } from "./api/axios";
@@ -75,6 +76,18 @@ const AdminLayout = () => {
             permission: "order"
         },
         {
+            name: "Delivery Partners",
+            path: "/admin/delivery-partners",
+            icon: FiTruck,
+            permission: "deliveryPartner"
+        },
+        {
+            name: "Delivery Payouts",
+            path: "/admin/delivery-payouts",
+            icon: FiDollarSign,
+            permission: "deliveryPayout"
+        },
+        {
             name: "Banner",
             path: "/admin/banner",
             icon: FiImage,
@@ -103,12 +116,6 @@ const AdminLayout = () => {
             path: "/admin/inventory",
             icon: FiArchive,
             permission: "inventory"
-        },
-        {
-            name: "Delivery Partners",
-            path: "/admin/delivery-partners",
-            icon: FiTruck,
-            permission: "deliveryPartner"
         },
         {
             name: "Brand",
@@ -235,7 +242,6 @@ const AdminLayout = () => {
                     const latitude = position?.coords?.latitude;
                     const longitude = position?.coords?.longitude;
 
-                    // BOTH COORDINATES ARE MANDATORY
                     if (
                         latitude === null ||
                         latitude === undefined ||
@@ -248,7 +254,6 @@ const AdminLayout = () => {
                         return;
                     }
 
-                    // VALIDATE COORDINATES
                     if (
                         !Number.isFinite(latitude) ||
                         !Number.isFinite(longitude) ||
@@ -298,7 +303,6 @@ const AdminLayout = () => {
         if (statusUpdating || statusLoading) return;
 
         // ONLINE -> OFFLINE
-        // NO GPS REQUIRED
         if (isOnline) {
             try {
                 setStatusUpdating(true);
@@ -310,7 +314,6 @@ const AdminLayout = () => {
                     }
                 );
 
-                // UPDATE UI ONLY AFTER API SUCCESS
                 setIsOnline(false);
 
                 toast.success("You are now Offline.");
@@ -330,7 +333,6 @@ const AdminLayout = () => {
         }
 
         // OFFLINE -> ONLINE
-        // BLOCK INACTIVE / BLOCKED PARTNERS
         if (partnerStatus !== "active") {
             toast.error(
                 "Your account is not active. You cannot go Online."
@@ -341,12 +343,9 @@ const AdminLayout = () => {
         try {
             setStatusUpdating(true);
 
-            // STEP 1: GET GPS LOCATION
             const { latitude, longitude } =
                 await getCurrentLocation();
 
-            // STEP 2: FINAL VALIDATION BEFORE API CALL
-            // API WILL NOT BE CALLED WITHOUT BOTH VALID COORDINATES
             if (
                 latitude === null ||
                 latitude === undefined ||
@@ -364,7 +363,6 @@ const AdminLayout = () => {
                 );
             }
 
-            // STEP 3: CALL BACKEND ONLY AFTER GPS SUCCESS
             await API.patch(
                 "/delivery-partner/me/online-status",
                 {
@@ -374,7 +372,6 @@ const AdminLayout = () => {
                 }
             );
 
-            // STEP 4: UPDATE UI ONLY AFTER API SUCCESS
             setIsOnline(true);
 
             toast.success("You are now Online.");
@@ -382,7 +379,6 @@ const AdminLayout = () => {
         } catch (error) {
             console.error("Online update failed:", error);
 
-            // REMAIN OFFLINE IF GPS OR API FAILS
             setIsOnline(false);
 
             toast.error(
@@ -518,8 +514,8 @@ const AdminLayout = () => {
                                                 <Icon
                                                     size={19}
                                                     className={`shrink-0 ${isActive
-                                                            ? "text-emerald-700"
-                                                            : "text-emerald-100/80 group-hover:text-white"
+                                                        ? "text-emerald-700"
+                                                        : "text-emerald-100/80 group-hover:text-white"
                                                         }`}
                                                 />
 

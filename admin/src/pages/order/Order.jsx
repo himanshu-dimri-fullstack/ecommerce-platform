@@ -15,12 +15,19 @@ import {
     FiChevronRight,
     FiChevronsLeft,
     FiChevronsRight,
+    FiMapPin,
+    FiDollarSign,
+    FiTrendingUp,
+    FiBriefcase,
 } from "react-icons/fi";
 import { Navigate, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { API } from "../../api/axios";
 import DataLoader from "../../components/DataLoader";
 import { useSelector } from "react-redux";
+
+const BUTTON_THEME =
+    "bg-linear-to-br from-[#064e3b] via-[#047857] to-[#022c22] text-white hover:brightness-110";
 
 const Order = () => {
     const user = useSelector((store) => store.auth.user);
@@ -38,6 +45,9 @@ const Order = () => {
     const [deliveredOrders, setDeliveredOrders] = useState(0);
     const [cancelledOrders, setCancelledOrders] = useState(0);
 
+    // ROLE-BASED REVENUE SUMMARY
+    const [revenueSummary, setRevenueSummary] = useState(null);
+
     const [currentPage, setCurrentPage] = useState(1);
     const [entriesPerPage, setEntriesPerPage] = useState(10);
     const [totalPages, setTotalPages] = useState(1);
@@ -50,6 +60,9 @@ const Order = () => {
     const [partnersLoading, setPartnersLoading] = useState(false);
     const [assigningPartnerId, setAssigningPartnerId] = useState(null);
 
+    // DELIVERY ASSIGNMENT SUMMARY
+    const [assignmentSummary, setAssignmentSummary] = useState(null);
+
     // ROLE CHECK
     const userRole =
         typeof user?.role === "object"
@@ -57,9 +70,10 @@ const Order = () => {
             : user?.role;
 
     const isDeliveryPartner = userRole === "delivery_partner";
+    const isManager = userRole === "manager";
+    const isSuperAdmin = userRole === "super_admin";
 
     const canEditOrders =
-        // !isDeliveryPartner &&
         user?.role?.permissions?.includes("order:assign");
 
     // GET ALL ORDERS
@@ -87,6 +101,9 @@ const Order = () => {
             setPendingOrders(data.pendingOrders ?? 0);
             setDeliveredOrders(data.deliveredOrders ?? 0);
             setCancelledOrders(data.cancelledOrders ?? 0);
+
+            // FINANCIAL SUMMARY FROM BACKEND
+            setRevenueSummary(data.revenueSummary || null);
 
             setFilteredCount(data.filteredCount ?? 0);
             setTotalPages(data.totalPages ?? 1);
@@ -138,8 +155,6 @@ const Order = () => {
                 "/delivery-partner/available-for-assignment"
             );
 
-            console.log(">>>>>>>>>>", res.data)
-
             setDeliveryPartners(
                 res.data?.deliveryPartners || []
             );
@@ -180,7 +195,8 @@ const Order = () => {
 
             if (!res.data?.success) {
                 throw new Error(
-                    res.data?.message || "Failed to assign delivery partner"
+                    res.data?.message ||
+                    "Failed to assign delivery partner"
                 );
             }
 
@@ -196,7 +212,6 @@ const Order = () => {
                     )
                 );
             } else {
-                // FALLBACK: USE POPULATED USER FROM SELECTED PARTNER
                 setOrders((prev) =>
                     prev.map((order) =>
                         order._id === orderToAssign._id
@@ -209,6 +224,21 @@ const Order = () => {
                 );
             }
 
+            // SAVE ROUTE AND EARNING DETAILS FROM BACKEND
+            setAssignmentSummary({
+                orderNumber:
+                    updatedOrder?.orderNumber ||
+                    orderToAssign.orderNumber ||
+                    orderToAssign._id,
+
+                partnerName: getPartnerName(
+                    res.data.deliveryPartner?.user || partner.user
+                ),
+
+                route: res.data.route || null,
+                earning: res.data.earning || null,
+            });
+
             toast.success(
                 res.data.message ||
                 `${getPartnerName(partner.user)} assigned successfully`
@@ -218,7 +248,6 @@ const Order = () => {
             setOrderToAssign(null);
             setDeliveryPartners([]);
 
-            // REFRESH ORDERS FROM BACKEND
             getAllOrders();
         } catch (error) {
             console.error("Assign delivery partner error:", error);
@@ -229,7 +258,6 @@ const Order = () => {
                 "Failed to assign delivery partner"
             );
 
-            // Refresh available partners because availability may have changed.
             getAvailableDeliveryPartners();
         } finally {
             setAssigningPartnerId(null);
@@ -245,6 +273,11 @@ const Order = () => {
         setDeliveryPartners([]);
     };
 
+    // CLOSE ASSIGNMENT SUMMARY
+    const handleCloseAssignmentSummary = () => {
+        setAssignmentSummary(null);
+    };
+
     // GET PARTNER NAME
     const getPartnerName = (partnerUser) => {
         if (!partnerUser) return "";
@@ -255,6 +288,35 @@ const Order = () => {
             partnerUser.email ||
             "Delivery Partner"
         );
+    };
+
+    // FORMAT CURRENCY
+    const formatCurrency = (amount) => {
+        if (!Number.isFinite(Number(amount))) return "₹0";
+
+        return Number(amount).toLocaleString("en-IN", {
+            style: "currency",
+            currency: "INR",
+            maximumFractionDigits: 2,
+        });
+    };
+
+    // FORMAT TRAVEL DURATION
+    const formatDuration = (minutes) => {
+        if (!Number.isFinite(Number(minutes))) return "-";
+
+        const totalMinutes = Math.round(Number(minutes));
+
+        if (totalMinutes < 60) {
+            return `${totalMinutes} min`;
+        }
+
+        const hours = Math.floor(totalMinutes / 60);
+        const remainingMinutes = totalMinutes % 60;
+
+        return remainingMinutes
+            ? `${hours} hr ${remainingMinutes} min`
+            : `${hours} hr`;
     };
 
     // CHANGE ENTRIES PER PAGE
@@ -332,6 +394,19 @@ const Order = () => {
         }
     };
 
+    const getPayoutStatusClass = (status) => {
+        switch (status) {
+            case "payable":
+                return "bg-blue-100 text-blue-700";
+            case "paid":
+                return "bg-green-100 text-green-700";
+            case "failed":
+                return "bg-red-100 text-red-700";
+            default:
+                return "bg-amber-100 text-amber-700";
+        }
+    };
+
     // PERMISSION CHECK
     if (
         !isDeliveryPartner &&
@@ -354,6 +429,14 @@ const Order = () => {
         filteredCount
     );
 
+    // ROLE-BASED FINANCIAL SUMMARY VALUES
+    const totalEarnings = revenueSummary?.totalEarnings ?? 0;
+    const payableAmount = revenueSummary?.payableAmount ?? 0;
+    const paidAmount = revenueSummary?.paidAmount ?? 0;
+    const pendingAmount = revenueSummary?.pendingAmount ?? 0;
+    const totalRevenue = revenueSummary?.totalRevenue ?? 0;
+    const revenueDeliveredOrders = revenueSummary?.deliveredOrders ?? 0;
+
     return (
         <div className="space-y-6">
 
@@ -370,7 +453,7 @@ const Order = () => {
                 </p>
             </div>
 
-            {/* STAT CARDS */}
+            {/* ORDER STAT CARDS */}
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
 
                 <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:shadow-md">
@@ -422,6 +505,158 @@ const Order = () => {
                 </div>
 
             </div>
+
+            {/* DELIVERY PARTNER EARNINGS */}
+            {isDeliveryPartner && (
+                <div>
+                    <div className="mb-4">
+                        <h2 className="text-lg font-bold text-slate-800">
+                            My Earnings
+                        </h2>
+                        <p className="mt-1 text-sm text-slate-500">
+                            Your delivery earnings and payout overview.
+                        </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
+
+                        <div className="rounded-2xl border border-green-200 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:shadow-md">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm font-medium text-slate-500">
+                                        Total Earnings
+                                    </p>
+                                    <h2 className="mt-2 text-2xl font-bold text-green-600">
+                                        {formatCurrency(totalEarnings)}
+                                    </h2>
+                                    <p className="mt-2 text-xs text-slate-400">
+                                        Completed deliveries
+                                    </p>
+                                </div>
+                                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-green-50 text-green-600">
+                                    <FiTrendingUp size={24} />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="rounded-2xl border border-blue-200 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:shadow-md">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm font-medium text-slate-500">
+                                        Payable Amount
+                                    </p>
+                                    <h2 className="mt-2 text-2xl font-bold text-blue-600">
+                                        {formatCurrency(payableAmount)}
+                                    </h2>
+                                    <p className="mt-2 text-xs text-slate-400">
+                                        Awaiting settlement
+                                    </p>
+                                </div>
+                                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+                                    <FiBriefcase size={24} />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="rounded-2xl border border-emerald-200 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:shadow-md">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm font-medium text-slate-500">
+                                        Paid Amount
+                                    </p>
+                                    <h2 className="mt-2 text-2xl font-bold text-emerald-600">
+                                        {formatCurrency(paidAmount)}
+                                    </h2>
+                                    <p className="mt-2 text-xs text-slate-400">
+                                        Already settled
+                                    </p>
+                                </div>
+                                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+                                    <FiCheckCircle size={24} />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="rounded-2xl border border-amber-200 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:shadow-md">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm font-medium text-slate-500">
+                                        Pending Amount
+                                    </p>
+                                    <h2 className="mt-2 text-2xl font-bold text-amber-600">
+                                        {formatCurrency(pendingAmount)}
+                                    </h2>
+                                    <p className="mt-2 text-xs text-slate-400">
+                                        Delivery not completed yet
+                                    </p>
+                                </div>
+                                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
+                                    <FiClock size={24} />
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            )}
+
+            {/* MANAGER / SUPER ADMIN REVENUE */}
+            {(isManager || isSuperAdmin) && (
+                <div>
+                    <div className="mb-4">
+                        <h2 className="text-lg font-bold text-slate-800">
+                            {isSuperAdmin ? "Platform Revenue" : "Store Revenue"}
+                        </h2>
+                        <p className="mt-1 text-sm text-slate-500">
+                            {isSuperAdmin
+                                ? "Overall revenue generated across the platform."
+                                : "Revenue generated by your assigned store(s)."}
+                        </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+
+                        <div className="rounded-2xl border border-green-200 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:shadow-md">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm font-medium text-slate-500">
+                                        {isSuperAdmin ? "Total Platform Revenue" : "Total Store Revenue"}
+                                    </p>
+                                    <h2 className="mt-2 text-3xl font-bold text-green-600">
+                                        {formatCurrency(totalRevenue)}
+                                    </h2>
+                                    <p className="mt-2 text-xs text-slate-400">
+                                        Excluding delivery charges
+                                    </p>
+                                </div>
+                                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-green-50 text-green-600">
+                                    <FiDollarSign size={24} />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="rounded-2xl border border-blue-200 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:shadow-md">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm font-medium text-slate-500">
+                                        Revenue Orders
+                                    </p>
+                                    <h2 className="mt-2 text-3xl font-bold text-blue-600">
+                                        {revenueDeliveredOrders}
+                                    </h2>
+                                    <p className="mt-2 text-xs text-slate-400">
+                                        Successfully delivered orders
+                                    </p>
+                                </div>
+                                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+                                    <FiShoppingBag size={24} />
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            )}
 
             {/* SEARCH + FILTER + ENTRIES */}
             <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -491,17 +726,18 @@ const Order = () => {
             <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
                 <div className="overflow-x-auto">
                     <table className="w-full min-w-250">
-
                         <thead className="border-b border-slate-200 bg-slate-50">
                             <tr>
-                                {["Order", "Date", "Payment", "Status", "Actions"].map((heading) => (
-                                    <th
-                                        key={heading}
-                                        className={`whitespace-nowrap px-6 py-4 text-xs font-semibold uppercase tracking-wide text-slate-500 ${heading === "Actions" ? "text-center" : "text-left"}`}
-                                    >
-                                        {heading}
-                                    </th>
-                                ))}
+                                {["Order", "Date", "Payment", "Status", "Actions"].map(
+                                    (heading) => (
+                                        <th
+                                            key={heading}
+                                            className="whitespace-nowrap px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500"
+                                        >
+                                            {heading}
+                                        </th>
+                                    )
+                                )}
                             </tr>
                         </thead>
 
@@ -511,79 +747,97 @@ const Order = () => {
                                     const assignedPartner = order.deliveryPartner;
 
                                     return (
-                                        <tr key={order._id} className="transition hover:bg-slate-50">
-
+                                        <tr
+                                            key={order._id}
+                                            className="transition hover:bg-slate-50"
+                                        >
+                                            {/* ORDER */}
                                             <td className="px-6 py-4">
                                                 <div>
                                                     <p className="font-semibold text-slate-800">
                                                         #{order.orderNumber || order._id}
                                                     </p>
 
-                                                    <p className="mt-1 text-xs text-slate-400">{order._id}</p>
+                                                    <p className="mt-1 text-xs text-slate-400">
+                                                        ID: #{order._id}
+                                                    </p>
 
                                                     {assignedPartner && (
                                                         <p className="mt-2 text-xs font-medium text-green-700">
-                                                            Assigned to: {getPartnerName(assignedPartner?.user)}
+                                                            Assigned to:{" "}
+                                                            {getPartnerName(assignedPartner?.user)}
                                                         </p>
                                                     )}
                                                 </div>
                                             </td>
 
+                                            {/* DATE */}
                                             <td className="px-6 py-4">
-                                                <div className="flex items-center gap-2 text-sm text-slate-600">
-                                                    <FiCalendar className="text-slate-400" size={15} />
+                                                <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                                                    <FiCalendar
+                                                        className="text-slate-400"
+                                                        size={15}
+                                                    />
                                                     {formatDate(order.placedAt || order.createdAt)}
                                                 </div>
                                             </td>
 
+                                            {/* PAYMENT */}
                                             <td className="px-6 py-4">
                                                 <p className="text-sm font-medium uppercase text-slate-700">
                                                     {order.paymentMethod || "-"}
                                                 </p>
-                                                <span className={`mt-1 inline-block rounded-md px-2 py-1 text-xs font-semibold capitalize ${getPaymentStatusClass(order.paymentStatus)}`}>
+
+                                                <span
+                                                    className={`mt-1 inline-block rounded-md px-2 py-1 text-xs font-semibold capitalize ${getPaymentStatusClass(
+                                                        order.paymentStatus
+                                                    )}`}
+                                                >
                                                     {order.paymentStatus || "pending"}
                                                 </span>
                                             </td>
 
+                                            {/* STATUS */}
                                             <td className="px-6 py-4">
-                                                <span className={`inline-block whitespace-nowrap rounded-lg px-3 py-2 text-xs font-semibold ${getStatusClass(order.orderStatus)}`}>
+                                                <span
+                                                    className={`inline-block whitespace-nowrap rounded-lg px-3 py-2 text-xs font-semibold ${getStatusClass(
+                                                        order.orderStatus
+                                                    )}`}
+                                                >
                                                     {getStatusLabel(order.orderStatus)}
                                                 </span>
                                             </td>
 
+                                            {/* ACTIONS */}
                                             <td className="px-6 py-4">
-                                                <div className="flex items-center justify-center gap-2">
+                                                <div className="flex items-center gap-2">
+                                                    <button
+                                                        type="button"
+                                                        title="View Order"
+                                                        onClick={() => handleViewOrder(order)}
+                                                        className="rounded-lg p-2 text-blue-600 transition hover:bg-blue-50"
+                                                    >
+                                                        <FiEye size={18} />
+                                                    </button>
 
-                                                    <div className="group relative">
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => handleViewOrder(order)}
-                                                            aria-label="View order"
-                                                            className="rounded-lg p-2 text-blue-600 transition hover:bg-blue-50"
-                                                        >
-                                                            <FiEye size={18} />
-                                                        </button>
-                                                        <span className="pointer-events-none absolute bottom-full left-1/2 mb-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-800 px-2 py-1 text-xs text-white opacity-0 transition group-hover:opacity-100">
-                                                            View Order
-                                                        </span>
-                                                    </div>
-
-                                                    {canEditOrders && order.orderStatus !== "delivered" && (
-                                                        <div className="group relative">
+                                                    {canEditOrders &&
+                                                        order.orderStatus !== "delivered" &&
+                                                        order.orderStatus !== "cancelled" && (
                                                             <button
                                                                 type="button"
-                                                                onClick={() => handleOpenAssignModal(order)}
-                                                                aria-label="Assign order"
-                                                                className="rounded-lg p-2 text-[#003963] transition hover:bg-blue-50"
+                                                                title={
+                                                                    assignedPartner
+                                                                        ? "Reassign Order"
+                                                                        : "Assign Order"
+                                                                }
+                                                                onClick={() =>
+                                                                    handleOpenAssignModal(order)
+                                                                }
+                                                                className="rounded-lg p-2 text-amber-600 transition hover:bg-amber-50"
                                                             >
                                                                 <FiUserCheck size={18} />
                                                             </button>
-                                                            <span className="pointer-events-none absolute bottom-full left-1/2 mb-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-800 px-2 py-1 text-xs text-white opacity-0 transition group-hover:opacity-100">
-                                                                {assignedPartner ? "Reassign Order" : "Assign Order"}
-                                                            </span>
-                                                        </div>
-                                                    )}
-
+                                                        )}
                                                 </div>
                                             </td>
                                         </tr>
@@ -592,8 +846,15 @@ const Order = () => {
                             ) : (
                                 <tr>
                                     <td colSpan={5} className="px-6 py-12 text-center">
-                                        <FiShoppingBag size={40} className="mx-auto text-slate-300" />
-                                        <p className="mt-3 font-medium text-slate-600">No orders found</p>
+                                        <FiShoppingBag
+                                            size={40}
+                                            className="mx-auto text-slate-300"
+                                        />
+
+                                        <p className="mt-3 font-medium text-slate-600">
+                                            No orders found
+                                        </p>
+
                                         <p className="mt-1 text-sm text-slate-400">
                                             Try changing your search or status filter.
                                         </p>
@@ -601,81 +862,142 @@ const Order = () => {
                                 </tr>
                             )}
                         </tbody>
-
                     </table>
                 </div>
 
-                {/* PAGINATION FOOTER */}
-                <div className="flex flex-col gap-4 border-t border-slate-200 bg-white px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+                {/* PAGINATION */}
+                {totalPages > 0 && (
+                    <div className="flex flex-col gap-4 border-t border-slate-200 bg-white px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
 
-                    <p className="text-sm text-slate-500">
-                        Showing{" "}
-                        <span className="font-semibold text-slate-800">{startEntry}</span>
-                        {" "}to{" "}
-                        <span className="font-semibold text-slate-800">{endEntry}</span>
-                        {" "}of{" "}
-                        <span className="font-semibold text-slate-800">{filteredCount}</span>
-                        {" "}orders
-                    </p>
+                        <p className="text-sm text-slate-500">
+                            Showing{" "}
+                            <span className="font-semibold text-slate-800">
+                                {startEntry}
+                            </span>
+                            {" "}to{" "}
+                            <span className="font-semibold text-slate-800">
+                                {endEntry}
+                            </span>
+                            {" "}of{" "}
+                            <span className="font-semibold text-slate-800">
+                                {filteredCount}
+                            </span>
+                            {" "}orders
+                        </p>
 
-                    <div className="flex flex-wrap items-center gap-1.5">
+                        <div className="flex flex-wrap items-center justify-center gap-1.5">
 
-                        <button
-                            type="button"
-                            title="First Page"
-                            disabled={currentPage === 1 || totalPages <= 1}
-                            onClick={() => setCurrentPage(1)}
-                            className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:border-emerald-600 hover:bg-emerald-50 hover:text-emerald-700 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-slate-200 disabled:hover:bg-white disabled:hover:text-slate-600"
-                        >
-                            <FiChevronsLeft size={17} />
-                        </button>
-
-                        <button
-                            type="button"
-                            title="Previous Page"
-                            disabled={currentPage === 1 || totalPages <= 1}
-                            onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                            className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:border-emerald-600 hover:bg-emerald-50 hover:text-emerald-700 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-slate-200 disabled:hover:bg-white disabled:hover:text-slate-600"
-                        >
-                            <FiChevronLeft size={17} />
-                        </button>
-
-                        {getPaginationNumbers().map((page) => (
+                            {/* FIRST PAGE */}
                             <button
-                                key={page}
                                 type="button"
-                                onClick={() => setCurrentPage(page)}
-                                className={`flex h-9 min-w-9 items-center justify-center rounded-lg px-3 text-sm font-semibold transition ${currentPage === page
-                                    ? "bg-linear-to-br from-[#064e3b] via-[#047857] to-[#022c22] text-white shadow-sm"
-                                    : "border border-slate-200 text-slate-600 hover:border-emerald-600 hover:bg-emerald-50 hover:text-emerald-700"
-                                    }`}
+                                disabled={currentPage === 1}
+                                onClick={() => setCurrentPage(1)}
+                                className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:border-[#047857] hover:bg-emerald-50 hover:text-[#047857] disabled:cursor-not-allowed disabled:opacity-40"
+                                title="First page"
                             >
-                                {page}
+                                <FiChevronsLeft size={17} />
                             </button>
-                        ))}
 
-                        <button
-                            type="button"
-                            title="Next Page"
-                            disabled={currentPage >= totalPages || totalPages <= 1}
-                            onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-                            className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:border-emerald-600 hover:bg-emerald-50 hover:text-emerald-700 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-slate-200 disabled:hover:bg-white disabled:hover:text-slate-600"
-                        >
-                            <FiChevronRight size={17} />
-                        </button>
+                            {/* PREVIOUS */}
+                            <button
+                                type="button"
+                                disabled={currentPage === 1}
+                                onClick={() =>
+                                    setCurrentPage((prev) => Math.max(1, prev - 1))
+                                }
+                                className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:border-[#047857] hover:bg-emerald-50 hover:text-[#047857] disabled:cursor-not-allowed disabled:opacity-40"
+                                title="Previous page"
+                            >
+                                <FiChevronLeft size={17} />
+                            </button>
 
-                        <button
-                            type="button"
-                            title="Last Page"
-                            disabled={currentPage >= totalPages || totalPages <= 1}
-                            onClick={() => setCurrentPage(totalPages)}
-                            className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:border-emerald-600 hover:bg-emerald-50 hover:text-emerald-700 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-slate-200 disabled:hover:bg-white disabled:hover:text-slate-600"
-                        >
-                            <FiChevronsRight size={17} />
-                        </button>
+                            {/* FIRST PAGE + ELLIPSIS */}
+                            {getPaginationNumbers().length > 0 &&
+                                getPaginationNumbers()[0] > 1 && (
+                                    <>
+                                        <button
+                                            type="button"
+                                            onClick={() => setCurrentPage(1)}
+                                            className="h-9 min-w-9 rounded-lg border border-slate-200 px-3 text-sm font-medium text-slate-600 transition hover:border-[#047857] hover:bg-emerald-50 hover:text-[#047857]"
+                                        >
+                                            1
+                                        </button>
 
+                                        {getPaginationNumbers()[0] > 2 && (
+                                            <span className="px-1 text-slate-400">
+                                                ...
+                                            </span>
+                                        )}
+                                    </>
+                                )}
+
+                            {/* PAGE NUMBERS */}
+                            {getPaginationNumbers().map((page) => (
+                                <button
+                                    key={page}
+                                    type="button"
+                                    onClick={() => setCurrentPage(page)}
+                                    className={`h-9 min-w-9 rounded-lg px-3 text-sm font-semibold transition ${currentPage === page
+                                        ? "bg-linear-to-br from-[#064e3b] via-[#047857] to-[#022c22] text-white shadow-sm"
+                                        : "border border-slate-200 text-slate-600 hover:border-[#047857] hover:bg-emerald-50 hover:text-[#047857]"
+                                        }`}
+                                >
+                                    {page}
+                                </button>
+                            ))}
+
+                            {/* LAST PAGE + ELLIPSIS */}
+                            {getPaginationNumbers().length > 0 &&
+                                getPaginationNumbers()[
+                                getPaginationNumbers().length - 1
+                                ] < totalPages && (
+                                    <>
+                                        {getPaginationNumbers()[
+                                            getPaginationNumbers().length - 1
+                                        ] < totalPages - 1 && (
+                                                <span className="px-1 text-slate-400">
+                                                    ...
+                                                </span>
+                                            )}
+
+                                        <button
+                                            type="button"
+                                            onClick={() => setCurrentPage(totalPages)}
+                                            className="h-9 min-w-9 rounded-lg border border-slate-200 px-3 text-sm font-medium text-slate-600 transition hover:border-[#047857] hover:bg-emerald-50 hover:text-[#047857]"
+                                        >
+                                            {totalPages}
+                                        </button>
+                                    </>
+                                )}
+
+                            {/* NEXT */}
+                            <button
+                                type="button"
+                                disabled={currentPage === totalPages}
+                                onClick={() =>
+                                    setCurrentPage((prev) =>
+                                        Math.min(totalPages, prev + 1)
+                                    )
+                                }
+                                className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:border-[#047857] hover:bg-emerald-50 hover:text-[#047857] disabled:cursor-not-allowed disabled:opacity-40"
+                                title="Next page"
+                            >
+                                <FiChevronRight size={17} />
+                            </button>
+
+                            {/* LAST PAGE */}
+                            <button
+                                type="button"
+                                disabled={currentPage === totalPages}
+                                onClick={() => setCurrentPage(totalPages)}
+                                className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:border-[#047857] hover:bg-emerald-50 hover:text-[#047857] disabled:cursor-not-allowed disabled:opacity-40"
+                                title="Last page"
+                            >
+                                <FiChevronsRight size={17} />
+                            </button>
+                        </div>
                     </div>
-                </div>
+                )}
             </div>
 
             {/* ASSIGN DELIVERY PARTNER MODAL */}
@@ -702,7 +1024,7 @@ const Order = () => {
                                 type="button"
                                 onClick={handleCloseAssignModal}
                                 disabled={!!assigningPartnerId}
-                                className="rounded-lg p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 disabled:opacity-50"
+                                className="rounded-lg p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-800 disabled:opacity-50"
                                 aria-label="Close modal"
                             >
                                 <FiX size={20} />
@@ -710,7 +1032,6 @@ const Order = () => {
                         </div>
 
                         <div className="max-h-[60vh] space-y-3 overflow-y-auto p-6">
-
                             {partnersLoading ? (
                                 <div className="flex flex-col items-center justify-center py-12">
                                     <div className="h-9 w-9 animate-spin rounded-full border-4 border-slate-200 border-t-[#003963]" />
@@ -721,8 +1042,7 @@ const Order = () => {
                             ) : deliveryPartners.length > 0 ? (
                                 deliveryPartners.map((partner) => {
                                     const isAssigned =
-                                        orderToAssign.deliveryPartner?._id ===
-                                        partner._id;
+                                        orderToAssign.deliveryPartner?._id === partner._id;
 
                                     const partnerUser = partner.user;
 
@@ -752,15 +1072,12 @@ const Order = () => {
                                                 </div>
                                             </div>
 
+                                            {/* ASSIGN BUTTON - SAME GREEN BACKGROUND */}
                                             <button
                                                 type="button"
                                                 onClick={() => handleAssignPartner(partner)}
                                                 disabled={!!assigningPartnerId || isAssigned}
-                                                className={`shrink-0 rounded-lg px-5 py-2.5 text-sm font-semibold transition ${isAssigned
-                                                    ? "cursor-not-allowed bg-green-50 text-green-700"
-                                                    : assigningPartnerId === partner._id
-                                                        ? "cursor-wait bg-[#003963]/70 text-white"
-                                                        : "bg-[#003963] text-white hover:bg-[#002b4a] disabled:cursor-not-allowed disabled:opacity-50"
+                                                className={`shrink-0 rounded-lg bg-linear-to-br from-[#064e3b] via-[#047857] to-[#022c22] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50 ${isAssigned ? "cursor-not-allowed opacity-60" : ""
                                                     }`}
                                             >
                                                 {isAssigned
@@ -785,13 +1102,12 @@ const Order = () => {
                                     <button
                                         type="button"
                                         onClick={getAvailableDeliveryPartners}
-                                        className="mt-4 rounded-lg border border-[#003963] px-5 py-2 text-sm font-semibold text-[#003963] transition hover:bg-blue-50"
+                                        className="mt-4 rounded-lg border border-slate-200 px-5 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
                                     >
                                         Try Again
                                     </button>
                                 </div>
                             )}
-
                         </div>
 
                         <div className="flex justify-end border-t border-slate-200 px-6 py-4">
@@ -802,6 +1118,179 @@ const Order = () => {
                                 className="rounded-lg border border-slate-200 px-5 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
                             >
                                 Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* DELIVERY ASSIGNMENT SUMMARY MODAL */}
+            {assignmentSummary && (
+                <div
+                    className="fixed inset-0 z-60 flex items-center justify-center bg-black/50 p-4"
+                    onClick={handleCloseAssignmentSummary}
+                >
+                    <div
+                        className="flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        {/* HEADER */}
+                        <div className="shrink-0 border-b border-slate-200 px-6 py-5">
+                            <div className="flex items-start justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-green-50 text-green-600">
+                                        <FiCheckCircle size={26} />
+                                    </div>
+
+                                    <div>
+                                        <h2 className="text-xl font-bold text-slate-800">
+                                            Partner Assigned
+                                        </h2>
+                                        <p className="mt-1 text-sm text-slate-500">
+                                            Delivery assignment successful
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <button
+                                    type="button"
+                                    onClick={handleCloseAssignmentSummary}
+                                    className={`rounded-lg p-2 transition ${BUTTON_THEME}`}
+                                    aria-label="Close summary"
+                                >
+                                    <FiX size={20} />
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* SCROLLABLE CONTENT */}
+                        <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain p-6">
+
+                            {/* ORDER AND PARTNER */}
+                            <div className="rounded-xl bg-slate-50 p-4">
+                                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                                    Order
+                                </p>
+                                <p className="mt-1 font-bold text-slate-800">
+                                    #{assignmentSummary.orderNumber}
+                                </p>
+
+                                <div className="mt-3 border-t border-slate-200 pt-3">
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                                        Delivery Partner
+                                    </p>
+                                    <p className="mt-1 font-semibold text-slate-800">
+                                        {assignmentSummary.partnerName}
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* ROUTE DETAILS */}
+                            <div>
+                                <h3 className="mb-3 flex items-center gap-2 font-semibold text-slate-800">
+                                    <FiMapPin className="text-[#003963]" size={18} />
+                                    Delivery Route
+                                </h3>
+
+                                {assignmentSummary.route ? (
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div className="rounded-xl border border-slate-200 p-4">
+                                            <p className="text-xs font-medium text-slate-500">
+                                                Road Distance
+                                            </p>
+                                            <p className="mt-2 text-2xl font-bold text-slate-800">
+                                                {Number(assignmentSummary.route.distanceKm).toFixed(2)}
+                                                <span className="ml-1 text-sm font-semibold text-slate-500">
+                                                    km
+                                                </span>
+                                            </p>
+                                        </div>
+
+                                        <div className="rounded-xl border border-slate-200 p-4">
+                                            <p className="flex items-center gap-1 text-xs font-medium text-slate-500">
+                                                <FiClock size={13} />
+                                                Estimated Time
+                                            </p>
+                                            <p className="mt-2 text-2xl font-bold text-slate-800">
+                                                {formatDuration(
+                                                    assignmentSummary.route.durationMinutes
+                                                )}
+                                            </p>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <p className="rounded-xl bg-amber-50 p-4 text-sm text-amber-700">
+                                        Route information was not returned by the server.
+                                    </p>
+                                )}
+                            </div>
+
+                            {/* PARTNER EARNING */}
+                            <div>
+                                <h3 className="mb-3 flex items-center gap-2 font-semibold text-slate-800">
+                                    <FiDollarSign className="text-green-600" size={18} />
+                                    Partner Earning
+                                </h3>
+
+                                {assignmentSummary.earning ? (
+                                    <div className="overflow-hidden rounded-xl border border-slate-200">
+                                        <div className="flex items-center justify-between p-4">
+                                            <span className="text-sm font-medium text-slate-500">
+                                                Delivery Earning
+                                            </span>
+                                            <span className="text-lg font-bold text-slate-800">
+                                                {formatCurrency(
+                                                    assignmentSummary.earning.totalEarning
+                                                )}
+                                            </span>
+                                        </div>
+
+                                        <div className="flex items-center justify-between border-t border-slate-200 bg-slate-50 px-4 py-4">
+                                            <span className="font-semibold text-slate-700">
+                                                Total Estimated Earning
+                                            </span>
+                                            <span className="text-2xl font-bold text-green-600">
+                                                {formatCurrency(
+                                                    assignmentSummary.earning.totalEarning
+                                                )}
+                                            </span>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <p className="rounded-xl bg-amber-50 p-4 text-sm text-amber-700">
+                                        Earning information was not returned by the server.
+                                    </p>
+                                )}
+                            </div>
+
+                            {/* PAYOUT STATUS */}
+                            <div className="flex items-center justify-between rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+                                <div>
+                                    <p className="text-sm font-semibold text-slate-700">
+                                        Payout Status
+                                    </p>
+                                    <p className="mt-1 text-xs text-slate-500">
+                                        Earning becomes payable after successful delivery OTP verification.
+                                    </p>
+                                </div>
+
+                                <span className={`shrink-0 rounded-lg px-3 py-1.5 text-xs font-bold capitalize ${getPayoutStatusClass(
+                                    assignmentSummary.earning?.payoutStatus || "pending"
+                                )}`}>
+                                    {assignmentSummary.earning?.payoutStatus || "Pending"}
+                                </span>
+                            </div>
+
+                        </div>
+
+                        {/* FIXED FOOTER */}
+                        <div className="shrink-0 flex justify-end border-t border-slate-200 bg-white px-6 py-4">
+                            <button
+                                type="button"
+                                onClick={handleCloseAssignmentSummary}
+                                className={`rounded-lg px-6 py-2.5 text-sm font-semibold transition ${BUTTON_THEME}`}
+                            >
+                                Done
                             </button>
                         </div>
                     </div>

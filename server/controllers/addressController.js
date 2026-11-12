@@ -1,7 +1,10 @@
 
 import mongoose from "mongoose";
+
 import Address from "../models/Address.js";
-import { handleResponseError } from "../utils/errorUtils.js"
+import { geocodeAddress } from "../utils/geocodeAddress.js";
+import { handleResponseError } from "../utils/errorUtils.js";
+
 
 // ADD ADDRESS
 export const addAddress = async (req, res) => {
@@ -15,13 +18,9 @@ export const addAddress = async (req, res) => {
             state,
             country,
             pincode,
-            location,
-            longitude,
-            latitude,
             isDefault,
         } = req.body;
 
-        // Required field validation
         const requiredFields = {
             type,
             houseNumber,
@@ -39,30 +38,42 @@ export const addAddress = async (req, res) => {
         if (missingFields.length > 0) {
             return res.status(400).json({
                 success: false,
-                message: "Please fill all required fields",
+                message: "Please fill all required fields.",
                 missingFields,
             });
         }
 
         const userId = req.user.id;
 
-        // Check existing addresses
-        const existingAddress = await Address.findOne({ user: userId });
+        // GET EXISTING ADDRESSES
+        const existingAddress = await Address.findOne({
+            user: userId,
+        });
 
-        // Prepare location
-        const coordinates = location?.coordinates || [
-            Number(longitude) || 0,
-            Number(latitude) || 0,
-        ];
+        // GEOCODE ADDRESS USING PHOTON
+        const coordinates = await geocodeAddress({
+            houseNumber,
+            street,
+            landmark,
+            city,
+            state,
+            country,
+            pincode,
+        });
 
-        // If new address is default, remove default from previous addresses
+        // UPDATE DEFAULT ADDRESS
         if (isDefault || !existingAddress) {
             await Address.updateMany(
                 { user: userId },
-                { $set: { isDefault: false } }
+                {
+                    $set: {
+                        isDefault: false,
+                    },
+                }
             );
         }
 
+        // CREATE ADDRESS
         const address = await Address.create({
             user: userId,
             type,
@@ -73,23 +84,36 @@ export const addAddress = async (req, res) => {
             state,
             country,
             pincode,
-            location: {
-                type: "Point",
-                coordinates,
-            },
-            isDefault: isDefault || !existingAddress,
+
+            location: coordinates,
+
+            isDefault: Boolean(isDefault || !existingAddress),
         });
 
         return res.status(201).json({
             success: true,
-            message: "Address added successfully",
+            message: "Address added successfully.",
             address,
         });
 
     } catch (error) {
+        console.error("Add Address Error:", error);
+
+        if (
+            error.message?.includes("location") ||
+            error.message?.includes("address") ||
+            error.message?.includes("Address")
+        ) {
+            return res.status(422).json({
+                success: false,
+                message: error.message,
+            });
+        }
+
         return handleResponseError(error, res);
     }
 };
+
 
 // GET USER ADDRESSES
 export const getAddresses = async (req, res) => {
@@ -105,11 +129,13 @@ export const getAddresses = async (req, res) => {
 
         return res.status(200).json({
             success: true,
-            message: "Addresses fetched successfully",
+            message: "Addresses fetched successfully.",
             addresses,
         });
 
     } catch (error) {
+        console.error("Get Addresses Error:", error);
+
         return res.status(500).json({
             success: false,
             message: error.message,
@@ -127,7 +153,7 @@ export const updateAddress = async (req, res) => {
         if (!mongoose.Types.ObjectId.isValid(id)) {
             return res.status(400).json({
                 success: false,
-                message: "Invalid address ID",
+                message: "Invalid address ID.",
             });
         }
 
@@ -139,7 +165,7 @@ export const updateAddress = async (req, res) => {
         if (!address) {
             return res.status(404).json({
                 success: false,
-                message: "Address not found",
+                message: "Address not found.",
             });
         }
 
@@ -156,46 +182,87 @@ export const updateAddress = async (req, res) => {
             "pincode",
         ];
 
+        const addressFields = [
+            "houseNumber",
+            "street",
+            "landmark",
+            "city",
+            "state",
+            "country",
+            "pincode",
+        ];
+
+        // CHECK WHETHER ADDRESS DETAILS CHANGED
+        const locationChanged = addressFields.some(
+            (field) =>
+                req.body[field] !== undefined &&
+                String(req.body[field] ?? "").trim() !==
+                String(address[field] ?? "").trim()
+        );
+
+        // UPDATE NORMAL ADDRESS FIELDS
         allowedFields.forEach((field) => {
             if (req.body[field] !== undefined) {
                 address[field] = req.body[field];
             }
         });
 
-        // Update location if provided
-        if (req.body.location) {
-            address.location = req.body.location;
-        } else if (
-            req.body.longitude !== undefined ||
-            req.body.latitude !== undefined
-        ) {
-            const coordinates = [...address.location.coordinates];
+        // RE-GEOCODE ONLY WHEN ADDRESS CHANGES
+        if (locationChanged) {
+            const requiredFields = [
+                "houseNumber",
+                "street",
+                "city",
+                "state",
+                "country",
+                "pincode",
+            ];
 
-            if (req.body.longitude !== undefined) {
-                coordinates[0] = Number(req.body.longitude);
+            const missingFields = requiredFields.filter(
+                (field) =>
+                    !address[field] ||
+                    !String(address[field]).trim()
+            );
+
+            if (missingFields.length > 0) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Please fill all required address fields.",
+                    missingFields,
+                });
             }
 
-            if (req.body.latitude !== undefined) {
-                coordinates[1] = Number(req.body.latitude);
-            }
+            const coordinates = await geocodeAddress({
+                houseNumber: address.houseNumber,
+                street: address.street,
+                landmark: address.landmark,
+                city: address.city,
+                state: address.state,
+                country: address.country,
+                pincode: address.pincode,
+            });
 
-            address.location = {
-                type: "Point",
-                coordinates,
-            };
+            address.location = coordinates;
         }
 
-        // Make this address default
+        // MAKE THIS ADDRESS DEFAULT
         if (req.body.isDefault === true) {
             await Address.updateMany(
-                { user: userId, _id: { $ne: id } },
-                { $set: { isDefault: false } }
+                {
+                    user: userId,
+                    _id: { $ne: id },
+                },
+                {
+                    $set: {
+                        isDefault: false,
+                    },
+                }
             );
 
             address.isDefault = true;
         }
 
-        // Remove default status
+        // REMOVE DEFAULT STATUS
         if (req.body.isDefault === false) {
             address.isDefault = false;
         }
@@ -204,11 +271,24 @@ export const updateAddress = async (req, res) => {
 
         return res.status(200).json({
             success: true,
-            message: "Address updated successfully",
+            message: "Address updated successfully.",
             address,
         });
 
     } catch (error) {
+        console.error("Update Address Error:", error);
+
+        if (
+            error.message?.includes("location") ||
+            error.message?.includes("address") ||
+            error.message?.includes("Address")
+        ) {
+            return res.status(422).json({
+                success: false,
+                message: error.message,
+            });
+        }
+
         return res.status(500).json({
             success: false,
             message: error.message,
@@ -217,12 +297,19 @@ export const updateAddress = async (req, res) => {
 };
 
 
+// UPDATE DEFAULT ADDRESS
 export const updateDefaultAddress = async (req, res) => {
     try {
         const { id } = req.params;
         const userId = req.user.id;
 
-        // Check whether address belongs to the logged-in user
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid address ID.",
+            });
+        }
+
         const address = await Address.findOne({
             _id: id,
             user: userId,
@@ -231,35 +318,43 @@ export const updateDefaultAddress = async (req, res) => {
         if (!address) {
             return res.status(404).json({
                 success: false,
-                message: "Address not found",
+                message: "Address not found.",
             });
         }
 
-        // Make all user's addresses non-default
         await Address.updateMany(
             { user: userId },
-            { $set: { isDefault: false } }
+            {
+                $set: {
+                    isDefault: false,
+                },
+            }
         );
 
-        // Make selected address default
         const updatedAddress = await Address.findByIdAndUpdate(
             id,
-            { $set: { isDefault: true } },
-            { new: true }
+            {
+                $set: {
+                    isDefault: true,
+                },
+            },
+            {
+                new: true,
+            }
         );
 
         return res.status(200).json({
             success: true,
-            message: "Default address updated successfully",
+            message: "Default address updated successfully.",
             address: updatedAddress,
         });
 
     } catch (error) {
-        // console.error("Update Default Address Error:", error);
+        console.error("Update Default Address Error:", error);
 
         return res.status(500).json({
             success: false,
-            message: "Something went wrong",
+            message: error.message,
         });
     }
 };
@@ -274,7 +369,7 @@ export const deleteAddress = async (req, res) => {
         if (!mongoose.Types.ObjectId.isValid(id)) {
             return res.status(400).json({
                 success: false,
-                message: "Invalid address ID",
+                message: "Invalid address ID.",
             });
         }
 
@@ -286,7 +381,7 @@ export const deleteAddress = async (req, res) => {
         if (!address) {
             return res.status(404).json({
                 success: false,
-                message: "Address not found",
+                message: "Address not found.",
             });
         }
 
@@ -297,7 +392,6 @@ export const deleteAddress = async (req, res) => {
             user: userId,
         });
 
-        // If deleted address was default, assign another default
         if (wasDefault) {
             const nextAddress = await Address.findOne({
                 user: userId,
@@ -313,10 +407,12 @@ export const deleteAddress = async (req, res) => {
 
         return res.status(200).json({
             success: true,
-            message: "Address deleted successfully",
+            message: "Address deleted successfully.",
         });
 
     } catch (error) {
+        console.error("Delete Address Error:", error);
+
         return res.status(500).json({
             success: false,
             message: error.message,
