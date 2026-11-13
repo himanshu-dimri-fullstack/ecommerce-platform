@@ -1,4 +1,39 @@
+
 import mongoose from "mongoose";
+
+// Embedded Review Schema
+const reviewSchema = new mongoose.Schema(
+    {
+        user: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
+            required: true,
+        },
+
+        order: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Order",
+            required: true,
+        },
+
+        rating: {
+            type: Number,
+            required: true,
+            min: 1,
+            max: 5,
+        },
+
+        comment: {
+            type: String,
+            trim: true,
+            maxlength: 1000,
+            default: "",
+        },
+    },
+    {
+        timestamps: true,
+    }
+);
 
 const productSchema = new mongoose.Schema(
     {
@@ -11,7 +46,6 @@ const productSchema = new mongoose.Schema(
         subcategory: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "Subcategory",
-            // required: true,
         },
 
         brand: {
@@ -41,12 +75,8 @@ const productSchema = new mongoose.Schema(
 
         images: [
             {
-                url: {
-                    type: String,
-                },
-                public_id: {
-                    type: String,
-                },
+                url: String,
+                public_id: String,
             },
         ],
 
@@ -74,6 +104,7 @@ const productSchema = new mongoose.Schema(
             default: true,
         },
 
+        // Average rating of all reviews
         rating: {
             type: Number,
             default: 0,
@@ -81,10 +112,17 @@ const productSchema = new mongoose.Schema(
             max: 5,
         },
 
+        // Total number of reviews
         totalReviews: {
             type: Number,
             default: 0,
             min: 0,
+        },
+
+        // All product reviews stored inside Product
+        reviews: {
+            type: [reviewSchema],
+            default: [],
         },
     },
     {

@@ -47,31 +47,20 @@ interface Category {
 }
 
 interface Product {
-
     _id: string;
-
     slug: string;
-
     name: string;
-
     category: {
-
         slug: string;
-
         name?: string;
-
     };
-
     images: {
-
         url: string;
-
         public_url?: string;
-
     }[];
-
     startingPrice: number;
-
+    rating: number;
+    totalReviews: number;
 }
 
 interface Offer {
@@ -1093,16 +1082,33 @@ export default function ShopPage() {
 
                                     <div className="mt-auto pt-3">
 
+                                        <div className="mb-2 flex items-center gap-1.5">
+
+                                            <div className="flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-1">
+
+                                                <FiStar
+                                                    size={12}
+                                                    className="fill-amber-400 text-amber-400"
+                                                />
+
+                                                <span className="text-xs font-extrabold text-gray-800">
+                                                    {Number(product.rating || 0).toFixed(1)}
+                                                </span>
+
+                                            </div>
+
+                                            <span className="text-[10px] font-medium text-gray-400">
+                                                ({product.totalReviews || 0} reviews)
+                                            </span>
+
+                                        </div>
+
                                         <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
-
                                             Starts from
-
                                         </p>
 
                                         <span className="text-base font-black text-gray-900 sm:text-lg">
-
                                             ₹{product.startingPrice}
-
                                         </span>
 
                                     </div>

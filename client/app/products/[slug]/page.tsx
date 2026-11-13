@@ -10,7 +10,10 @@ import {
     FiTruck,
     FiShield,
     FiRefreshCw,
-    FiLoader
+    FiLoader,
+    FiStar,
+    FiChevronLeft,
+    FiChevronRight,
 } from "react-icons/fi";
 import { useParams } from "next/navigation";
 import { API } from "@/axios/axios";
@@ -18,7 +21,7 @@ import { addToCart, fetchCart, setCart } from "@/redux/cartSlice";
 import { useDispatch, useSelector } from "react-redux";
 import type { RootState, AppDispatch } from "@/redux/store";
 
-export interface Image {
+export interface ProductImage {
     url: string;
     public_id: string;
     public_url?: string;
@@ -42,12 +45,6 @@ export interface Category {
     slug: string;
 }
 
-export interface Subcategory {
-    _id: string;
-    name: string;
-    slug: string;
-}
-
 export interface Product {
     _id: string;
     name: string;
@@ -56,7 +53,7 @@ export interface Product {
     brand: Brand;
     category: Category;
     subcategory: Category;
-    images: Image[];
+    images: ProductImage[];
     isActive: boolean;
     isFeatured: boolean;
     rating: number;
@@ -92,6 +89,31 @@ export interface ProductVariant {
     __v: number;
 }
 
+interface ReviewUser {
+    _id: string;
+    firstName?: string;
+    lastName?: string;
+    profileImage?: string | {
+        url?: string;
+    } | null;
+}
+
+interface ProductReview {
+    _id: string;
+    user: ReviewUser | null;
+    rating: number;
+    comment: string;
+    createdAt: string;
+    updatedAt?: string;
+}
+
+interface ProductReviewsResponse {
+    success: boolean;
+    rating: number;
+    totalReviews: number;
+    reviews: ProductReview[];
+}
+
 export interface ProductVariantResponse {
     message: string;
     success: boolean;
@@ -111,7 +133,6 @@ function Skeleton({ className = "" }: { className?: string }) {
 function ProductDetailSkeleton() {
     return (
         <main className="min-h-screen bg-[#f8faf8] pb-12">
-            {/* Breadcrumb Skeleton */}
             <div className="mx-auto max-w-7xl px-4 pt-6 sm:px-6 lg:px-8">
                 <Skeleton className="h-5 w-36 rounded-md" />
 
@@ -124,19 +145,14 @@ function ProductDetailSkeleton() {
                 </div>
             </div>
 
-            {/* Main Product Skeleton */}
             <div className="mx-auto mt-6 max-w-7xl px-4 sm:px-6 lg:px-8">
                 <div className="grid gap-8 lg:grid-cols-2 lg:gap-12">
-
-                    {/* Image Section */}
                     <section>
                         <div className="relative flex min-h-80 items-center justify-center overflow-hidden rounded-3xl border border-gray-100 bg-white p-6 sm:min-h-120 sm:p-12">
                             <Skeleton className="absolute left-5 top-5 h-9 w-24 rounded-lg" />
-
                             <Skeleton className="h-64 w-full max-w-sm rounded-2xl sm:h-96" />
                         </div>
 
-                        {/* Delivery Benefits Skeleton */}
                         <div className="mt-4 grid grid-cols-3 gap-3">
                             {Array.from({ length: 3 }).map((_, index) => (
                                 <div
@@ -150,16 +166,12 @@ function ProductDetailSkeleton() {
                         </div>
                     </section>
 
-                    {/* Product Information Skeleton */}
                     <section className="rounded-3xl border border-gray-100 bg-white p-5 sm:p-8">
                         <Skeleton className="mt-3 h-4 w-28" />
-
                         <Skeleton className="mt-4 h-8 w-4/5 sm:h-10" />
                         <Skeleton className="mt-2 h-8 w-3/5 sm:h-10" />
-
                         <Skeleton className="mt-4 h-4 w-24" />
 
-                        {/* Price */}
                         <div className="mt-6 border-t border-gray-100 pt-6">
                             <Skeleton className="h-4 w-14" />
 
@@ -172,37 +184,29 @@ function ProductDetailSkeleton() {
                             <Skeleton className="mt-3 h-3 w-52" />
                         </div>
 
-                        {/* Delivery Card */}
                         <div className="mt-6 flex items-start gap-3 rounded-2xl bg-[#f2faf3] p-4">
                             <Skeleton className="h-7 w-7 shrink-0 rounded-lg" />
-
                             <div className="flex-1">
                                 <Skeleton className="h-4 w-48 max-w-full" />
                                 <Skeleton className="mt-2 h-3 w-40 max-w-full" />
                             </div>
                         </div>
 
-                        {/* Quantity and Cart */}
                         <div className="mt-7">
                             <Skeleton className="mb-4 h-4 w-32" />
-
                             <div className="flex flex-wrap items-center gap-4">
                                 <Skeleton className="h-12 min-w-36 flex-1 rounded-xl" />
                             </div>
-
                             <Skeleton className="mt-4 h-4 w-36" />
                         </div>
 
-                        {/* Product Metadata */}
                         <div className="mt-7 border-t border-gray-100 pt-5">
                             <Skeleton className="h-5 w-44" />
-
                             <div className="mt-4 space-y-4">
                                 <div className="flex items-center justify-between gap-4">
                                     <Skeleton className="h-4 w-20" />
                                     <Skeleton className="h-4 w-28" />
                                 </div>
-
                                 <div className="flex items-center justify-between gap-4">
                                     <Skeleton className="h-4 w-16" />
                                     <Skeleton className="h-4 w-24" />
@@ -213,6 +217,206 @@ function ProductDetailSkeleton() {
                 </div>
             </div>
         </main>
+    );
+}
+
+/* Star Rating */
+function StarRating({
+    rating,
+    size = 15,
+}: {
+    rating: number;
+    size?: number;
+}) {
+    return (
+        <div className="flex items-center gap-0.5">
+            {[1, 2, 3, 4, 5].map((star) => (
+                <FiStar
+                    key={star}
+                    size={size}
+                    className={
+                        star <= Math.round(rating)
+                            ? "fill-amber-400 text-amber-400"
+                            : "text-gray-300"
+                    }
+                />
+            ))}
+        </div>
+    );
+}
+
+/* Customer Reviews Slider */
+function CustomerReviews({
+    reviews,
+    loading,
+}: {
+    reviews: ProductReview[];
+    loading: boolean;
+}) {
+    const sliderRef = useRef<HTMLDivElement>(null);
+
+    const scrollReviews = (direction: "left" | "right") => {
+        if (!sliderRef.current) return;
+
+        sliderRef.current.scrollBy({
+            left: direction === "left" ? -340 : 340,
+            behavior: "smooth",
+        });
+    };
+
+    return (
+        <section className="mx-auto mt-12 max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div className="mb-6 flex items-center justify-between gap-4">
+                <div>
+                    <h2 className="text-xl font-black tracking-tight text-gray-900 sm:text-2xl">
+                        Customer Reviews
+                    </h2>
+
+                    <p className="mt-1 text-sm text-gray-500">
+                        What our customers say about this product
+                    </p>
+                </div>
+
+                {!loading && reviews.length > 0 && (
+                    <div className="hidden items-center gap-2 sm:flex">
+                        <button
+                            type="button"
+                            onClick={() => scrollReviews("left")}
+                            aria-label="Previous reviews"
+                            className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-700 transition hover:border-[#0c831f] hover:text-[#0c831f]"
+                        >
+                            <FiChevronLeft size={20} />
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={() => scrollReviews("right")}
+                            aria-label="Next reviews"
+                            className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-700 transition hover:border-[#0c831f] hover:text-[#0c831f]"
+                        >
+                            <FiChevronRight size={20} />
+                        </button>
+                    </div>
+                )}
+            </div>
+
+            {loading ? (
+                <div className="flex gap-4 overflow-hidden">
+                    {Array.from({ length: 3 }).map((_, index) => (
+                        <div
+                            key={index}
+                            className="w-80 shrink-0 rounded-2xl border border-gray-100 bg-white p-5"
+                        >
+                            <div className="flex items-center gap-3">
+                                <Skeleton className="h-12 w-12 rounded-full" />
+                                <div className="flex-1">
+                                    <Skeleton className="h-4 w-28" />
+                                    <Skeleton className="mt-2 h-3 w-20" />
+                                </div>
+                            </div>
+                            <Skeleton className="mt-5 h-3 w-full" />
+                            <Skeleton className="mt-2 h-3 w-4/5" />
+                            <Skeleton className="mt-2 h-3 w-3/5" />
+                        </div>
+                    ))}
+                </div>
+            ) : reviews.length === 0 ? (
+                <div className="rounded-2xl border border-gray-100 bg-white px-5 py-12 text-center">
+                    <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-amber-50">
+                        <FiStar className="text-amber-400" size={26} />
+                    </div>
+
+                    <h3 className="mt-4 text-base font-bold text-gray-900">
+                        No reviews yet
+                    </h3>
+
+                    <p className="mt-1 text-sm text-gray-500">
+                        Be the first customer to review this product.
+                    </p>
+                </div>
+            ) : (
+                <div
+                    ref={sliderRef}
+                    className="flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-smooth pb-4"
+                    style={{
+                        scrollbarWidth: "none",
+                    }}
+                >
+                    {reviews.map((review) => {
+                        const firstName = review.user?.firstName?.trim() || "";
+                        const lastName = review.user?.lastName?.trim() || "";
+
+                        const fullName =
+                            `${firstName} ${lastName}`.trim() || "Customer";
+
+                        const profileImage =
+                            typeof review.user?.profileImage === "string"
+                                ? review.user.profileImage
+                                : review.user?.profileImage?.url || "";
+
+                        const initial = firstName
+                            ? firstName.charAt(0).toUpperCase()
+                            : fullName.charAt(0).toUpperCase();
+
+                        return (
+                            <article
+                                key={review._id}
+                                className="w-70 shrink-0 snap-start rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition duration-200 hover:border-green-200 hover:shadow-md sm:w-85"
+                            >
+                                <div className="flex items-center gap-3">
+                                    {profileImage ? (
+                                        <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full border border-gray-100 bg-gray-50">
+                                            <Image
+                                                src={profileImage}
+                                                alt={fullName}
+                                                fill
+                                                sizes="48px"
+                                                className="object-cover"
+                                            />
+                                        </div>
+                                    ) : (
+                                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#e8f5e9] text-lg font-black text-[#0c831f]">
+                                            {initial}
+                                        </div>
+                                    )}
+
+                                    <div className="min-w-0 flex-1">
+                                        <h3 className="truncate text-sm font-extrabold text-gray-900">
+                                            {fullName}
+                                        </h3>
+
+                                        <p className="mt-1 text-xs text-gray-400">
+                                            {review.createdAt
+                                                ? new Date(review.createdAt).toLocaleDateString(
+                                                    "en-IN",
+                                                    {
+                                                        day: "numeric",
+                                                        month: "short",
+                                                        year: "numeric",
+                                                    }
+                                                )
+                                                : ""}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="mt-5 flex items-center justify-between">
+                                    <StarRating rating={review.rating} />
+
+                                    <span className="text-xs font-bold text-gray-600">
+                                        {review.rating}/5
+                                    </span>
+                                </div>
+
+                                <p className="mt-4 min-h-18 whitespace-pre-wrap wrap-break-words text-sm leading-6 text-gray-600">
+                                    {review.comment || "No written comment."}
+                                </p>
+                            </article>
+                        );
+                    })}
+                </div>
+            )}
+        </section>
     );
 }
 
@@ -239,11 +443,14 @@ function ProductDetail() {
 
     const [loading, setLoading] = useState(true);
 
+    // Customer reviews
+    const [reviews, setReviews] = useState<ProductReview[]>([]);
+    const [reviewsLoading, setReviewsLoading] = useState(false);
+
     // Fetch cart for selected store
     useEffect(() => {
         if (storeLoading || !user) return;
 
-        // Clear previous store cart
         dispatch(setCart([]));
 
         if (storeId) {
@@ -294,12 +501,57 @@ function ProductDetail() {
 
     }, [slug]);
 
+    // Fetch all reviews of the current product
+    useEffect(() => {
+        if (!product?._id) {
+            setReviews([]);
+            return;
+        }
+
+        let isActive = true;
+
+        const fetchProductReviews = async () => {
+            try {
+                setReviewsLoading(true);
+
+                const res = await API.get<ProductReviewsResponse>(
+                    `/review/product/${product._id}`
+                );
+
+                if (!isActive) return;
+
+                if (res.data.success) {
+                    setReviews(res.data.reviews || []);
+                } else {
+                    setReviews([]);
+                }
+
+            } catch (error) {
+                console.error("Failed to fetch product reviews:", error);
+
+                if (isActive) {
+                    setReviews([]);
+                }
+
+            } finally {
+                if (isActive) {
+                    setReviewsLoading(false);
+                }
+            }
+        };
+
+        fetchProductReviews();
+
+        return () => {
+            isActive = false;
+        };
+
+    }, [product?._id]);
+
     // Add product to cart
     const handleAddToCart = async () => {
-        // Product variant available hona chahiye
         if (!productVariant || !productVariant.product) return;
 
-        // Store select hona zaroori hai
         if (!storeId || storeLoading) {
             console.error("Please select a delivery location first.");
             return;
@@ -307,7 +559,6 @@ function ProductDetail() {
 
         const variant = productVariant;
 
-        // Prevent duplicate clicks
         if (addingRef.current) return;
 
         addingRef.current = true;
@@ -340,7 +591,6 @@ function ProductDetail() {
                 storeId,
             });
 
-            // Fetch updated cart of the same store
             await dispatch(fetchCart(storeId));
 
         } catch (error) {
@@ -456,7 +706,6 @@ function ProductDetail() {
                         <div className="mt-4 grid grid-cols-3 gap-3">
                             <div className="flex items-center gap-2 rounded-2xl border border-gray-100 bg-white p-3">
                                 <FiTruck className="shrink-0 text-[#0c831f]" size={20} />
-
                                 <span className="text-xs font-semibold text-gray-700">
                                     Fast delivery
                                 </span>
@@ -464,7 +713,6 @@ function ProductDetail() {
 
                             <div className="flex items-center gap-2 rounded-2xl border border-gray-100 bg-white p-3">
                                 <FiShield className="shrink-0 text-[#0c831f]" size={20} />
-
                                 <span className="text-xs font-semibold text-gray-700">
                                     Quality assured
                                 </span>
@@ -472,7 +720,6 @@ function ProductDetail() {
 
                             <div className="flex items-center gap-2 rounded-2xl border border-gray-100 bg-white p-3">
                                 <FiRefreshCw className="shrink-0 text-[#0c831f]" size={20} />
-
                                 <span className="text-xs font-semibold text-gray-700">
                                     Easy support
                                 </span>
@@ -496,6 +743,26 @@ function ProductDetail() {
                         <p className="mt-3 text-sm font-medium text-gray-500">
                             {`${productVariant.unitValue} ${productVariant.unit}`}
                         </p>
+
+                        {/* Average Product Rating */}
+                        <div className="mt-4 flex flex-wrap items-center gap-2">
+                            <div className="flex items-center gap-1.5 rounded-lg bg-emerald-50 px-3 py-2">
+                                <FiStar
+                                    size={17}
+                                    className="fill-amber-400 text-amber-400"
+                                />
+
+                                <span className="text-sm font-extrabold text-gray-900">
+                                    {Number(product.rating || 0).toFixed(1)}
+                                </span>
+                            </div>
+
+                            <StarRating rating={product.rating || 0} />
+
+                            <span className="text-xs font-medium text-gray-500">
+                                ({product.totalReviews || 0} reviews)
+                            </span>
+                        </div>
 
                         <div className="mt-6 border-t border-gray-100 pt-6">
                             <p className="text-sm font-semibold text-gray-500">
@@ -632,6 +899,13 @@ function ProductDetail() {
                     </section>
                 </div>
             </div>
+
+            {/* Customer Reviews */}
+            <CustomerReviews
+                reviews={reviews}
+                loading={reviewsLoading}
+            />
+
         </main>
     );
 }
