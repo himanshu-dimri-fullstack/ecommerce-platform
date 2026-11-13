@@ -184,29 +184,6 @@ const Dashboard = () => {
                 })}
             </div>
 
-            {/* Welcome Section */}
-            <div className="mt-8 overflow-hidden rounded-2xl bg-linear-to-br from-[#064e3b] via-[#047857] to-[#022c22] p-6 text-white shadow-md sm:p-8">
-                <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                        <p className="text-sm font-medium text-blue-200">
-                            ADMIN CONTROL PANEL
-                        </p>
-
-                        <h2 className="mt-2 text-xl font-bold sm:text-2xl">
-                            Manage your platform with confidence
-                        </h2>
-
-                        <p className="mt-2 max-w-2xl text-sm leading-6 text-blue-100">
-                            Keep your categories, subcategories, users, brands,
-                            and roles organized from one central dashboard.
-                        </p>
-                    </div>
-
-                    <div className="hidden h-20 w-20 shrink-0 items-center justify-center rounded-2xl border border-white/20 bg-white/10 sm:flex">
-                        <FiGrid size={38} />
-                    </div>
-                </div>
-            </div>
         </div>
     );
 };

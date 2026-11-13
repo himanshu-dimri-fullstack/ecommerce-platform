@@ -28,7 +28,9 @@ import {
     FiTruck,
     FiPower,
     FiLoader,
-    FiDollarSign
+    FiDollarSign,
+    FiSun,
+    FiMoon
 } from "react-icons/fi";
 
 import { API } from "./api/axios";
@@ -52,6 +54,24 @@ const AdminLayout = () => {
     const [showLogoutModal, setShowLogoutModal] = useState(false);
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [permissions, setPermissions] = useState([]);
+
+    // THEME
+    const [theme, setTheme] = useState(() => {
+        if (typeof window !== "undefined") {
+            return localStorage.getItem("admin-theme") || "light";
+        }
+        return "light";
+    });
+
+    const isDark = theme === "dark";
+
+    useEffect(() => {
+        localStorage.setItem("admin-theme", theme);
+    }, [theme]);
+
+    const toggleTheme = () => {
+        setTheme((prev) => prev === "light" ? "dark" : "light");
+    };
 
     // DELIVERY PARTNER ONLINE STATUS
     const [isOnline, setIsOnline] = useState(false);
@@ -422,7 +442,425 @@ const AdminLayout = () => {
     if (!user) return <Navigate to="/" replace />;
 
     return (
-        <div className="min-h-screen bg-slate-100">
+        <div
+            data-theme={theme}
+            className={`admin-theme min-h-screen transition-colors duration-300 ${isDark
+                ? "bg-[#030303] text-neutral-100"
+                : "bg-slate-100 text-slate-800"
+                }`}
+        >
+
+            {/* GLOBAL THEME STYLES */}
+
+            <style>{`
+
+                [data-theme="dark"] {
+                    color-scheme: dark;
+                    background-color: #030303;
+                    color: #f5f5f5;
+                }
+
+                /* =====================================
+                   MAIN BACKGROUNDS
+                ===================================== */
+
+                [data-theme="dark"] .bg-white {
+                    background-color: #101010 !important;
+                }
+
+                [data-theme="dark"] .bg-slate-50 {
+                    background-color: #171717 !important;
+                }
+
+                [data-theme="dark"] .bg-slate-100 {
+                    background-color: #030303 !important;
+                }
+
+                [data-theme="dark"] .bg-slate-200 {
+                    background-color: #242424 !important;
+                }
+
+                [data-theme="dark"] .bg-slate-800 {
+                    background-color: #101010 !important;
+                }
+
+                [data-theme="dark"] .bg-slate-900 {
+                    background-color: #030303 !important;
+                }
+
+                /* =====================================
+                   GRAY COLORS - DARK MODE
+                ===================================== */
+
+                [data-theme="dark"] .bg-gray-50 {
+                    background-color: #171717 !important;
+                }
+
+                [data-theme="dark"] .bg-gray-100 {
+                    background-color: #202020 !important;
+                }
+
+                [data-theme="dark"] .bg-gray-200 {
+                    background-color: #292929 !important;
+                }
+
+                [data-theme="dark"] .bg-gray-300 {
+                    background-color: #353535 !important;
+                }
+
+                /* GRAY TEXT COLORS */
+
+                [data-theme="dark"] .text-gray-900,
+                [data-theme="dark"] .text-gray-800,
+                [data-theme="dark"] .text-gray-700 {
+                    color: #f5f5f5 !important;
+                }
+
+                [data-theme="dark"] .text-gray-600,
+                [data-theme="dark"] .text-gray-500 {
+                    color: #a3a3a3 !important;
+                }
+
+                [data-theme="dark"] .text-gray-400 {
+                    color: #737373 !important;
+                }
+
+                /* GRAY BORDERS */
+
+                [data-theme="dark"] .border-gray-100,
+                [data-theme="dark"] .border-gray-200,
+                [data-theme="dark"] .border-gray-300 {
+                    border-color: #303030 !important;
+                }
+
+                /* GRAY HOVER EFFECTS */
+
+                [data-theme="dark"] .hover\\:bg-gray-50:hover {
+                    background-color: #242424 !important;
+                }
+
+                [data-theme="dark"] .hover\\:bg-gray-100:hover {
+                    background-color: #303030 !important;
+                }
+
+                /* =====================================
+                   TEXT COLORS
+                ===================================== */
+
+                [data-theme="dark"] .text-slate-900,
+                [data-theme="dark"] .text-slate-800,
+                [data-theme="dark"] .text-slate-700 {
+                    color: #f5f5f5 !important;
+                }
+
+                [data-theme="dark"] .text-slate-600,
+                [data-theme="dark"] .text-slate-500 {
+                    color: #a3a3a3 !important;
+                }
+
+                [data-theme="dark"] .text-slate-400 {
+                    color: #737373 !important;
+                }
+
+                /* =====================================
+                   BORDERS
+                ===================================== */
+
+                [data-theme="dark"] .border-slate-100,
+                [data-theme="dark"] .border-slate-200,
+                [data-theme="dark"] .border-slate-300,
+                [data-theme="dark"] .border-slate-700 {
+                    border-color: #292929 !important;
+                }
+
+                [data-theme="dark"] .divide-slate-100 > :not(:last-child),
+                [data-theme="dark"] .divide-slate-200 > :not(:last-child) {
+                    border-color: #292929 !important;
+                }
+
+                /* =====================================
+                   INPUTS
+                ===================================== */
+
+                [data-theme="dark"] input,
+                [data-theme="dark"] textarea,
+                [data-theme="dark"] select {
+                    background-color: #1c1c1c;
+                    color: #f5f5f5;
+                    border-color: #353535;
+                }
+
+                [data-theme="dark"] input::placeholder,
+                [data-theme="dark"] textarea::placeholder {
+                    color: #737373;
+                }
+
+                [data-theme="dark"] option {
+                    background-color: #101010;
+                    color: #f5f5f5;
+                }
+
+                /* =====================================
+                   TABLES
+                ===================================== */
+
+                [data-theme="dark"] table thead {
+                    background-color: #171717;
+                }
+
+                [data-theme="dark"] table tbody tr {
+                    border-color: #292929;
+                }
+
+                [data-theme="dark"] .hover\\:bg-slate-50:hover {
+                    background-color: #1c1c1c !important;
+                }
+
+                [data-theme="dark"] .hover\\:bg-slate-100:hover {
+                    background-color: #262626 !important;
+                }
+
+                /* =====================================
+                   SHADOWS
+                ===================================== */
+
+                [data-theme="dark"] .shadow-sm,
+                [data-theme="dark"] .shadow-md,
+                [data-theme="dark"] .shadow-lg,
+                [data-theme="dark"] .shadow-xl,
+                [data-theme="dark"] .shadow-2xl {
+                    --tw-shadow-color: rgb(0 0 0 / 0.8);
+                }
+
+                [data-theme="dark"] .ring-white {
+                    --tw-ring-color: #181818;
+                }
+
+                /* =====================================
+                   EMERALD COLORS -> BLACK / GREY
+                ===================================== */
+
+                [data-theme="dark"] .bg-emerald-50,
+                [data-theme="dark"] .bg-emerald-100,
+                [data-theme="dark"] .bg-emerald-200,
+                [data-theme="dark"] .bg-emerald-300,
+                [data-theme="dark"] .bg-emerald-400,
+                [data-theme="dark"] .bg-emerald-500,
+                [data-theme="dark"] .bg-emerald-600,
+                [data-theme="dark"] .bg-emerald-700,
+                [data-theme="dark"] .bg-emerald-800,
+                [data-theme="dark"] .bg-emerald-900,
+                [data-theme="dark"] .bg-emerald-950 {
+                    background-color: #202020 !important;
+                }
+
+                [data-theme="dark"] .text-emerald-50,
+                [data-theme="dark"] .text-emerald-100,
+                [data-theme="dark"] .text-emerald-200,
+                [data-theme="dark"] .text-emerald-300,
+                [data-theme="dark"] .text-emerald-400,
+                [data-theme="dark"] .text-emerald-500,
+                [data-theme="dark"] .text-emerald-600,
+                [data-theme="dark"] .text-emerald-700,
+                [data-theme="dark"] .text-emerald-800,
+                [data-theme="dark"] .text-emerald-900,
+                [data-theme="dark"] .text-emerald-950 {
+                    color: #d4d4d4 !important;
+                }
+
+                [data-theme="dark"] .border-emerald-100,
+                [data-theme="dark"] .border-emerald-200,
+                [data-theme="dark"] .border-emerald-300,
+                [data-theme="dark"] .border-emerald-400,
+                [data-theme="dark"] .border-emerald-500,
+                [data-theme="dark"] .border-emerald-600,
+                [data-theme="dark"] .border-emerald-700 {
+                    border-color: #404040 !important;
+                }
+
+                [data-theme="dark"] .ring-emerald-100,
+                [data-theme="dark"] .ring-emerald-200,
+                [data-theme="dark"] .ring-emerald-300,
+                [data-theme="dark"] .ring-emerald-400,
+                [data-theme="dark"] .ring-emerald-500 {
+                    --tw-ring-color: #404040 !important;
+                }
+
+                [data-theme="dark"] .hover\\:bg-emerald-50:hover,
+                [data-theme="dark"] .hover\\:bg-emerald-100:hover,
+                [data-theme="dark"] .hover\\:bg-emerald-200:hover,
+                [data-theme="dark"] .hover\\:bg-emerald-500:hover,
+                [data-theme="dark"] .hover\\:bg-emerald-600:hover,
+                [data-theme="dark"] .hover\\:bg-emerald-700:hover {
+                    background-color: #303030 !important;
+                }
+
+                [data-theme="dark"] .hover\\:text-emerald-500:hover,
+                [data-theme="dark"] .hover\\:text-emerald-600:hover,
+                [data-theme="dark"] .hover\\:text-emerald-700:hover {
+                    color: #ffffff !important;
+                }
+
+                /* =====================================
+                   GREEN COLORS -> BLACK / GREY
+                ===================================== */
+
+                [data-theme="dark"] .bg-green-50,
+                [data-theme="dark"] .bg-green-100,
+                [data-theme="dark"] .bg-green-200,
+                [data-theme="dark"] .bg-green-300,
+                [data-theme="dark"] .bg-green-400,
+                [data-theme="dark"] .bg-green-500,
+                [data-theme="dark"] .bg-green-600,
+                [data-theme="dark"] .bg-green-700,
+                [data-theme="dark"] .bg-green-800,
+                [data-theme="dark"] .bg-green-900,
+                [data-theme="dark"] .bg-green-950 {
+                    background-color: #202020 !important;
+                }
+
+                [data-theme="dark"] .text-green-50,
+                [data-theme="dark"] .text-green-100,
+                [data-theme="dark"] .text-green-200,
+                [data-theme="dark"] .text-green-300,
+                [data-theme="dark"] .text-green-400,
+                [data-theme="dark"] .text-green-500,
+                [data-theme="dark"] .text-green-600,
+                [data-theme="dark"] .text-green-700,
+                [data-theme="dark"] .text-green-800,
+                [data-theme="dark"] .text-green-900,
+                [data-theme="dark"] .text-green-950 {
+                    color: #d4d4d4 !important;
+                }
+
+                [data-theme="dark"] .border-green-100,
+                [data-theme="dark"] .border-green-200,
+                [data-theme="dark"] .border-green-300,
+                [data-theme="dark"] .border-green-400,
+                [data-theme="dark"] .border-green-500,
+                [data-theme="dark"] .border-green-600 {
+                    border-color: #404040 !important;
+                }
+
+                [data-theme="dark"] .hover\\:bg-green-50:hover,
+                [data-theme="dark"] .hover\\:bg-green-100:hover,
+                [data-theme="dark"] .hover\\:bg-green-500:hover,
+                [data-theme="dark"] .hover\\:bg-green-600:hover {
+                    background-color: #303030 !important;
+                }
+
+                /* =====================================
+                   RED COLORS
+                ===================================== */
+
+                [data-theme="dark"] .bg-red-50 {
+                    background-color: #241818 !important;
+                }
+
+                [data-theme="dark"] .bg-red-100 {
+                    background-color: #302020 !important;
+                }
+
+                [data-theme="dark"] .text-red-600,
+                [data-theme="dark"] .text-red-700 {
+                    color: #fca5a5 !important;
+                }
+
+                /* =====================================
+                   BLUE COLORS
+                ===================================== */
+
+                [data-theme="dark"] .bg-blue-50 {
+                    background-color: #191f26 !important;
+                }
+
+                [data-theme="dark"] .bg-blue-100 {
+                    background-color: #222a33 !important;
+                }
+
+                [data-theme="dark"] .text-blue-600,
+                [data-theme="dark"] .text-blue-700 {
+                    color: #b0b0b0 !important;
+                }
+
+                /* =====================================
+                   AMBER COLORS
+                ===================================== */
+
+                [data-theme="dark"] .bg-amber-50 {
+                    background-color: #28231b !important;
+                }
+
+                [data-theme="dark"] .bg-amber-100 {
+                    background-color: #30291e !important;
+                }
+
+                [data-theme="dark"] .text-amber-600 {
+                    color: #d4d4d4 !important;
+                }
+
+                /* =====================================
+                   PURPLE COLORS
+                ===================================== */
+
+                [data-theme="dark"] .bg-purple-50 {
+                    background-color: #211d25 !important;
+                }
+
+                [data-theme="dark"] .bg-purple-100 {
+                    background-color: #2a252f !important;
+                }
+
+                [data-theme="dark"] .text-purple-600,
+                [data-theme="dark"] .text-purple-700 {
+                    color: #d4d4d4 !important;
+                }
+
+                /* =====================================
+                   GRADIENTS -> BLACK
+                ===================================== */
+
+                [data-theme="dark"] .bg-linear-to-br,
+                [data-theme="dark"] .bg-linear-to-r,
+                [data-theme="dark"] .bg-gradient-to-br,
+                [data-theme="dark"] .bg-gradient-to-r,
+                [data-theme="dark"] .bg-gradient-to-b {
+                    background-image: linear-gradient(
+                        135deg,
+                        #292929 0%,
+                        #151515 50%,
+                        #050505 100%
+                    ) !important;
+                }
+
+                /* =====================================
+                   SCROLLBAR
+                ===================================== */
+
+                [data-theme="dark"] * {
+                    scrollbar-color: #404040 #101010;
+                }
+
+                [data-theme="dark"] *::-webkit-scrollbar {
+                    width: 7px;
+                    height: 7px;
+                }
+
+                [data-theme="dark"] *::-webkit-scrollbar-track {
+                    background: #101010;
+                }
+
+                [data-theme="dark"] *::-webkit-scrollbar-thumb {
+                    background: #404040;
+                    border-radius: 20px;
+                }
+
+                [data-theme="dark"] *::-webkit-scrollbar-thumb:hover {
+                    background: #606060;
+                }
+
+            `}</style>
+
 
             {/* MOBILE OVERLAY */}
             {sidebarOpen && (
@@ -438,12 +876,35 @@ const AdminLayout = () => {
                     fixed inset-y-0 left-0 z-50
                     flex h-dvh w-64 max-w-[85vw] flex-col
                     overflow-hidden
-                    bg-linear-to-br from-[#064e3b] via-[#047857] to-[#022c22]
+
+                    ${isDark
+                        ? "bg-[#080808]"
+                        : "bg-linear-to-br from-[#064e3b] via-[#047857] to-[#022c22]"
+                    }
+
                     text-white shadow-2xl
-                    transition-transform duration-300
+                    transition-all duration-300
+
                     ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
                     lg:translate-x-0
                 `}
+                style={isDark ? {
+                    backgroundImage: `
+                        linear-gradient(
+                            145deg,
+                            #242424 0%,
+                            #151515 15%,
+                            #0b0b0b 45%,
+                            #050505 75%,
+                            #000000 100%
+                        )
+                    `,
+                    boxShadow: `
+                        8px 0 35px rgba(0, 0, 0, 0.65),
+                        inset 0 1px 0 rgba(255, 255, 255, 0.09),
+                        inset -1px 0 0 rgba(255, 255, 255, 0.07)
+                    `
+                } : {}}
             >
 
                 {/* LOGO */}
@@ -454,7 +915,8 @@ const AdminLayout = () => {
                             AdminPanel
                         </h1>
 
-                        <p className="mt-1 text-xs text-emerald-100/80">
+                        <p className={`mt-1 text-xs ${isDark ? "text-neutral-400" : "text-emerald-100/80"
+                            }`}>
                             Management System
                         </p>
                     </div>
@@ -476,7 +938,8 @@ const AdminLayout = () => {
                     className="admin-sidebar-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-5"
                 >
 
-                    <p className="mb-3 px-3 text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-100/60">
+                    <p className={`mb-3 px-3 text-[10px] font-bold uppercase tracking-[0.18em] ${isDark ? "text-neutral-500" : "text-emerald-100/60"
+                        }`}>
                         Main Navigation
                     </p>
 
@@ -495,27 +958,33 @@ const AdminLayout = () => {
                                         to={item.path}
                                         end={item.path === "/admin/dashboard"}
                                         onClick={() => setSidebarOpen(false)}
-                                        className={({ isActive }) =>
-                                            `
+                                        className={({ isActive }) => `
                                             group relative flex min-h-11 w-full
                                             items-center gap-3 rounded-xl
                                             px-3.5 py-3 text-sm font-semibold
                                             transition-all duration-200
                                             ${isActive
-                                                ? "bg-white text-emerald-800 shadow-md"
-                                                : "text-white/80 hover:bg-white/10 hover:text-white"
+                                                ? isDark
+                                                    ? "bg-[#303030] text-white shadow-lg ring-1 ring-white/10"
+                                                    : "bg-white text-emerald-800 shadow-md"
+                                                : isDark
+                                                    ? "text-neutral-400 hover:bg-white/10 hover:text-white"
+                                                    : "text-white/80 hover:bg-white/10 hover:text-white"
                                             }
-                                            `
-                                        }
+                                        `}
                                     >
 
                                         {({ isActive }) => (
                                             <>
                                                 <Icon
                                                     size={19}
-                                                    className={`shrink-0 ${isActive
-                                                        ? "text-emerald-700"
-                                                        : "text-emerald-100/80 group-hover:text-white"
+                                                    className={`shrink-0 ${isDark
+                                                        ? isActive
+                                                            ? "text-white"
+                                                            : "text-neutral-500 group-hover:text-white"
+                                                        : isActive
+                                                            ? "text-emerald-700"
+                                                            : "text-emerald-100/80 group-hover:text-white"
                                                         }`}
                                                 />
 
@@ -524,7 +993,12 @@ const AdminLayout = () => {
                                                 </span>
 
                                                 {isActive && (
-                                                    <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-600" />
+                                                    <span
+                                                        className={`h-2 w-2 shrink-0 rounded-full ${isDark
+                                                            ? "bg-neutral-300"
+                                                            : "bg-emerald-600"
+                                                            }`}
+                                                    />
                                                 )}
                                             </>
                                         )}
@@ -565,12 +1039,16 @@ const AdminLayout = () => {
 
                 {/* NAVBAR */}
                 <header
-                    className="
+                    className={`
                         sticky top-0 z-30 flex h-20
                         items-center justify-between gap-3
-                        border-b border-slate-200 bg-white
-                        px-4 shadow-sm sm:px-6
-                    "
+                        border-b px-4 shadow-sm sm:px-6
+                        transition-colors duration-300
+                        ${isDark
+                            ? "border-[#292929] bg-[#101010]"
+                            : "border-slate-200 bg-white"
+                        }
+                    `}
                 >
 
                     {/* LEFT */}
@@ -580,22 +1058,34 @@ const AdminLayout = () => {
                             type="button"
                             onClick={() => setSidebarOpen(true)}
                             aria-label="Open sidebar"
-                            className="
-                                shrink-0 rounded-xl p-2
-                                text-slate-600 transition
-                                hover:bg-slate-100 lg:hidden
-                            "
+                            className={`
+                                shrink-0 rounded-xl p-2 transition lg:hidden
+                                ${isDark
+                                    ? "text-neutral-300 hover:bg-[#262626]"
+                                    : "text-slate-600 hover:bg-slate-100"
+                                }
+                            `}
                         >
                             <FiMenu size={24} />
                         </button>
 
                         <div className="min-w-0">
 
-                            <h2 className="truncate text-lg font-bold text-slate-800 sm:text-xl">
+                            <h2
+                                className={`truncate text-lg font-bold sm:text-xl ${isDark
+                                    ? "text-neutral-100"
+                                    : "text-slate-800"
+                                    }`}
+                            >
                                 {currentPage}
                             </h2>
 
-                            <p className="hidden text-xs text-slate-500 sm:block">
+                            <p
+                                className={`hidden text-xs ${isDark
+                                    ? "text-neutral-400"
+                                    : "text-slate-500"
+                                    }`}
+                            >
                                 Manage your application
                             </p>
 
@@ -621,9 +1111,11 @@ const AdminLayout = () => {
                                     border px-3 py-2.5 text-xs font-bold
                                     transition-all duration-200 sm:px-4 sm:text-sm
                                     disabled:cursor-not-allowed disabled:opacity-60
-                                    ${isOnline
-                                        ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-                                        : "border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100"
+                                    ${isDark
+                                        ? "border-[#383838] bg-[#202020] text-neutral-200 hover:bg-[#303030]"
+                                        : isOnline
+                                            ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                                            : "border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100"
                                     }
                                 `}
                             >
@@ -647,51 +1139,101 @@ const AdminLayout = () => {
                                 </span>
 
                                 <span
-                                    className={`
-                                        h-2 w-2 rounded-full
-                                        ${isOnline
+                                    className={`h-2 w-2 rounded-full ${isDark
+                                        ? "bg-neutral-300"
+                                        : isOnline
                                             ? "bg-emerald-500"
-                                            : "bg-slate-400"
-                                        }
-                                    `}
+                                            : "bg-neutral-500"
+                                        }`}
                                 />
                             </button>
                         )}
+
+                        {/* THEME TOGGLE */}
+                        <button
+                            type="button"
+                            onClick={toggleTheme}
+                            aria-label={`Switch to ${isDark ? "light" : "dark"} theme`}
+                            title={`Switch to ${isDark ? "light" : "dark"} theme`}
+                            className={`
+                                flex h-10 w-10 items-center justify-center
+                                rounded-xl border transition-all duration-200
+                                ${isDark
+                                    ? "border-[#333333] bg-[#1c1c1c] text-neutral-300 hover:bg-[#303030]"
+                                    : "border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100"
+                                }
+                            `}
+                        >
+                            {isDark ? (
+                                <FiSun size={20} />
+                            ) : (
+                                <FiMoon size={20} />
+                            )}
+                        </button>
 
                         {/* NOTIFICATIONS */}
                         <button
                             type="button"
                             aria-label="Notifications"
-                            className="
-                                relative rounded-xl p-2.5
-                                text-slate-600 transition
-                                hover:bg-slate-100
-                            "
+                            className={`
+                                relative rounded-xl p-2.5 transition
+                                ${isDark
+                                    ? "text-neutral-300 hover:bg-[#262626]"
+                                    : "text-slate-600 hover:bg-slate-100"
+                                }
+                            `}
                         >
                             <FiBell size={20} />
 
-                            <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-red-500 ring-2 ring-white" />
+                            <span
+                                className={`absolute right-2 top-2 h-2 w-2 rounded-full bg-red-500 ring-2 ${isDark ? "ring-[#101010]" : "ring-white"
+                                    }`}
+                            />
                         </button>
 
                         {/* USER PROFILE */}
-                        <div className="flex items-center gap-2 border-l border-slate-200 pl-3 sm:gap-3 sm:pl-4">
+                        <div
+                            className={`flex items-center gap-2 border-l pl-3 sm:gap-3 sm:pl-4 ${isDark
+                                ? "border-[#333333]"
+                                : "border-slate-200"
+                                }`}
+                        >
 
-                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-50">
+                            <div
+                                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${isDark
+                                    ? "bg-[#252525]"
+                                    : "bg-emerald-50"
+                                    }`}
+                            >
                                 <FiUser
                                     size={23}
-                                    className="text-emerald-800"
+                                    className={
+                                        isDark
+                                            ? "text-neutral-300"
+                                            : "text-emerald-800"
+                                    }
                                 />
                             </div>
 
                             <div className="hidden min-w-0 sm:block">
 
-                                <p className="max-w-36 truncate text-sm font-bold text-slate-800">
+                                <p
+                                    className={`max-w-36 truncate text-sm font-bold ${isDark
+                                        ? "text-neutral-100"
+                                        : "text-slate-800"
+                                        }`}
+                                >
                                     {user
                                         ? `${user?.firstName} ${user?.lastName}`
                                         : "Admin"}
                                 </p>
 
-                                <p className="text-xs text-slate-500">
+                                <p
+                                    className={`text-xs ${isDark
+                                        ? "text-neutral-400"
+                                        : "text-slate-500"
+                                        }`}
+                                >
                                     {user?.role
                                         ? user.role?.name
                                         : "admin"}
@@ -706,14 +1248,27 @@ const AdminLayout = () => {
                 </header>
 
                 {/* PAGE CONTENT */}
-                <main className="min-h-[calc(100vh-144px)] p-4 sm:p-6 lg:p-8">
+                <main className="min-h-[calc(100vh-144px)] p-4 transition-colors duration-300 sm:p-6 lg:p-8">
                     <Outlet />
                 </main>
 
                 {/* FOOTER */}
-                <footer className="border-t border-slate-200 bg-white px-5 py-5 sm:px-6">
+                <footer
+                    className={`
+                        border-t px-5 py-5 transition-colors duration-300 sm:px-6
+                        ${isDark
+                            ? "border-[#292929] bg-[#101010]"
+                            : "border-slate-200 bg-white"
+                        }
+                    `}
+                >
 
-                    <div className="flex flex-col items-center justify-between gap-2 text-center text-xs text-slate-500 sm:flex-row sm:text-sm">
+                    <div
+                        className={`flex flex-col items-center justify-between gap-2 text-center text-xs sm:flex-row sm:text-sm ${isDark
+                            ? "text-neutral-400"
+                            : "text-slate-500"
+                            }`}
+                    >
 
                         <p>
                             © {new Date().getFullYear()} AdminPanel. All rights reserved.

@@ -7,6 +7,7 @@ import Role from "../models/Role.js";
 import { uploadFile, destroyFile } from "../config/cloudinary.js"
 import OTP from "../models/otp.js";
 import moment from "moment";
+import crypto from "crypto";
 
 
 export const signup = async (req, res) => {
@@ -207,6 +208,7 @@ export const verifyEmail = async (req, res) => {
     }
 };
 
+
 export const verifyOTP = async (req, res) => {
     try {
         const { otp, email, type } = req.body;
@@ -244,16 +246,17 @@ export const verifyOTP = async (req, res) => {
                 });
             }
 
-            if (moment().isAfter(otpData.otpExpiresAt)) {
+            if (
+                !otpData.otpExpiresAt ||
+                moment().isAfter(otpData.otpExpiresAt)
+            ) {
                 return res.status(400).json({
                     message: "OTP has expired"
                 });
             }
 
-            await OTP.updateOne(
-                { _id: otpData._id },
-                { isOtpVerified: true }
-            );
+            otpData.isOtpVerified = true;
+            await otpData.save();
 
             return res.status(200).json({
                 message: "OTP is verified"
@@ -267,39 +270,42 @@ export const verifyOTP = async (req, res) => {
 
         if (!user) {
             return res.status(401).json({
-                message: "User not exist"
+                message: "User does not exist"
             });
         }
 
-        if (user.otp !== otp.toString()) {
+        if (!user.otp || user.otp !== otp.toString()) {
             return res.status(401).json({
                 message: "Invalid OTP"
             });
         }
 
-        if (moment().isAfter(user.otpExpiresAt)) {
+        if (
+            !user.otpExpiresAt ||
+            moment().isAfter(user.otpExpiresAt)
+        ) {
             return res.status(400).json({
                 message: "OTP has expired"
             });
         }
 
-        await User.updateOne(
-            { _id: user._id },
-            { isOtpVerified: true }
-        );
+        // Mark OTP as verified
+        user.isOtpVerified = true;
+        await user.save();
 
         return res.status(200).json({
             message: "OTP is verified"
         });
 
     } catch (error) {
-        console.log(error);
+        console.log("Verify OTP Error:", error);
 
         return res.status(500).json({
             message: "Internal server error"
         });
     }
 };
+
 
 export const login = async (req, res) => {
     try {
@@ -377,40 +383,6 @@ export const login = async (req, res) => {
         });
     }
 };
-
-export const resetPassword = async (req, res) => {
-    try {
-        const { email, password } = req.body
-
-        if (!email) {
-            return res.status(400).json({ message: "Email is required" })
-        }
-        if (!password) {
-            return res.status(400).json({ message: "Password is required" })
-        }
-        const user = await User.findOne({ email })
-        if (!user) {
-            return res.status(400).json({ message: "Email not exist" })
-        }
-        if (!user.isOtpVerified) {
-            return res.status(400).json({ message: "Verify OTP" })
-        }
-        await User.updateOne({ email }, {
-            $unset: {
-                otp: "",
-                otpExpiresAt: "",
-                isOtpVerified: ""
-            }
-        })
-        const hashedPassword = await bcrypt.hash(password, 10)
-        const savedUser = await User.updateOne({ email }, { password: hashedPassword })
-        return res.status(200).json({ message: "Password changed successfully" })
-    }
-    catch (error) {
-        console.log(error)
-    }
-
-}
 
 export const logout = async (req, res) => {
     // res.clearCookie("token", {
@@ -571,6 +543,69 @@ export const changePassword = async (req, res) => {
         return res.status(500).json({
             success: false,
             message: "Internal server error",
+        });
+    }
+};
+
+export const resetPassword = async (req, res) => {
+    try {
+        const { email, newPassword, confirmPassword } = req.body;
+
+        if (!email || !newPassword || !confirmPassword) {
+            return res.status(400).json({
+                message: "All fields are required.",
+            });
+        }
+
+        if (newPassword.length < 8) {
+            return res.status(400).json({
+                message: "Password must be at least 8 characters long.",
+            });
+        }
+
+        if (newPassword !== confirmPassword) {
+            return res.status(400).json({
+                message: "Passwords do not match.",
+            });
+        }
+
+        const user = await User.findOne({
+            email: email.trim().toLowerCase(),
+        });
+
+        if (!user) {
+            return res.status(404).json({
+                message: "User does not exist.",
+            });
+        }
+
+        // Only check whether OTP was successfully verified
+        if (!user.isOtpVerified) {
+            return res.status(400).json({
+                message: "Please verify OTP first.",
+            });
+        }
+
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+        user.password = hashedPassword;
+
+        // Clear OTP details after successful password reset
+        user.otp = null;
+        user.otpExpiresAt = null;
+        user.isOtpVerified = false;
+
+        await user.save();
+
+        return res.status(200).json({
+            message: "Password reset successfully. Please login with your new password.",
+        });
+
+    } catch (error) {
+        console.log("Reset Password Error:", error);
+
+        return res.status(500).json({
+            message: "Something went wrong while resetting password.",
         });
     }
 };
